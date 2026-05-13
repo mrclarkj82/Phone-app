@@ -149,6 +149,11 @@ input {
   padding: 9px 10px;
 }
 
+input:disabled {
+  background: #eef2f4;
+  color: var(--muted);
+}
+
 select:focus,
 input:focus,
 button:focus-visible {
@@ -357,26 +362,6 @@ button:focus-visible {
   text-align: center;
 }
 
-.problem-card.is-correct {
-  border-color: rgba(17, 122, 79, 0.45);
-  background: var(--good-soft);
-}
-
-.problem-card.is-correct .feedback {
-  color: var(--good);
-  background: #fff;
-}
-
-.problem-card.is-wrong {
-  border-color: rgba(180, 59, 69, 0.35);
-  background: var(--bad-soft);
-}
-
-.problem-card.is-wrong .feedback {
-  color: var(--bad);
-  background: #fff;
-}
-
 .dashboard-grid {
   display: grid;
   gap: 18px;
@@ -437,7 +422,7 @@ button:focus-visible {
 
 table {
   width: 100%;
-  min-width: 700px;
+  min-width: 820px;
   border-collapse: collapse;
 }
 
@@ -473,6 +458,11 @@ tbody tr:hover {
 .status-pill.is-submitted {
   color: var(--good);
   background: var(--good-soft);
+}
+
+.table-reset-button {
+  min-height: 34px;
+  padding: 6px 10px;
 }
 
 @media (max-width: 860px) {

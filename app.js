@@ -1,5 +1,5 @@
 const LINEAR_ASSIGNMENT_ID = "linear-equations-doral-v1";
-const STORAGE_KEY = "freshman-algebra-linear-dashboard-doral-v2";
+const STORAGE_KEY = "freshman-algebra-linear-dashboard-doral-v3";
 const ANSWER_TOLERANCE = 0.0001;
 const ACCESS_HASH_SALT = "freshman-algebra-doral-id-v1";
 
@@ -150,6 +150,7 @@ const roster = [
 const state = {
   selectedAssignment: assignments[0],
   selectedStudent: null,
+  lockedSubmission: null,
   problems: [],
   answers: new Map(),
   submissions: loadSubmissions(),
@@ -192,6 +193,15 @@ function setText(element, value) {
   if (element) {
     element.textContent = value;
   }
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function normalizeStudentId(value) {
@@ -488,6 +498,36 @@ function saveSubmissions() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.submissions));
 }
 
+function getAssignmentSubmissions(assignment = getSelectedAssignment()) {
+  if (!state.submissions[assignment.id]) {
+    state.submissions[assignment.id] = {};
+  }
+
+  return state.submissions[assignment.id];
+}
+
+function getSubmission(student, assignment = getSelectedAssignment()) {
+  if (!student) return null;
+  return getAssignmentSubmissions(assignment)[student.key] || null;
+}
+
+function serializeAnswers() {
+  return Object.fromEntries(state.answers);
+}
+
+function restoreAnswers(savedAnswers) {
+  if (!savedAnswers || typeof savedAnswers !== "object") {
+    state.answers = new Map();
+    return;
+  }
+
+  state.answers = new Map(Object.entries(savedAnswers));
+}
+
+function isAssignmentLocked() {
+  return Boolean(state.lockedSubmission);
+}
+
 function renderAssignmentOptions() {
   const options = assignments
     .map(
@@ -522,12 +562,14 @@ function updateAssignmentDisplay() {
 
 function resetStudentWorkspace(title = "Enter your student ID to begin") {
   state.selectedStudent = null;
+  state.lockedSubmission = null;
   state.problems = [];
   state.answers = new Map();
   setText(elements.assignmentTitle, title);
   setText(elements.submissionNote, "");
   if (elements.submitAssignment) {
     elements.submitAssignment.disabled = true;
+    elements.submitAssignment.textContent = "Submit Grade";
   }
   renderProblems();
   updateStudentScore();
@@ -582,12 +624,24 @@ async function loadSelectedStudent() {
 
   state.selectedStudent = student;
   state.problems = generateAssignment(student, assignment);
-  state.answers = new Map();
+  state.lockedSubmission = getSubmission(student, assignment);
+  restoreAnswers(state.lockedSubmission?.answers);
   elements.assignmentTitle.textContent = `${student.name}'s ${assignment.problemCount} ${assignment.title.toLowerCase()} problems`;
-  setText(elements.submissionNote, "");
-  setAccessNote(`Access granted for ${student.name}.`, "success");
+  setText(
+    elements.submissionNote,
+    state.lockedSubmission
+      ? `Submitted: ${state.lockedSubmission.correct} out of ${state.lockedSubmission.total} (${state.lockedSubmission.percent}%). Ask your teacher to reset this attempt before trying again.`
+      : "",
+  );
+  setAccessNote(
+    state.lockedSubmission
+      ? `Submitted attempt loaded for ${student.name}.`
+      : `Access granted for ${student.name}.`,
+    "success",
+  );
   if (elements.submitAssignment) {
-    elements.submitAssignment.disabled = false;
+    elements.submitAssignment.disabled = isAssignmentLocked();
+    elements.submitAssignment.textContent = isAssignmentLocked() ? "Submitted" : "Submit Grade";
   }
   renderProblems();
   updateStudentScore();
@@ -603,7 +657,17 @@ function renderEquation(problem) {
   return problem.equation;
 }
 
+function getSavedAnswer(problem, answerKey = "x") {
+  return state.answers.get(problem.id)?.[answerKey] || "";
+}
+
+function getProblemStatus(problem) {
+  if (isAssignmentLocked()) return "Locked";
+  return getProblemResult(problem) === "blank" ? "Blank" : "Saved";
+}
+
 function renderAnswerInputs(problem) {
+  const lockedAttribute = isAssignmentLocked() ? "disabled" : "";
   if (problem.answerType === "ordered-pair") {
     return `
       <label class="answer-field">
@@ -614,7 +678,9 @@ function renderAnswerInputs(problem) {
           aria-label="x value for problem ${problem.number}"
           data-answer-input="${problem.id}"
           data-answer-key="x"
+          value="${escapeHtml(getSavedAnswer(problem, "x"))}"
           placeholder="x"
+          ${lockedAttribute}
         />
       </label>
       <label class="answer-field">
@@ -625,7 +691,9 @@ function renderAnswerInputs(problem) {
           aria-label="y value for problem ${problem.number}"
           data-answer-input="${problem.id}"
           data-answer-key="y"
+          value="${escapeHtml(getSavedAnswer(problem, "y"))}"
           placeholder="y"
+          ${lockedAttribute}
         />
       </label>
     `;
@@ -638,7 +706,9 @@ function renderAnswerInputs(problem) {
       aria-label="Answer for problem ${problem.number}"
       data-answer-input="${problem.id}"
       data-answer-key="x"
+      value="${escapeHtml(getSavedAnswer(problem))}"
       placeholder="${getSelectedAssignment().answerPlaceholder}"
+      ${lockedAttribute}
     />
   `;
 }
@@ -659,7 +729,7 @@ function renderProblems() {
           <div class="equation">${renderEquation(problem)}</div>
           <div class="answer-row ${problem.answerType === "ordered-pair" ? "is-pair" : ""}">
             ${renderAnswerInputs(problem)}
-            <span class="feedback" data-feedback="${problem.id}">Waiting</span>
+            <span class="feedback" data-feedback="${problem.id}">${getProblemStatus(problem)}</span>
           </div>
         </article>
       `,
@@ -678,7 +748,7 @@ function handleAnswerInput(event) {
   const answer = state.answers.get(problemId) || {};
   answer[answerKey] = input.value.trim();
   state.answers.set(problemId, answer);
-  updateProblemFeedback(problemId);
+  updateProblemStatus(problemId);
   updateStudentScore();
 }
 
@@ -721,25 +791,14 @@ function getProblemResult(problem) {
   return isCloseEnough(numericAnswer, problem.answer) ? "correct" : "wrong";
 }
 
-function updateProblemFeedback(problemId) {
+function updateProblemStatus(problemId) {
   if (!elements.problemList) return;
 
   const problem = state.problems.find((item) => item.id === problemId);
-  const card = elements.problemList.querySelector(`[data-problem-id="${problemId}"]`);
   const feedback = elements.problemList.querySelector(`[data-feedback="${problemId}"]`);
-  if (!problem || !card || !feedback) return;
+  if (!problem || !feedback) return;
 
-  const result = getProblemResult(problem);
-  card.classList.toggle("is-correct", result === "correct");
-  card.classList.toggle("is-wrong", result === "wrong");
-
-  if (result === "correct") {
-    feedback.textContent = "Correct";
-  } else if (result === "wrong") {
-    feedback.textContent = "Try again";
-  } else {
-    feedback.textContent = "Waiting";
-  }
+  feedback.textContent = getProblemStatus(problem);
 }
 
 function calculateScore() {
@@ -764,23 +823,46 @@ function updateStudentScore() {
   }
 
   const assignment = getSelectedAssignment();
-  const score = calculateScore();
-  elements.currentScore.textContent = `${score.correct} / ${assignment.problemCount}`;
+  const answered = state.problems.filter((problem) => getProblemResult(problem) !== "blank").length;
+
+  if (!state.problems.length) {
+    elements.currentScore.textContent = `0 / ${assignment.problemCount}`;
+    elements.currentPercent.textContent = "--";
+    elements.answeredCount.textContent = "0 answered";
+    elements.correctCount.textContent = "Grade hidden";
+    return;
+  }
+
+  if (!isAssignmentLocked()) {
+    elements.currentScore.textContent = "Not submitted";
+    elements.currentPercent.textContent = "--";
+    elements.answeredCount.textContent = `${answered} answered`;
+    elements.correctCount.textContent = "Grade hidden";
+    return;
+  }
+
+  const score = state.lockedSubmission || calculateScore();
+  elements.currentScore.textContent = `${score.correct} / ${score.total || assignment.problemCount}`;
   elements.currentPercent.textContent = `${score.percent}%`;
   elements.answeredCount.textContent = `${score.answered} answered`;
-  elements.correctCount.textContent = `${score.correct} correct`;
+  elements.correctCount.textContent = "Submitted";
 }
 
 function submitAssignment() {
   if (!state.selectedStudent || !state.problems.length) return;
+  if (isAssignmentLocked()) {
+    setText(
+      elements.submissionNote,
+      "This attempt is already submitted and locked. Ask your teacher to reset it before trying again.",
+    );
+    return;
+  }
 
   const assignment = getSelectedAssignment();
   const score = calculateScore();
-  if (!state.submissions[assignment.id]) {
-    state.submissions[assignment.id] = {};
-  }
+  const assignmentSubmissions = getAssignmentSubmissions(assignment);
 
-  state.submissions[assignment.id][state.selectedStudent.key] = {
+  assignmentSubmissions[state.selectedStudent.key] = {
     assignmentId: assignment.id,
     assignmentTitle: assignment.title,
     studentKey: state.selectedStudent.key,
@@ -789,15 +871,23 @@ function submitAssignment() {
     total: assignment.problemCount,
     percent: score.percent,
     answered: score.answered,
+    answers: serializeAnswers(),
     submittedAt: new Date().toISOString(),
   };
+  state.lockedSubmission = assignmentSubmissions[state.selectedStudent.key];
   saveSubmissions();
+  renderProblems();
+  updateStudentScore();
   if (elements.dashboardBody) {
     renderDashboard();
   }
+  if (elements.submitAssignment) {
+    elements.submitAssignment.disabled = true;
+    elements.submitAssignment.textContent = "Submitted";
+  }
   setText(
     elements.submissionNote,
-    `Submitted: ${score.correct} out of ${assignment.problemCount} (${score.percent}%).`,
+    `Submitted and locked: ${score.correct} out of ${assignment.problemCount} (${score.percent}%).`,
   );
 }
 
@@ -805,7 +895,7 @@ function renderDashboard() {
   if (!elements.dashboardBody) return;
 
   const assignment = getSelectedAssignment();
-  const assignmentSubmissions = state.submissions[assignment.id] || {};
+  const assignmentSubmissions = getAssignmentSubmissions(assignment);
   const rows = roster.map((student) => {
     const submission = assignmentSubmissions[student.key];
     const submittedAt = submission
@@ -816,7 +906,7 @@ function renderDashboard() {
       : "--";
     return `
       <tr>
-        <td>${student.name}</td>
+        <td>${escapeHtml(student.name)}</td>
         <td>
           <span class="status-pill ${submission ? "is-submitted" : ""}">
             ${submission ? "Submitted" : "Waiting"}
@@ -824,12 +914,23 @@ function renderDashboard() {
         </td>
         <td>${submission ? `${submission.correct} / ${submission.total}` : "--"}</td>
         <td>${submission ? `${submission.percent}%` : "--"}</td>
+        <td>${submission ? `${submission.answered} / ${submission.total}` : "--"}</td>
         <td>${submittedAt}</td>
+        <td>
+          ${
+            submission
+              ? `<button class="secondary-button table-reset-button" type="button" data-reset-student="${student.key}">Reset</button>`
+              : "--"
+          }
+        </td>
       </tr>
     `;
   });
 
   elements.dashboardBody.innerHTML = rows.join("");
+  elements.dashboardBody.querySelectorAll("[data-reset-student]").forEach((button) => {
+    button.addEventListener("click", () => resetStudentSubmission(button.dataset.resetStudent));
+  });
 
   const submissions = Object.values(assignmentSubmissions);
   const submittedCount = submissions.length;
@@ -856,6 +957,19 @@ function resetDashboard() {
   if (!confirmed) return;
 
   state.submissions[assignment.id] = {};
+  saveSubmissions();
+  renderDashboard();
+}
+
+function resetStudentSubmission(studentKey) {
+  const assignment = getSelectedAssignment();
+  const student = roster.find((item) => item.key === studentKey);
+  if (!student) return;
+
+  const confirmed = window.confirm(`Reset ${student.name}'s submitted answers for ${assignment.title}?`);
+  if (!confirmed) return;
+
+  delete getAssignmentSubmissions(assignment)[student.key];
   saveSubmissions();
   renderDashboard();
 }
