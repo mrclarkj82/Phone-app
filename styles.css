@@ -368,9 +368,8 @@ button:focus-visible {
 }
 
 .dashboard-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) minmax(210px, 260px) minmax(360px, 1.6fr);
   gap: 20px;
   padding: 18px;
 }
@@ -398,6 +397,15 @@ button:focus-visible {
   display: block;
   margin-top: 4px;
   font-size: 1.35rem;
+}
+
+.dashboard-sync-status {
+  grid-column: 1 / -1;
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .table-actions {
@@ -469,6 +477,7 @@ tbody tr:hover {
   .app-header,
   .assignment-toolbar,
   .dashboard-summary {
+    grid-template-columns: 1fr;
     align-items: stretch;
     flex-direction: column;
   }

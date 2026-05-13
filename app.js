@@ -1,7 +1,12 @@
 const LINEAR_ASSIGNMENT_ID = "linear-equations-doral-v1";
 const STORAGE_KEY = "freshman-algebra-linear-dashboard-doral-v3";
+const LEGACY_STORAGE_KEYS = [
+  "freshman-algebra-linear-dashboard-doral-v2",
+  "freshman-algebra-linear-dashboard-doral-v1",
+];
 const ANSWER_TOLERANCE = 0.0001;
 const ACCESS_HASH_SALT = "freshman-algebra-doral-id-v1";
+const DASHBOARD_REFRESH_INTERVAL_MS = 3000;
 
 const assignments = [
   {
@@ -175,6 +180,7 @@ const elements = {
   submittedCount: document.querySelector("#submitted-count"),
   classAverage: document.querySelector("#class-average"),
   highestScore: document.querySelector("#highest-score"),
+  dashboardSyncStatus: document.querySelector("#dashboard-sync-status"),
   refreshDashboard: document.querySelector("#refresh-dashboard"),
   resetDashboard: document.querySelector("#reset-dashboard"),
   headerProblemCount: document.querySelector("#header-problem-count"),
@@ -486,12 +492,37 @@ function normalizeSubmissions(saved) {
   return normalized;
 }
 
+function mergeSubmissions(...stores) {
+  const merged = createEmptySubmissionStore();
+
+  stores.forEach((store) => {
+    const normalized = normalizeSubmissions(store);
+    assignments.forEach((assignment) => {
+      Object.entries(normalized[assignment.id] || {}).forEach(([studentKey, submission]) => {
+        const existing = merged[assignment.id][studentKey];
+        if (
+          !existing ||
+          new Date(submission.submittedAt || 0) >= new Date(existing.submittedAt || 0)
+        ) {
+          merged[assignment.id][studentKey] = submission;
+        }
+      });
+    });
+  });
+
+  return merged;
+}
+
 function loadSubmissions() {
-  try {
-    return normalizeSubmissions(JSON.parse(localStorage.getItem(STORAGE_KEY)));
-  } catch {
-    return createEmptySubmissionStore();
-  }
+  const savedStores = [STORAGE_KEY, ...LEGACY_STORAGE_KEYS].map((key) => {
+    try {
+      return JSON.parse(localStorage.getItem(key));
+    } catch {
+      return null;
+    }
+  });
+
+  return mergeSubmissions(...savedStores);
 }
 
 function saveSubmissions() {
@@ -944,11 +975,21 @@ function renderDashboard() {
   setText(elements.submittedCount, `${submittedCount} / ${roster.length}`);
   setText(elements.classAverage, average === null ? "--" : `${average}%`);
   setText(elements.highestScore, highest === null ? "--" : `${highest}%`);
+  updateDashboardSyncStatus();
 }
 
 function refreshDashboard() {
   state.submissions = loadSubmissions();
   renderDashboard();
+}
+
+function updateDashboardSyncStatus() {
+  if (!elements.dashboardSyncStatus) return;
+
+  const timestamp = new Intl.DateTimeFormat(undefined, {
+    timeStyle: "medium",
+  }).format(new Date());
+  elements.dashboardSyncStatus.textContent = `Updated ${timestamp}. This dashboard reads submissions saved in this browser. Student devices need a shared database to appear here.`;
 }
 
 function resetDashboard() {
@@ -1019,6 +1060,23 @@ function bindEvents() {
   }
   if (elements.resetDashboard) {
     elements.resetDashboard.addEventListener("click", resetDashboard);
+  }
+
+  if (elements.dashboardBody) {
+    window.addEventListener("storage", (event) => {
+      if (event.key === STORAGE_KEY || LEGACY_STORAGE_KEYS.includes(event.key)) {
+        refreshDashboard();
+      }
+    });
+
+    window.addEventListener("focus", refreshDashboard);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        refreshDashboard();
+      }
+    });
+
+    window.setInterval(refreshDashboard, DASHBOARD_REFRESH_INTERVAL_MS);
   }
 }
 
