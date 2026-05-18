@@ -11,10 +11,11 @@ Firebase-backed Algebra I assignment app for the Doral roster.
 ## Features
 
 - Google sign-in through Firebase Authentication.
-- Assignment selector with 30 linear-equation problems, a 15-problem systems set, and a 30-problem slope-from-two-points set.
+- Assignment selector with 30 linear-equation problems, a 15-problem systems set, a 30-problem slope-from-two-points set, and a 30-problem slope-intercept form set.
 - Different problem sets for each rostered student and assignment.
 - Student answers save while they work; correctness and grade appear only after submission.
 - Slope assignments save local progress in the browser and accept equivalent reduced fractions.
+- Slope-intercept assignments ask for `m` and `b` from equations in multiple forms.
 - Firestore progress saves and submitted grades.
 - Firebase Storage JSON report for each submitted assignment.
 - Teacher dashboard with live class metrics, assigned roster status, report links, and CSV export.
