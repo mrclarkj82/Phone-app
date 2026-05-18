@@ -1690,6 +1690,9 @@ async function hydrateStudentWork(student) {
       state.isSubmitted = submissionSnapshot.exists() || savedWork.graded === true || savedWork.submitted === true;
       renderProblems();
       updateStudentScore();
+      if (!submissionSnapshot.exists() && savedWork !== localWork) {
+        saveLocalProgress();
+      }
       setSaveState(state.isSubmitted ? "Submitted" : savedWork === localWork ? "Restored locally" : "Restored");
     }
 
@@ -2096,6 +2099,81 @@ function bindViewWorkButtons() {
       }
     });
   });
+
+  elements.dashboardBody.querySelectorAll("[data-return-work]").forEach((button) => {
+    button.addEventListener("click", () => {
+      returnStudentWork(button.dataset.returnWork);
+    });
+  });
+}
+
+async function returnStudentWork(studentId) {
+  if (!state.user || !isTeacherAccount()) return;
+
+  const student = getVisibleRoster().find((item) => item.id === studentId);
+  if (!student) return;
+
+  const confirmed = window.confirm(
+    `Return ${student.name}'s ${getSelectedAssignment().title}? This will remove the submitted grade and reopen the work for editing.`,
+  );
+  if (!confirmed) return;
+
+  setDashboardControls(false);
+  try {
+    const submissionSnapshot = await getDoc(submissionRef(student));
+    const rawSubmission = submissionSnapshot.exists() ? submissionSnapshot.data() : null;
+    const submission = rawSubmission ? normalizeSubmission(rawSubmission) : state.submissions[student.id];
+
+    if (!submission) {
+      setBanner(elements.teacherNote, `${student.name} does not have submitted work to return.`, "warning");
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const progressPayload = {
+      assignmentId: rawSubmission?.assignmentId || getSelectedAssignment().id,
+      assignmentTitle: rawSubmission?.assignmentTitle || getSelectedAssignment().title,
+      assignmentRunKey: rawSubmission?.assignmentRunKey || getAssignmentRunKey(),
+      studentId: student.id,
+      studentName: student.name,
+      studentEmail: student.email,
+      role: ROLES.STUDENT,
+      answers: submission.answers || {},
+      answered: submission.answered || 0,
+      total: submission.total || getSelectedAssignment().problemCount,
+      graded: false,
+      returned: true,
+      returnedAt: serverTimestamp(),
+      returnedBy: state.user.displayName || "",
+      returnedByEmail: state.user.email || "",
+      updatedAt: serverTimestamp(),
+    };
+    const localProgress = {
+      ...progressPayload,
+      returnedAt: now,
+      updatedAt: now,
+    };
+
+    await setDoc(progressRef(student), progressPayload, { merge: true });
+    if (submissionSnapshot.exists()) {
+      await deleteDoc(submissionSnapshot.ref);
+    } else {
+      await deleteDoc(submissionRef(student)).catch(() => {});
+    }
+    if (submission.reportPath) {
+      await deleteObject(storageRef(storage, submission.reportPath)).catch(() => {});
+    }
+
+    state.progress[student.id] = normalizeSubmission(localProgress);
+    delete state.submissions[student.id];
+    state.selectedWorkStudentId = student.id;
+    renderDashboard({ focusWorkPanel: true });
+    setBanner(elements.teacherNote, `${student.name}'s work was returned for editing.`, "success");
+  } catch (error) {
+    setBanner(elements.teacherNote, readableFirebaseError(error), "danger");
+  } finally {
+    setDashboardControls(true);
+  }
 }
 
 function renderDashboard(options = {}) {
@@ -2107,6 +2185,7 @@ function renderDashboard(options = {}) {
   const rows = visibleRoster.map((student) => {
     const work = getDashboardWork(student);
     const submission = state.submissions[student.id];
+    const canReturnWork = canViewWork && Boolean(submission);
     const scoreText = work?.isSubmitted ? `${work.correct} / ${work.total}` : "--";
     const gradeText = work?.isSubmitted ? `${work.percent}%` : "--";
     const reportLink = submission?.reportUrl
@@ -2132,15 +2211,25 @@ function renderDashboard(options = {}) {
         <td>${work ? `${work.answered} / ${work.total}` : "--"}</td>
         <td>${submission ? formatTimestamp(submission.submittedAt) : "--"}</td>
         <td>
-          <button
-            class="secondary-button table-button"
-            type="button"
-            data-view-work="${student.id}"
-            ${canViewWork ? "" : "disabled"}
-            aria-pressed="${state.selectedWorkStudentId === student.id ? "true" : "false"}"
-          >
-            View Work
-          </button>
+          <div class="table-buttons row-buttons">
+            <button
+              class="secondary-button table-button"
+              type="button"
+              data-view-work="${student.id}"
+              ${canViewWork ? "" : "disabled"}
+              aria-pressed="${state.selectedWorkStudentId === student.id ? "true" : "false"}"
+            >
+              View Work
+            </button>
+            <button
+              class="danger-button table-button"
+              type="button"
+              data-return-work="${student.id}"
+              ${canReturnWork ? "" : "disabled"}
+            >
+              Return
+            </button>
+          </div>
         </td>
         <td>${reportLink}</td>
       </tr>

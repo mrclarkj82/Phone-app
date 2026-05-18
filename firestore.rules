@@ -56,7 +56,7 @@ service cloud.firestore {
           isAssignedTeacher(studentId) ||
           canReadOwnDoc(/databases/$(database)/documents/assignments/$(assignmentId)/progress/$(studentId));
         allow list: if isAdmin() || isTeacher();
-        allow create, update: if isAdmin() || canWriteOwnRosterDoc(studentId);
+        allow create, update: if isAdmin() || isAssignedTeacher(studentId) || canWriteOwnRosterDoc(studentId);
         allow delete: if isAdmin() || isTeacher();
       }
 

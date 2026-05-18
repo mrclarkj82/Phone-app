@@ -18,6 +18,7 @@ Firebase-backed Algebra I assignment app for the Doral roster.
 - Slope-intercept assignments ask for `m` and `b` from equations in multiple forms.
 - Linear inequalities ask for the boundary number and inequality symbol, including sign-flip cases.
 - Teachers can reset a selected assignment, which clears saved grades and changes the problem seed.
+- Teachers can return one student's submitted assignment, which removes that student's grade and reopens the same saved work for editing.
 - Firestore progress saves and submitted grades.
 - Firebase Storage JSON report for each submitted assignment.
 - Teacher dashboard with live class metrics, assigned roster status, report links, and CSV export.

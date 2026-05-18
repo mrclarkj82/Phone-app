@@ -572,6 +572,11 @@ a:focus-visible {
   gap: 10px;
 }
 
+.row-buttons {
+  justify-content: flex-start;
+  gap: 8px;
+}
+
 .table-scroll {
   overflow-x: auto;
 }
