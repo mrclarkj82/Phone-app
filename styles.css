@@ -466,6 +466,10 @@ a:focus-visible {
   grid-template-columns: minmax(90px, 1fr) minmax(90px, 1fr) minmax(110px, auto);
 }
 
+.answer-row.is-inequality {
+  grid-template-columns: minmax(90px, 0.75fr) minmax(140px, 1fr) minmax(110px, auto);
+}
+
 .answer-field {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -1027,6 +1031,10 @@ tbody tr.is-selected-work {
   }
 
   .answer-row.is-slope-intercept {
+    grid-template-columns: 1fr;
+  }
+
+  .answer-row.is-inequality {
     grid-template-columns: 1fr;
   }
 

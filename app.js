@@ -72,6 +72,15 @@ const assignments = [
     answerPlaceholder: "value",
     generator: makeSlopeInterceptProblem,
   },
+  {
+    id: "linear-inequalities-html-v1",
+    title: "Linear Inequalities HTML",
+    directions: "Solve each inequality for x",
+    problemCount: 30,
+    answerMode: "inequality",
+    answerPlaceholder: "boundary",
+    generator: makeLinearInequalityProblem,
+  },
 ];
 const PROGRESS_SAVE_DELAY = 650;
 
@@ -673,6 +682,76 @@ function fractionsEqual(left, right) {
   );
 }
 
+function flipInequalitySymbol(symbol) {
+  return {
+    "<": ">",
+    ">": "<",
+    "<=": ">=",
+    ">=": "<=",
+  }[symbol];
+}
+
+function formatInequalitySymbol(symbol) {
+  return symbol;
+}
+
+function makeInequalityAnswer(coefficient, symbol, rightValue) {
+  const boundary = rightValue / coefficient;
+  return {
+    boundary,
+    symbol: coefficient < 0 ? flipInequalitySymbol(symbol) : symbol,
+  };
+}
+
+function makeLinearInequalityProblem(random, problemNumber = 1) {
+  const noSignFlip = problemNumber <= 20;
+  const negativeCoefficient = problemNumber > 20 && problemNumber <= 26;
+  const variablesBothSides = problemNumber >= 27;
+  const boundary = integerBetween(random, -12, 12);
+  const symbolOptions = ["<", ">", "<=", ">="];
+  const baseSymbol = symbolOptions[integerBetween(random, 0, symbolOptions.length - 1)];
+  let equation = "";
+  let answer = { boundary, symbol: baseSymbol };
+  let type = "Positive coefficient";
+
+  if (noSignFlip) {
+    const coefficient = nonZeroBetween(random, 2, 9);
+    const constant = problemNumber <= 10 ? integerBetween(random, 1, 18) : integerBetween(random, -18, -1);
+    const rightValue = coefficient * boundary + constant;
+    equation = `${formatLinear(coefficient, constant)} ${formatInequalitySymbol(baseSymbol)} ${rightValue}`;
+    answer = makeInequalityAnswer(coefficient, baseSymbol, rightValue - constant);
+    type = problemNumber <= 10 ? "Positive coefficient" : "Negative constant";
+  } else if (negativeCoefficient) {
+    const coefficient = -integerBetween(random, 2, 9);
+    const constant = integerBetween(random, -12, 12);
+    const rightValue = coefficient * boundary + constant;
+    equation = `${formatLinear(coefficient, constant)} ${formatInequalitySymbol(baseSymbol)} ${rightValue}`;
+    answer = makeInequalityAnswer(coefficient, baseSymbol, rightValue - constant);
+    type = "Negative coefficient";
+  } else if (variablesBothSides) {
+    let leftCoefficient = nonZeroBetween(random, -8, 8);
+    let rightCoefficient = nonZeroBetween(random, -8, 8);
+    while (leftCoefficient === rightCoefficient) {
+      rightCoefficient = nonZeroBetween(random, -8, 8);
+    }
+
+    const coefficientDifference = leftCoefficient - rightCoefficient;
+    const leftConstant = integerBetween(random, -12, 12);
+    const rightConstant = coefficientDifference * boundary + leftConstant;
+    equation = `${formatLinear(leftCoefficient, leftConstant)} ${formatInequalitySymbol(
+      baseSymbol,
+    )} ${formatLinear(rightCoefficient, rightConstant)}`;
+    answer = makeInequalityAnswer(coefficientDifference, baseSymbol, rightConstant - leftConstant);
+    type = "Variables on both sides";
+  }
+
+  return {
+    type,
+    equation,
+    answer,
+  };
+}
+
 function makeSlopeProblem(random, problemNumber = 1) {
   const isPositive = problemNumber <= 10;
   const isNegative = problemNumber > 10 && problemNumber <= 20;
@@ -1023,7 +1102,12 @@ function renderProblems() {
       savedAnswer && typeof savedAnswer === "object"
         ? savedAnswer[answerKey] || ""
         : savedAnswer || "";
-    input.value = input.tagName === "SELECT" && !savedValue ? "number" : savedValue;
+    input.value =
+      input.tagName === "SELECT" && !savedValue
+        ? answerKey === "kind"
+          ? "number"
+          : "<"
+        : savedValue;
     input.disabled = state.isSubmitted;
     input.addEventListener(input.tagName === "SELECT" ? "change" : "input", handleAnswerInput);
   });
@@ -1035,6 +1119,7 @@ function getAnswerRowClass(problem) {
   if (problem.answerMode === "pair") return "is-pair";
   if (problem.answerMode === "slope") return "is-slope";
   if (problem.answerMode === "slopeIntercept") return "is-slope-intercept";
+  if (problem.answerMode === "inequality") return "is-inequality";
   return "";
 }
 
@@ -1141,6 +1226,35 @@ function renderAnswerInputs(problem) {
     `;
   }
 
+  if (problem.answerMode === "inequality") {
+    return `
+      <label class="answer-field">
+        <span>x</span>
+        <select
+          aria-label="Inequality symbol for problem ${problem.number}"
+          data-answer-input="${problem.id}"
+          data-answer-key="symbol"
+        >
+          <option value="<">&lt;</option>
+          <option value=">">&gt;</option>
+          <option value="<=">&lt;=</option>
+          <option value=">=">&gt;=</option>
+        </select>
+      </label>
+      <label class="answer-field">
+        <span>Boundary</span>
+        <input
+          type="text"
+          inputmode="numeric"
+          aria-label="Boundary number for problem ${problem.number}"
+          data-answer-input="${problem.id}"
+          data-answer-key="boundary"
+          placeholder="number"
+        />
+      </label>
+    `;
+  }
+
   return `
     <input
       type="text"
@@ -1192,6 +1306,12 @@ function hasAnswerForProblem(problem, answers = state.answers) {
     const mValue = answer && typeof answer === "object" ? answer.m : "";
     const bValue = answer && typeof answer === "object" ? answer.b : "";
     return !isBlank(mValue) || !isBlank(bValue);
+  }
+
+  if (problem.answerMode === "inequality") {
+    const symbol = answer && typeof answer === "object" ? answer.symbol : "";
+    const boundary = answer && typeof answer === "object" ? answer.boundary : "";
+    return !isBlank(symbol) || !isBlank(boundary);
   }
 
   const rawAnswer = answer && typeof answer === "object" ? answer.x : answer;
@@ -1273,6 +1393,28 @@ function getProblemResult(problem, answers = state.answers) {
     }
 
     return fractionsEqual(mAnswer, problem.answer.m) && fractionsEqual(bAnswer, problem.answer.b)
+      ? "correct"
+      : "wrong";
+  }
+
+  if (problem.answerMode === "inequality") {
+    const symbol = answer && typeof answer === "object" ? answer.symbol : "";
+    const boundaryValue = answer && typeof answer === "object" ? answer.boundary : "";
+    if (isBlank(symbol) && isBlank(boundaryValue)) {
+      return "blank";
+    }
+
+    const boundary = Number(boundaryValue);
+    if (
+      isBlank(symbol) ||
+      isBlank(boundaryValue) ||
+      !["<", ">", "<=", ">="].includes(symbol) ||
+      !Number.isInteger(boundary)
+    ) {
+      return "wrong";
+    }
+
+    return symbol === problem.answer.symbol && boundary === problem.answer.boundary
       ? "correct"
       : "wrong";
   }
@@ -1753,6 +1895,12 @@ function answersMapFromWork(work) {
 
 function formatAnswerValue(value) {
   if (value && typeof value === "object") {
+    if ("symbol" in value || "boundary" in value) {
+      const symbol = value.symbol || "?";
+      const boundary = value.boundary === undefined || value.boundary === "" ? "?" : value.boundary;
+      return `x ${symbol} ${boundary}`;
+    }
+
     if ("m" in value || "b" in value) {
       const mValue =
         value.m && typeof value.m === "object" ? formatFractionValue(value.m) : value.m || "?";
