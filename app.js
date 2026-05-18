@@ -231,12 +231,14 @@ const state = {
   user: null,
   authReady: false,
   selectedAssignment: assignments[0],
+  loadedAssignmentRunKey: "",
   selectedStudent: roster[0],
   problems: [],
   answers: new Map(),
   isSubmitted: false,
   progress: {},
   submissions: {},
+  assignmentSettings: {},
   dashboardUnsubscribes: [],
   teacherProfile: null,
   teachers: {},
@@ -864,7 +866,7 @@ function makeSlopeInterceptProblem(random, problemNumber = 1) {
 }
 
 function makeProblem(student, problemNumber, attempt = 0, assignment = getSelectedAssignment()) {
-  const seedText = `${assignment.id}:${student.id}:${student.name}:${problemNumber}:${attempt}`;
+  const seedText = `${assignment.id}:${getAssignmentRunKey(assignment)}:${student.id}:${student.name}:${problemNumber}:${attempt}`;
   const random = mulberry32(hashString(seedText));
   const problem = assignment.generator(random, problemNumber);
   return {
@@ -911,6 +913,31 @@ function getSignedInRole() {
   if (isTeacherAccount()) return ROLES.TEACHER;
   if (getSignedInRosterStudent()) return ROLES.STUDENT;
   return "";
+}
+
+function assignmentRef(assignment = getSelectedAssignment()) {
+  return doc(db, "assignments", assignment.id);
+}
+
+function getAssignmentRunKey(assignment = getSelectedAssignment()) {
+  return state.assignmentSettings[assignment.id]?.resetKey || "initial";
+}
+
+function setAssignmentSettings(assignmentId, data = {}) {
+  state.assignmentSettings[assignmentId] = {
+    resetKey: data.resetKey || "initial",
+    resetAt: data.resetAt || null,
+    resetByEmail: data.resetByEmail || "",
+  };
+}
+
+async function loadAssignmentSettings(assignment = getSelectedAssignment()) {
+  try {
+    const snapshot = await getDoc(assignmentRef(assignment));
+    setAssignmentSettings(assignment.id, snapshot.exists() ? snapshot.data() : {});
+  } catch {
+    setAssignmentSettings(assignment.id, {});
+  }
 }
 
 function submissionRef(student) {
@@ -995,6 +1022,7 @@ function resetStudentWork() {
   state.problems = [];
   state.answers = new Map();
   state.isSubmitted = false;
+  state.loadedAssignmentRunKey = "";
   syncStudentFields();
   setText(elements.submissionNote, "");
   setSaveState("Not started");
@@ -1493,7 +1521,7 @@ function answersObject() {
 }
 
 function localProgressKey(student = state.selectedStudent, assignment = getSelectedAssignment()) {
-  return `dragonmath:${assignment.id}:${student.id}:progress`;
+  return `dragonmath:${assignment.id}:${getAssignmentRunKey(assignment)}:${student.id}:progress`;
 }
 
 function buildLocalProgressPayload(score, options = {}) {
@@ -1501,6 +1529,7 @@ function buildLocalProgressPayload(score, options = {}) {
   const payload = {
     assignmentId: assignment.id,
     assignmentTitle: assignment.title,
+    assignmentRunKey: getAssignmentRunKey(assignment),
     studentId: state.selectedStudent.id,
     studentName: state.selectedStudent.name,
     studentEmail: state.selectedStudent.email,
@@ -1543,6 +1572,7 @@ function buildProgressPayload(score, options = {}) {
   const payload = {
     assignmentId: assignment.id,
     assignmentTitle: assignment.title,
+    assignmentRunKey: getAssignmentRunKey(assignment),
     studentId: state.selectedStudent.id,
     studentName: state.selectedStudent.name,
     studentEmail: state.selectedStudent.email,
@@ -1612,6 +1642,8 @@ async function loadSelectedStudent() {
   }
 
   state.selectedStudent = selectedStudent;
+  await loadAssignmentSettings();
+  state.loadedAssignmentRunKey = getAssignmentRunKey();
   state.problems = generateAssignment(selectedStudent);
   state.answers = new Map();
   state.isSubmitted = false;
@@ -1750,6 +1782,25 @@ async function submitAssignment() {
   window.clearTimeout(state.saveTimer);
   setDisabled(elements.submitAssignment, true);
   setSaveState("Submitting...");
+
+  await loadAssignmentSettings();
+  if (state.loadedAssignmentRunKey && state.loadedAssignmentRunKey !== getAssignmentRunKey()) {
+    state.problems = generateAssignment(state.selectedStudent);
+    state.answers = new Map();
+    state.isSubmitted = false;
+    state.loadedAssignmentRunKey = getAssignmentRunKey();
+    renderProblems();
+    updateStudentScore();
+    setSaveState("Assignment reset");
+    setText(elements.submitAssignment, "Submit Grade");
+    setDisabled(elements.submitAssignment, false);
+    setBanner(
+      elements.studentCloudNote,
+      "This assignment was reset by a teacher. New problems have been loaded.",
+      "warning",
+    );
+    return;
+  }
 
   const score = calculateScore();
   const report = buildSubmissionReport(score);
@@ -2135,7 +2186,7 @@ function setDashboardControls(enabled) {
   setDisabled(elements.dashboardAssignmentSelect, !enabled);
   setDisabled(elements.refreshDashboard, !enabled);
   setDisabled(elements.exportDashboard, !enabled);
-  setDisabled(elements.resetDashboard, !enabled || !isAdminAccount());
+  setDisabled(elements.resetDashboard, !enabled || !isTeacherAccount());
 }
 
 function clearDashboardSubscriptions() {
@@ -2217,6 +2268,21 @@ function subscribeDashboardCollections() {
   );
 }
 
+function subscribeAssignmentSettings() {
+  state.dashboardUnsubscribes.push(
+    onSnapshot(
+      assignmentRef(),
+      (snapshot) => {
+        setAssignmentSettings(getSelectedAssignment().id, snapshot.exists() ? snapshot.data() : {});
+        renderDashboard();
+      },
+      () => {
+        setAssignmentSettings(getSelectedAssignment().id, {});
+      },
+    ),
+  );
+}
+
 function subscribeDashboard() {
   if (!elements.dashboardBody) return;
 
@@ -2254,6 +2320,7 @@ function subscribeDashboard() {
   state.submissions = {};
   renderHeaderCounts();
   renderDashboard();
+  subscribeAssignmentSettings();
   setBanner(
     elements.teacherNote,
     isAdminAccount()
@@ -2310,17 +2377,36 @@ async function refreshDashboard() {
 }
 
 async function resetDashboard() {
-  if (!state.user || !isAdminAccount()) return;
+  if (!state.user || !isTeacherAccount()) return;
 
-  const confirmed = window.confirm("Clear every saved grade and in-progress answer for this assignment?");
+  const confirmed = window.confirm(
+    "YOU ARE ABOUT TO RESET ALL PROBLEMS. THIS MEANS ALL SAVED GRADES WILL BE RESET. DO YOU WANT TO CONTINUE?",
+  );
   if (!confirmed) return;
 
   setDashboardControls(false);
   try {
+    const resetKey = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const [snapshot, progressSnapshot] = await Promise.all([
       getDocs(submissionsCollection()),
       getDocs(progressCollection()),
     ]);
+    await setDoc(
+      assignmentRef(),
+      {
+        assignmentId: getSelectedAssignment().id,
+        assignmentTitle: getSelectedAssignment().title,
+        resetKey,
+        resetAt: serverTimestamp(),
+        resetBy: state.user.displayName || "",
+        resetByEmail: state.user.email || "",
+      },
+      { merge: true },
+    );
+    setAssignmentSettings(getSelectedAssignment().id, {
+      resetKey,
+      resetByEmail: state.user.email || "",
+    });
     await Promise.all(
       [
         ...snapshot.docs.map(async (submissionDoc) => {
@@ -2335,8 +2421,9 @@ async function resetDashboard() {
     );
     state.progress = {};
     state.submissions = {};
+    state.selectedWorkStudentId = "";
     renderDashboard();
-    setBanner(elements.teacherNote, "All saved work was cleared.", "success");
+    setBanner(elements.teacherNote, "Assignment reset. New problems will generate and saved grades were cleared.", "success");
   } catch (error) {
     setBanner(elements.teacherNote, readableFirebaseError(error), "danger");
   } finally {

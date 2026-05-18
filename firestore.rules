@@ -48,24 +48,25 @@ service cloud.firestore {
 
     match /assignments/{assignmentId} {
       allow read: if signedIn();
-      allow create, update, delete: if isAdmin();
+      allow create, update: if isAdmin() || isTeacher();
+      allow delete: if isAdmin();
 
       match /progress/{studentId} {
         allow get: if isAdmin() ||
           isAssignedTeacher(studentId) ||
           canReadOwnDoc(/databases/$(database)/documents/assignments/$(assignmentId)/progress/$(studentId));
-        allow list: if isAdmin();
+        allow list: if isAdmin() || isTeacher();
         allow create, update: if isAdmin() || canWriteOwnRosterDoc(studentId);
-        allow delete: if isAdmin();
+        allow delete: if isAdmin() || isTeacher();
       }
 
       match /submissions/{studentId} {
         allow get: if isAdmin() ||
           isAssignedTeacher(studentId) ||
           canReadOwnDoc(/databases/$(database)/documents/assignments/$(assignmentId)/submissions/$(studentId));
-        allow list: if isAdmin();
+        allow list: if isAdmin() || isTeacher();
         allow create, update: if isAdmin() || canWriteOwnRosterDoc(studentId);
-        allow delete: if isAdmin();
+        allow delete: if isAdmin() || isTeacher();
       }
     }
   }
