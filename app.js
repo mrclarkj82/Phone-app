@@ -63,6 +63,15 @@ const assignments = [
     answerPlaceholder: "slope",
     generator: makeSlopeProblem,
   },
+  {
+    id: "slope-intercept-form-v1",
+    title: "Slope Intercept Form",
+    directions: "Identify the slope m and y-intercept b",
+    problemCount: 30,
+    answerMode: "slopeIntercept",
+    answerPlaceholder: "value",
+    generator: makeSlopeInterceptProblem,
+  },
 ];
 const PROGRESS_SAVE_DELAY = 650;
 
@@ -609,6 +618,61 @@ function reduceFraction(numerator, denominator) {
   };
 }
 
+function formatFractionValue(fraction) {
+  if (!fraction || fraction.undefined) return "undefined";
+  if (fraction.denominator === 1) return `${fraction.numerator}`;
+  return `${fraction.numerator}/${fraction.denominator}`;
+}
+
+function formatSlopeCoefficient(coefficient) {
+  const fraction = reduceFraction(coefficient.numerator, coefficient.denominator);
+  if (fraction.numerator === 1 && fraction.denominator === 1) return "x";
+  if (fraction.numerator === -1 && fraction.denominator === 1) return "-x";
+  return `${formatFractionValue(fraction)}x`;
+}
+
+function formatSlopeInterceptEquation(slope, intercept) {
+  const slopeText = formatSlopeCoefficient(slope);
+  if (intercept.numerator === 0) return `y = ${slopeText}`;
+  const sign = intercept.numerator > 0 ? "+" : "-";
+  return `y = ${slopeText} ${sign} ${formatFractionValue({
+    numerator: Math.abs(intercept.numerator),
+    denominator: intercept.denominator,
+  })}`;
+}
+
+function parseFractionInput(value) {
+  const rawValue = `${value ?? ""}`.trim();
+  if (!rawValue) return null;
+
+  const fractionMatch = rawValue.match(/^([+-]?\d+)\s*(?:\/\s*([+-]?\d+))?$/);
+  if (fractionMatch) {
+    const numerator = Number(fractionMatch[1]);
+    const denominator = fractionMatch[2] === undefined ? 1 : Number(fractionMatch[2]);
+    if (!Number.isInteger(numerator) || !Number.isInteger(denominator) || denominator === 0) {
+      return null;
+    }
+    return reduceFraction(numerator, denominator);
+  }
+
+  const decimal = Number(rawValue);
+  if (!Number.isFinite(decimal)) return null;
+
+  const decimalPlaces = rawValue.includes(".") ? rawValue.split(".").at(-1).length : 0;
+  const denominator = 10 ** decimalPlaces;
+  return reduceFraction(Math.round(decimal * denominator), denominator);
+}
+
+function fractionsEqual(left, right) {
+  if (!left || !right || left.undefined || right.undefined) return false;
+  const reducedLeft = reduceFraction(left.numerator, left.denominator);
+  const reducedRight = reduceFraction(right.numerator, right.denominator);
+  return (
+    reducedLeft.numerator === reducedRight.numerator &&
+    reducedLeft.denominator === reducedRight.denominator
+  );
+}
+
 function makeSlopeProblem(random, problemNumber = 1) {
   const isPositive = problemNumber <= 10;
   const isNegative = problemNumber > 10 && problemNumber <= 20;
@@ -663,6 +727,60 @@ function makeSlopeProblem(random, problemNumber = 1) {
       { x: x2, y: y2 },
     ],
     answer: slope.undefined ? { kind: "undefined" } : { kind: "number", ...slope },
+  };
+}
+
+function makeSlopeInterceptProblem(random, problemNumber = 1) {
+  const inSlopeInterceptForm = problemNumber <= 20;
+  const scaledYForm = problemNumber > 20 && problemNumber <= 26;
+  const standardForm = problemNumber >= 27;
+  let equation = "";
+  let slope = reduceFraction(nonZeroBetween(random, 1, 6), 1);
+  let intercept = reduceFraction(integerBetween(random, 1, 9), 1);
+  let type = "Slope-intercept form";
+
+  if (inSlopeInterceptForm) {
+    if (problemNumber > 10) {
+      const makeNegativeSlope = problemNumber % 2 === 1;
+      slope = reduceFraction(
+        makeNegativeSlope ? -nonZeroBetween(random, 1, 7) : nonZeroBetween(random, 1, 7),
+        1,
+      );
+      intercept = reduceFraction(
+        makeNegativeSlope ? integerBetween(random, -9, 9) : -nonZeroBetween(random, 1, 9),
+        1,
+      );
+    }
+
+    equation = formatSlopeInterceptEquation(slope, intercept);
+    type = problemNumber > 10 ? "Negative slope or intercept" : "Slope-intercept form";
+  } else if (scaledYForm) {
+    const yCoefficient = integerBetween(random, 2, 6);
+    const xCoefficient = nonZeroBetween(random, -12, 12);
+    const constant = integerBetween(random, -18, 18);
+    slope = reduceFraction(xCoefficient, yCoefficient);
+    intercept = reduceFraction(constant, yCoefficient);
+    equation = `${yCoefficient}y = ${formatLinear(xCoefficient, constant)}`;
+    type = "Solve for y";
+  } else if (standardForm) {
+    const xCoefficient = nonZeroBetween(random, -8, 8);
+    const yCoefficient = nonZeroBetween(random, 2, 8);
+    const constant = integerBetween(random, -24, 24);
+    slope = reduceFraction(-xCoefficient, yCoefficient);
+    intercept = reduceFraction(constant, yCoefficient);
+    equation = `${formatLinear(xCoefficient, 0)} ${yCoefficient > 0 ? "+" : "-"} ${Math.abs(
+      yCoefficient,
+    )}y = ${constant}`;
+    type = "Standard form";
+  }
+
+  return {
+    type,
+    equation,
+    answer: {
+      m: slope,
+      b: intercept,
+    },
   };
 }
 
@@ -916,6 +1034,7 @@ function renderProblems() {
 function getAnswerRowClass(problem) {
   if (problem.answerMode === "pair") return "is-pair";
   if (problem.answerMode === "slope") return "is-slope";
+  if (problem.answerMode === "slopeIntercept") return "is-slope-intercept";
   return "";
 }
 
@@ -995,6 +1114,33 @@ function renderAnswerInputs(problem) {
     `;
   }
 
+  if (problem.answerMode === "slopeIntercept") {
+    return `
+      <label class="answer-field">
+        <span>m</span>
+        <input
+          type="text"
+          inputmode="text"
+          aria-label="Slope m for problem ${problem.number}"
+          data-answer-input="${problem.id}"
+          data-answer-key="m"
+          placeholder="m"
+        />
+      </label>
+      <label class="answer-field">
+        <span>b</span>
+        <input
+          type="text"
+          inputmode="text"
+          aria-label="Y-intercept b for problem ${problem.number}"
+          data-answer-input="${problem.id}"
+          data-answer-key="b"
+          placeholder="b"
+        />
+      </label>
+    `;
+  }
+
   return `
     <input
       type="text"
@@ -1040,6 +1186,12 @@ function hasAnswerForProblem(problem, answers = state.answers) {
     const numerator = answer && typeof answer === "object" ? answer.numerator : "";
     const denominator = answer && typeof answer === "object" ? answer.denominator : "";
     return kind === "undefined" || !isBlank(numerator) || !isBlank(denominator);
+  }
+
+  if (problem.answerMode === "slopeIntercept") {
+    const mValue = answer && typeof answer === "object" ? answer.m : "";
+    const bValue = answer && typeof answer === "object" ? answer.b : "";
+    return !isBlank(mValue) || !isBlank(bValue);
   }
 
   const rawAnswer = answer && typeof answer === "object" ? answer.x : answer;
@@ -1103,6 +1255,24 @@ function getProblemResult(problem, answers = state.answers) {
     const reduced = reduceFraction(numerator, denominator);
     return reduced.numerator === problem.answer.numerator &&
       reduced.denominator === problem.answer.denominator
+      ? "correct"
+      : "wrong";
+  }
+
+  if (problem.answerMode === "slopeIntercept") {
+    const mValue = answer && typeof answer === "object" ? answer.m : "";
+    const bValue = answer && typeof answer === "object" ? answer.b : "";
+    if (isBlank(mValue) && isBlank(bValue)) {
+      return "blank";
+    }
+
+    const mAnswer = parseFractionInput(mValue);
+    const bAnswer = parseFractionInput(bValue);
+    if (isBlank(mValue) || isBlank(bValue) || !mAnswer || !bAnswer) {
+      return "wrong";
+    }
+
+    return fractionsEqual(mAnswer, problem.answer.m) && fractionsEqual(bAnswer, problem.answer.b)
       ? "correct"
       : "wrong";
   }
@@ -1583,6 +1753,14 @@ function answersMapFromWork(work) {
 
 function formatAnswerValue(value) {
   if (value && typeof value === "object") {
+    if ("m" in value || "b" in value) {
+      const mValue =
+        value.m && typeof value.m === "object" ? formatFractionValue(value.m) : value.m || "?";
+      const bValue =
+        value.b && typeof value.b === "object" ? formatFractionValue(value.b) : value.b || "?";
+      return `m = ${mValue}, b = ${bValue}`;
+    }
+
     if (value.kind === "undefined") {
       return "Undefined";
     }
