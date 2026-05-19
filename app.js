@@ -2419,7 +2419,7 @@ function renderStudentWorkPanel() {
           ? "pending"
           : "blank";
       return `
-        <article class="review-card ${getResultClass(result)}">
+        <article class="review-card ${problem.answerMode === "graphLine" ? "is-graph-review" : ""} ${getResultClass(result)}">
           <div class="review-card-header">
             <span class="problem-number">${problem.number}</span>
             <div>

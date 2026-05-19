@@ -432,18 +432,21 @@ a:focus-visible {
 
 .graph-problem {
   display: grid;
-  grid-template-columns: minmax(180px, 260px) minmax(180px, 1fr);
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
   align-items: center;
   gap: 18px;
 }
 
 .graph-problem p {
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .coordinate-graph {
   margin: 0;
-  max-width: 260px;
+  width: min(100%, 340px);
+  max-width: 340px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #ffffff;
@@ -775,7 +778,7 @@ tbody tr.is-selected-work {
 
 .student-work-problems {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
   gap: 12px;
   padding: 0 18px 18px;
 }
@@ -810,6 +813,20 @@ tbody tr.is-selected-work {
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
   align-items: start;
+}
+
+.review-card.is-graph-review .graph-problem {
+  grid-template-columns: 1fr;
+}
+
+.review-card.is-graph-review .coordinate-graph {
+  justify-self: center;
+  width: min(100%, 380px);
+  max-width: 380px;
+}
+
+.review-card.is-graph-review .equation {
+  font-size: 1rem;
 }
 
 .review-status {
@@ -1073,6 +1090,10 @@ tbody tr.is-selected-work {
 
   .table-buttons button {
     flex: 1;
+  }
+
+  .student-work-problems {
+    grid-template-columns: 1fr;
   }
 }
 
