@@ -430,6 +430,70 @@ a:focus-visible {
   gap: 4px;
 }
 
+.graph-problem {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) minmax(180px, 1fr);
+  align-items: center;
+  gap: 18px;
+}
+
+.graph-problem p {
+  margin: 0;
+}
+
+.coordinate-graph {
+  margin: 0;
+  max-width: 260px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(20, 114, 116, 0.04);
+}
+
+.coordinate-graph svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.grid-background {
+  fill: #fbfdfd;
+}
+
+.grid-line {
+  stroke: #dce6e7;
+  stroke-width: 0.8;
+}
+
+.grid-axis {
+  stroke: #52636a;
+  stroke-width: 1.6;
+}
+
+.axis-labels {
+  fill: #66767d;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.graph-line {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-width: 3.5;
+}
+
+.graph-point circle {
+  fill: #ffffff;
+  stroke: var(--accent-dark);
+  stroke-width: 2.5;
+}
+
+.graph-point text {
+  fill: var(--ink);
+  font-size: 11px;
+  font-weight: 900;
+}
+
 .equation {
   min-width: 0;
   font-size: 1.2rem;
@@ -464,6 +528,14 @@ a:focus-visible {
 
 .answer-row.is-slope-intercept {
   grid-template-columns: minmax(90px, 1fr) minmax(90px, 1fr) minmax(110px, auto);
+}
+
+.answer-row.is-graph-line {
+  grid-template-columns: minmax(90px, 1fr) minmax(90px, 1fr) minmax(110px, auto);
+}
+
+.answer-row.is-graph-intercept {
+  grid-template-columns: minmax(120px, 180px) minmax(110px, auto);
 }
 
 .answer-row.is-inequality {
@@ -1018,6 +1090,14 @@ tbody tr.is-selected-work {
     grid-template-columns: 1fr;
   }
 
+  .graph-problem {
+    grid-template-columns: 1fr;
+  }
+
+  .coordinate-graph {
+    max-width: 100%;
+  }
+
   .problem-number {
     width: 32px;
     height: 32px;
@@ -1036,6 +1116,10 @@ tbody tr.is-selected-work {
   }
 
   .answer-row.is-slope-intercept {
+    grid-template-columns: 1fr;
+  }
+
+  .answer-row.is-graph-line {
     grid-template-columns: 1fr;
   }
 
