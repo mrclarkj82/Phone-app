@@ -778,7 +778,7 @@ tbody tr.is-selected-work {
 
 .student-work-problems {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 640px), 1fr));
   gap: 12px;
   padding: 0 18px 18px;
 }
@@ -817,16 +817,21 @@ tbody tr.is-selected-work {
 
 .review-card.is-graph-review .graph-problem {
   grid-template-columns: 1fr;
+  justify-items: center;
+  gap: 12px;
 }
 
 .review-card.is-graph-review .coordinate-graph {
   justify-self: center;
-  width: min(100%, 380px);
-  max-width: 380px;
+  width: min(100%, 440px);
+  max-width: 440px;
 }
 
 .review-card.is-graph-review .equation {
   font-size: 1rem;
+  width: 100%;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .review-status {
