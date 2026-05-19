@@ -474,9 +474,23 @@ a:focus-visible {
 }
 
 .axis-labels {
-  fill: #66767d;
+  fill: #56676f;
+  font-size: 6.5px;
+  font-weight: 850;
+  pointer-events: none;
+}
+
+.axis-labels > text:first-child,
+.axis-labels > text:nth-child(2) {
   font-size: 10px;
-  font-weight: 800;
+}
+
+.x-tick {
+  text-anchor: middle;
+}
+
+.y-tick {
+  text-anchor: end;
 }
 
 .graph-line {
@@ -488,12 +502,12 @@ a:focus-visible {
 .graph-point circle {
   fill: #ffffff;
   stroke: var(--accent-dark);
-  stroke-width: 2.5;
+  stroke-width: 1.8;
 }
 
 .graph-point text {
   fill: var(--ink);
-  font-size: 11px;
+  font-size: 9.5px;
   font-weight: 900;
 }
 

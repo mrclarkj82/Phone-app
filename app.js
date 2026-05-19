@@ -1300,6 +1300,7 @@ function renderCoordinateGrid(problem) {
   const end = { x: 10, y: fractionToNumber(slope) * 10 + fractionToNumber(intercept) };
   const clipId = `grid-clip-${problem.id.replace(/[^a-zA-Z0-9-]/g, "-")}`;
   const gridLines = [];
+  const tickLabels = [];
 
   for (let value = -10; value <= 10; value += 1) {
     const position = toSvgX(value);
@@ -1308,6 +1309,12 @@ function renderCoordinateGrid(problem) {
       `<line class="${axisClass}" x1="${position}" y1="${toSvgY(-10)}" x2="${position}" y2="${toSvgY(10)}" />`,
       `<line class="${axisClass}" x1="${toSvgX(-10)}" y1="${position}" x2="${toSvgX(10)}" y2="${position}" />`,
     );
+    if (value !== 0) {
+      tickLabels.push(
+        `<text class="x-tick" x="${toSvgX(value)}" y="${toSvgY(0) + 9}">${value}</text>`,
+        `<text class="y-tick" x="${toSvgX(0) - 5}" y="${toSvgY(value) + 2}">${value}</text>`,
+      );
+    }
   }
 
   return `
@@ -1323,10 +1330,7 @@ function renderCoordinateGrid(problem) {
         <g class="axis-labels" aria-hidden="true">
           <text x="${toSvgX(10) + 8}" y="${toSvgY(0) + 4}">x</text>
           <text x="${toSvgX(0) + 5}" y="${toSvgY(10) - 6}">y</text>
-          <text x="${toSvgX(-10) - 7}" y="${toSvgY(0) + 16}">-10</text>
-          <text x="${toSvgX(10) - 5}" y="${toSvgY(0) + 16}">10</text>
-          <text x="${toSvgX(0) + 5}" y="${toSvgY(-10) + 4}">-10</text>
-          <text x="${toSvgX(0) + 5}" y="${toSvgY(10) + 4}">10</text>
+          ${tickLabels.join("")}
         </g>
         <g clip-path="url(#${clipId})">
           <line
@@ -1341,8 +1345,8 @@ function renderCoordinateGrid(problem) {
           .map(
             (point, index) => `
               <g class="graph-point">
-                <circle cx="${toSvgX(point.x)}" cy="${toSvgY(point.y)}" r="4.5" />
-                <text x="${toSvgX(point.x) + 7}" y="${toSvgY(point.y) - 7}">${index === 0 ? "A" : "B"}</text>
+                <circle cx="${toSvgX(point.x)}" cy="${toSvgY(point.y)}" r="3.1" />
+                <text x="${toSvgX(point.x) + 5}" y="${toSvgY(point.y) - 5}">${index === 0 ? "A" : "B"}</text>
               </g>
             `,
           )
