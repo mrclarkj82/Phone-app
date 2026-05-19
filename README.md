@@ -17,6 +17,7 @@ Firebase-backed Algebra I assignment app for the Doral roster.
 - Slope assignments save local progress in the browser and accept equivalent reduced fractions.
 - Slope-intercept assignments ask for `m` and `b` from equations in multiple forms.
 - Linear inequalities ask for the boundary number and inequality symbol, including sign-flip cases.
+- Coordinate grid line problems draw SVG graphs from -10 to 10 and ask for slope, y-intercept, points on the line, and equations from graphs.
 - Teachers can reset a selected assignment, which clears saved grades and changes the problem seed.
 - Teachers can return one student's submitted assignment, which removes that student's grade and reopens the same saved work for editing.
 - Firestore progress saves and submitted grades.

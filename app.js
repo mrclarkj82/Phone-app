@@ -81,6 +81,15 @@ const assignments = [
     answerPlaceholder: "boundary",
     generator: makeLinearInequalityProblem,
   },
+  {
+    id: "coordinate-grid-lines-v1",
+    title: "Coordinate Grid Lines",
+    directions: "Use the graph to answer each question",
+    problemCount: 30,
+    answerMode: "graphLine",
+    answerPlaceholder: "value",
+    generator: makeCoordinateGridLineProblem,
+  },
 ];
 const PROGRESS_SAVE_DELAY = 650;
 
@@ -652,6 +661,11 @@ function formatSlopeInterceptEquation(slope, intercept) {
   })}`;
 }
 
+function fractionToNumber(fraction) {
+  if (!fraction || fraction.undefined) return NaN;
+  return fraction.numerator / fraction.denominator;
+}
+
 function parseFractionInput(value) {
   const rawValue = `${value ?? ""}`.trim();
   if (!rawValue) return null;
@@ -862,6 +876,109 @@ function makeSlopeInterceptProblem(random, problemNumber = 1) {
       m: slope,
       b: intercept,
     },
+  };
+}
+
+function makeCoordinateGridLineProblem(random, problemNumber = 1) {
+  const slopeRanges =
+    problemNumber <= 10
+      ? [
+          [1, 1],
+          [2, 1],
+          [3, 1],
+        ]
+      : problemNumber <= 18
+        ? [
+            [-3, 1],
+            [-2, 1],
+            [-1, 1],
+            [1, 1],
+            [2, 1],
+            [3, 1],
+          ]
+        : [
+            [-3, 2],
+            [-2, 3],
+            [-1, 2],
+            [1, 2],
+            [2, 3],
+            [3, 2],
+          ];
+  const [slopeNumerator, slopeDenominator] = slopeRanges[integerBetween(random, 0, slopeRanges.length - 1)];
+  const slope = reduceFraction(slopeNumerator, slopeDenominator);
+  let intercept = reduceFraction(integerBetween(random, -6, 6), 1);
+  let x1 = 0;
+  let x2 = 0;
+  let y1 = 0;
+  let y2 = 0;
+  let attempts = 0;
+
+  while (
+    (x1 === x2 ||
+      Math.abs(x1) > 10 ||
+      Math.abs(x2) > 10 ||
+      !Number.isInteger(y1) ||
+      !Number.isInteger(y2) ||
+      Math.abs(y1) > 10 ||
+      Math.abs(y2) > 10) &&
+    attempts < 80
+  ) {
+    x1 = slope.denominator * integerBetween(random, -4, 4);
+    x2 = slope.denominator * integerBetween(random, -4, 4);
+    intercept = reduceFraction(integerBetween(random, -6, 6), 1);
+    y1 = fractionToNumber(slope) * x1 + fractionToNumber(intercept);
+    y2 = fractionToNumber(slope) * x2 + fractionToNumber(intercept);
+    attempts += 1;
+  }
+
+  const questionKind =
+    problemNumber <= 10
+      ? "slope"
+      : problemNumber <= 18
+        ? "intercept"
+        : problemNumber <= 24
+          ? "point"
+          : "equation";
+  const pointMultiplier = x1 === 0 ? 1 : x1 / slope.denominator;
+  const pointX = x1 === 0 ? x2 : x1 + slope.denominator * (pointMultiplier > 0 ? -1 : 1);
+  const pointY = fractionToNumber(slope) * pointX + fractionToNumber(intercept);
+  const safePoint =
+    Number.isInteger(pointY) && Math.abs(pointX) <= 10 && Math.abs(pointY) <= 10
+      ? { x: pointX, y: pointY }
+      : { x: x2, y: y2 };
+  const prompts = {
+    slope: "Find the slope of the line shown on the graph.",
+    intercept: "Find the y-intercept of the line shown on the graph.",
+    point: "Enter one point on the line shown on the graph.",
+    equation: "Write the equation of the line in y = mx + b form.",
+  };
+  const typeLabels = {
+    slope: problemNumber <= 5 ? "Positive slope from graph" : "Slope from graph",
+    intercept: "Y-intercept from graph",
+    point: "Point on a graphed line",
+    equation: "Equation from graph",
+  };
+
+  return {
+    type: typeLabels[questionKind],
+    equation: prompts[questionKind],
+    graphQuestion: questionKind,
+    graph: {
+      slope,
+      intercept,
+      points: [
+        { x: x1, y: y1 },
+        { x: x2, y: y2 },
+      ],
+    },
+    answer:
+      questionKind === "slope"
+        ? { slope }
+        : questionKind === "intercept"
+          ? { b: intercept }
+          : questionKind === "point"
+            ? { point: safePoint }
+            : { m: slope, b: intercept },
   };
 }
 
@@ -1148,10 +1265,20 @@ function getAnswerRowClass(problem) {
   if (problem.answerMode === "slope") return "is-slope";
   if (problem.answerMode === "slopeIntercept") return "is-slope-intercept";
   if (problem.answerMode === "inequality") return "is-inequality";
+  if (problem.answerMode === "graphLine") return `is-graph-line is-graph-${problem.graphQuestion}`;
   return "";
 }
 
 function renderProblemPrompt(problem) {
+  if (problem.answerMode === "graphLine") {
+    return `
+      <div class="graph-problem">
+        ${renderCoordinateGrid(problem)}
+        <p>${escapeHtml(problem.equation)}</p>
+      </div>
+    `;
+  }
+
   if (problem.equations) {
     return `<div class="system-equations">${problem.equations
       .map((equation) => `<span>${escapeHtml(equation)}</span>`)
@@ -1159,6 +1286,70 @@ function renderProblemPrompt(problem) {
   }
 
   return escapeHtml(problem.equation);
+}
+
+function renderCoordinateGrid(problem) {
+  const size = 260;
+  const center = size / 2;
+  const unit = 11;
+  const toSvgX = (value) => center + value * unit;
+  const toSvgY = (value) => center - value * unit;
+  const slope = problem.graph.slope;
+  const intercept = problem.graph.intercept;
+  const start = { x: -10, y: fractionToNumber(slope) * -10 + fractionToNumber(intercept) };
+  const end = { x: 10, y: fractionToNumber(slope) * 10 + fractionToNumber(intercept) };
+  const clipId = `grid-clip-${problem.id.replace(/[^a-zA-Z0-9-]/g, "-")}`;
+  const gridLines = [];
+
+  for (let value = -10; value <= 10; value += 1) {
+    const position = toSvgX(value);
+    const axisClass = value === 0 ? "grid-axis" : "grid-line";
+    gridLines.push(
+      `<line class="${axisClass}" x1="${position}" y1="${toSvgY(-10)}" x2="${position}" y2="${toSvgY(10)}" />`,
+      `<line class="${axisClass}" x1="${toSvgX(-10)}" y1="${position}" x2="${toSvgX(10)}" y2="${position}" />`,
+    );
+  }
+
+  return `
+    <figure class="coordinate-graph" aria-label="Coordinate grid from -10 to 10">
+      <svg viewBox="0 0 ${size} ${size}" role="img" aria-label="Line through (${problem.graph.points[0].x}, ${problem.graph.points[0].y}) and (${problem.graph.points[1].x}, ${problem.graph.points[1].y})">
+        <defs>
+          <clipPath id="${clipId}">
+            <rect x="${toSvgX(-10)}" y="${toSvgY(10)}" width="${unit * 20}" height="${unit * 20}" />
+          </clipPath>
+        </defs>
+        <rect class="grid-background" x="${toSvgX(-10)}" y="${toSvgY(10)}" width="${unit * 20}" height="${unit * 20}" />
+        ${gridLines.join("")}
+        <g class="axis-labels" aria-hidden="true">
+          <text x="${toSvgX(10) + 8}" y="${toSvgY(0) + 4}">x</text>
+          <text x="${toSvgX(0) + 5}" y="${toSvgY(10) - 6}">y</text>
+          <text x="${toSvgX(-10) - 7}" y="${toSvgY(0) + 16}">-10</text>
+          <text x="${toSvgX(10) - 5}" y="${toSvgY(0) + 16}">10</text>
+          <text x="${toSvgX(0) + 5}" y="${toSvgY(-10) + 4}">-10</text>
+          <text x="${toSvgX(0) + 5}" y="${toSvgY(10) + 4}">10</text>
+        </g>
+        <g clip-path="url(#${clipId})">
+          <line
+            class="graph-line"
+            x1="${toSvgX(start.x)}"
+            y1="${toSvgY(start.y)}"
+            x2="${toSvgX(end.x)}"
+            y2="${toSvgY(end.y)}"
+          />
+        </g>
+        ${problem.graph.points
+          .map(
+            (point, index) => `
+              <g class="graph-point">
+                <circle cx="${toSvgX(point.x)}" cy="${toSvgY(point.y)}" r="4.5" />
+                <text x="${toSvgX(point.x) + 7}" y="${toSvgY(point.y) - 7}">${index === 0 ? "A" : "B"}</text>
+              </g>
+            `,
+          )
+          .join("")}
+      </svg>
+    </figure>
+  `;
 }
 
 function renderAnswerInputs(problem) {
@@ -1283,6 +1474,103 @@ function renderAnswerInputs(problem) {
     `;
   }
 
+  if (problem.answerMode === "graphLine") {
+    if (problem.graphQuestion === "slope") {
+      return `
+        <label class="answer-field">
+          <span>Rise</span>
+          <input
+            type="text"
+            inputmode="numeric"
+            aria-label="Slope numerator for problem ${problem.number}"
+            data-answer-input="${problem.id}"
+            data-answer-key="numerator"
+            placeholder="num."
+          />
+        </label>
+        <label class="answer-field">
+          <span>Run</span>
+          <input
+            type="text"
+            inputmode="numeric"
+            aria-label="Slope denominator for problem ${problem.number}"
+            data-answer-input="${problem.id}"
+            data-answer-key="denominator"
+            placeholder="den."
+          />
+        </label>
+      `;
+    }
+
+    if (problem.graphQuestion === "intercept") {
+      return `
+        <label class="answer-field">
+          <span>b</span>
+          <input
+            type="text"
+            inputmode="text"
+            aria-label="Y-intercept for problem ${problem.number}"
+            data-answer-input="${problem.id}"
+            data-answer-key="b"
+            placeholder="b"
+          />
+        </label>
+      `;
+    }
+
+    if (problem.graphQuestion === "point") {
+      return `
+        <label class="answer-field">
+          <span>x</span>
+          <input
+            type="text"
+            inputmode="numeric"
+            aria-label="x-coordinate for a point on problem ${problem.number}"
+            data-answer-input="${problem.id}"
+            data-answer-key="x"
+            placeholder="x"
+          />
+        </label>
+        <label class="answer-field">
+          <span>y</span>
+          <input
+            type="text"
+            inputmode="numeric"
+            aria-label="y-coordinate for a point on problem ${problem.number}"
+            data-answer-input="${problem.id}"
+            data-answer-key="y"
+            placeholder="y"
+          />
+        </label>
+      `;
+    }
+
+    return `
+      <label class="answer-field">
+        <span>m</span>
+        <input
+          type="text"
+          inputmode="text"
+          aria-label="Slope m for problem ${problem.number}"
+          data-answer-input="${problem.id}"
+          data-answer-key="m"
+          placeholder="m"
+        />
+      </label>
+      <label class="answer-field">
+        <span>b</span>
+        <input
+          type="text"
+          inputmode="text"
+          aria-label="Y-intercept b for problem ${problem.number}"
+          data-answer-input="${problem.id}"
+          data-answer-key="b"
+          placeholder="b"
+        />
+      </label>
+    `;
+  }
+
   return `
     <input
       type="text"
@@ -1340,6 +1628,20 @@ function hasAnswerForProblem(problem, answers = state.answers) {
     const symbol = answer && typeof answer === "object" ? answer.symbol : "";
     const boundary = answer && typeof answer === "object" ? answer.boundary : "";
     return !isBlank(symbol) || !isBlank(boundary);
+  }
+
+  if (problem.answerMode === "graphLine") {
+    const response = answer && typeof answer === "object" ? answer : {};
+    if (problem.graphQuestion === "slope") {
+      return !isBlank(response.numerator) || !isBlank(response.denominator);
+    }
+    if (problem.graphQuestion === "intercept") {
+      return !isBlank(response.b);
+    }
+    if (problem.graphQuestion === "point") {
+      return !isBlank(response.x) || !isBlank(response.y);
+    }
+    return !isBlank(response.m) || !isBlank(response.b);
   }
 
   const rawAnswer = answer && typeof answer === "object" ? answer.x : answer;
@@ -1443,6 +1745,66 @@ function getProblemResult(problem, answers = state.answers) {
     }
 
     return symbol === problem.answer.symbol && boundary === problem.answer.boundary
+      ? "correct"
+      : "wrong";
+  }
+
+  if (problem.answerMode === "graphLine") {
+    const response = answer && typeof answer === "object" ? answer : {};
+
+    if (problem.graphQuestion === "slope") {
+      const numeratorValue = response.numerator;
+      const denominatorValue = response.denominator;
+      if (isBlank(numeratorValue) && isBlank(denominatorValue)) return "blank";
+
+      const numerator = Number(numeratorValue);
+      const denominator = Number(denominatorValue);
+      if (
+        isBlank(numeratorValue) ||
+        isBlank(denominatorValue) ||
+        !Number.isInteger(numerator) ||
+        !Number.isInteger(denominator) ||
+        denominator === 0
+      ) {
+        return "wrong";
+      }
+
+      return fractionsEqual(reduceFraction(numerator, denominator), problem.answer.slope)
+        ? "correct"
+        : "wrong";
+    }
+
+    if (problem.graphQuestion === "intercept") {
+      if (isBlank(response.b)) return "blank";
+      const bAnswer = parseFractionInput(response.b);
+      return bAnswer && fractionsEqual(bAnswer, problem.answer.b) ? "correct" : "wrong";
+    }
+
+    if (problem.graphQuestion === "point") {
+      if (isBlank(response.x) && isBlank(response.y)) return "blank";
+      const x = Number(response.x);
+      const y = Number(response.y);
+      if (
+        isBlank(response.x) ||
+        isBlank(response.y) ||
+        !Number.isInteger(x) ||
+        !Number.isInteger(y)
+      ) {
+        return "wrong";
+      }
+      const expectedY =
+        fractionToNumber(problem.graph.slope) * x + fractionToNumber(problem.graph.intercept);
+      return isCloseEnough(y, expectedY) ? "correct" : "wrong";
+    }
+
+    if (isBlank(response.m) && isBlank(response.b)) return "blank";
+    const mAnswer = parseFractionInput(response.m);
+    const bAnswer = parseFractionInput(response.b);
+    if (isBlank(response.m) || isBlank(response.b) || !mAnswer || !bAnswer) {
+      return "wrong";
+    }
+
+    return fractionsEqual(mAnswer, problem.answer.m) && fractionsEqual(bAnswer, problem.answer.b)
       ? "correct"
       : "wrong";
   }
@@ -1949,18 +2311,28 @@ function answersMapFromWork(work) {
 
 function formatAnswerValue(value) {
   if (value && typeof value === "object") {
-    if ("symbol" in value || "boundary" in value) {
-      const symbol = value.symbol || "?";
-      const boundary = value.boundary === undefined || value.boundary === "" ? "?" : value.boundary;
-      return `x ${symbol} ${boundary}`;
-    }
-
     if ("m" in value || "b" in value) {
       const mValue =
         value.m && typeof value.m === "object" ? formatFractionValue(value.m) : value.m || "?";
       const bValue =
         value.b && typeof value.b === "object" ? formatFractionValue(value.b) : value.b || "?";
-      return `m = ${mValue}, b = ${bValue}`;
+      if ("m" in value && "b" in value) return `m = ${mValue}, b = ${bValue}`;
+      if ("b" in value) return `b = ${bValue}`;
+      return `m = ${mValue}`;
+    }
+
+    if ("slope" in value) {
+      return `m = ${formatFractionValue(value.slope)}`;
+    }
+
+    if ("point" in value) {
+      return `Any point on the line, such as (${value.point.x}, ${value.point.y})`;
+    }
+
+    if ("symbol" in value || "boundary" in value) {
+      const symbol = value.symbol || "?";
+      const boundary = value.boundary === undefined || value.boundary === "" ? "?" : value.boundary;
+      return `x ${symbol} ${boundary}`;
     }
 
     if (value.kind === "undefined") {
