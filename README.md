@@ -18,6 +18,9 @@ Firebase-backed Algebra I assignment app for the Doral roster.
 - Slope-intercept assignments ask for `m` and `b` from equations in multiple forms.
 - Linear inequalities ask for the boundary number and inequality symbol, including sign-flip cases.
 - Coordinate grid line problems draw SVG graphs from -10 to 10 and ask for slope, y-intercept, points on the line, and equations from graphs.
+- Teachers can create custom assignments with title, assignment type, problem count, difficulty, due date, period, feedback timing, retry settings, and optional time limit.
+- Graph problems support reusable SVG grids and math tables for ordered pairs.
+- Lockdown browser testing support records assignment page focus-loss events; true tab restriction still requires a lockdown browser or kiosk mode.
 - Teachers can reset a selected assignment, which clears saved grades and changes the problem seed.
 - Teachers can return one student's submitted assignment, which removes that student's grade and reopens the same saved work for editing.
 - Firestore progress saves and submitted grades.
@@ -35,6 +38,7 @@ Firestore paths:
 - `roles/{teacherEmail}`
 - `assignments/{assignmentId}/progress/{studentId}`
 - `assignments/{assignmentId}/submissions/{studentId}`
+- `focusEvents/{eventId}`
 
 Storage path:
 
@@ -47,6 +51,15 @@ Rule templates are included in `firestore.rules` and `storage.rules`. Deploy the
 ```bash
 firebase deploy --only firestore:rules,storage
 ```
+
+## Lockdown Browser Checklist
+
+- Test the clean student link inside the lockdown browser.
+- Confirm students cannot open new tabs or switch away through the lockdown tool.
+- Confirm Google sign-in works in the lockdown browser environment.
+- Confirm answers autosave after refresh.
+- Confirm teacher/admin URLs deny student accounts.
+- Confirm focus-loss events appear in Firestore `focusEvents` during normal-browser testing.
 
 ## Local Test
 

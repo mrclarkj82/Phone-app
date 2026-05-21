@@ -353,6 +353,86 @@ a:focus-visible {
   overflow: hidden;
 }
 
+.assignment-builder {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.builder-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.builder-heading h2,
+.builder-heading p {
+  margin: 0;
+}
+
+.builder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.builder-grid label {
+  display: grid;
+  gap: 6px;
+}
+
+.builder-grid label span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.check-field {
+  align-content: end;
+  grid-template-columns: auto 1fr;
+  min-height: 70px;
+}
+
+.check-field input {
+  width: 18px;
+  height: 18px;
+}
+
+.custom-assignment-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.assignment-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.assignment-card h3,
+.assignment-card p {
+  margin: 0;
+}
+
+.assignment-card > span {
+  color: var(--accent);
+  font-weight: 900;
+}
+
+.compact-empty {
+  min-height: 82px;
+}
+
 .assignment-toolbar {
   display: flex;
   justify-content: space-between;
@@ -441,6 +521,40 @@ a:focus-visible {
   margin: 0;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.graph-prompt-stack {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.math-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.math-table {
+  width: max-content;
+  min-width: 190px;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+  background: #fff;
+}
+
+.math-table th,
+.math-table td {
+  min-width: 48px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  text-align: center;
+}
+
+.math-table th {
+  color: var(--muted);
+  background: var(--surface-strong);
+  font-size: 0.76rem;
+  text-transform: uppercase;
 }
 
 .coordinate-graph {

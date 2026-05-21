@@ -36,6 +36,12 @@ service cloud.firestore {
         request.resource.data.studentEmail == signedInEmail();
     }
 
+    function ownsTeacherCreatedAssignment() {
+      return signedIn() &&
+        request.resource.data.isTeacherCreated == true &&
+        request.resource.data.teacherEmail == signedInEmail();
+    }
+
     match /teachers/{teacherEmail} {
       allow get: if isAdmin() || (signedIn() && teacherEmail == signedInEmail());
       allow list, create, update, delete: if isAdmin();
@@ -48,7 +54,10 @@ service cloud.firestore {
 
     match /assignments/{assignmentId} {
       allow read: if signedIn();
-      allow create, update: if isAdmin() || isTeacher();
+      allow create: if isAdmin() || (isTeacher() && ownsTeacherCreatedAssignment());
+      allow update: if isAdmin() ||
+        (isTeacher() && !resource.data.isTeacherCreated) ||
+        (isTeacher() && resource.data.teacherEmail == signedInEmail() && request.resource.data.teacherEmail == signedInEmail());
       allow delete: if isAdmin();
 
       match /progress/{studentId} {
@@ -68,6 +77,14 @@ service cloud.firestore {
         allow create, update: if isAdmin() || canWriteOwnRosterDoc(studentId);
         allow delete: if isAdmin() || isTeacher();
       }
+    }
+
+    match /focusEvents/{eventId} {
+      allow create: if isAdmin() ||
+        isAssignedTeacher(request.resource.data.studentId) ||
+        canWriteOwnRosterDoc(request.resource.data.studentId);
+      allow read: if isAdmin() || isTeacher();
+      allow update, delete: if isAdmin();
     }
   }
 }

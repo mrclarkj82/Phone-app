@@ -230,6 +230,16 @@ const roster = [
 const rosterByEmail = new Map(roster.map((student) => [normalizeEmail(student.email), student]));
 const ADMIN_EMAIL = "joseph.clark@doralacademynv.org";
 const TEACHER_GROUP_ID = "teacher-group";
+const CUSTOM_ASSIGNMENT_TYPES = [
+  { id: "linear-equations", label: "Linear Equations", generator: makeLinearProblem, answerMode: "single", directions: "Solve for x" },
+  { id: "systems-equations", label: "Systems of Equations", generator: makeSystemProblem, answerMode: "pair", directions: "Solve for x and y" },
+  { id: "slope-two-points", label: "Slope from Two Points", generator: makeSlopeProblem, answerMode: "slope", directions: "Find the slope between the two points" },
+  { id: "graphing-linear-equations", label: "Graphing Linear Equations", generator: makeCoordinateGridLineProblem, answerMode: "graphLine", directions: "Use the graph to answer each question" },
+  { id: "writing-equations-from-graphs", label: "Writing Equations from Graphs", generator: makeCoordinateGridLineProblem, answerMode: "graphLine", directions: "Write equations from graphs" },
+  { id: "multi-step-equations", label: "Solving Multi-Step Equations", generator: makeLinearProblem, answerMode: "single", directions: "Solve each multi-step equation" },
+  { id: "inequalities", label: "Inequalities", generator: makeLinearInequalityProblem, answerMode: "inequality", directions: "Solve each inequality for x" },
+  { id: "coordinate-grid-problems", label: "Coordinate Grid Problems", generator: makeCoordinateGridLineProblem, answerMode: "graphLine", directions: "Use the coordinate grid to answer" },
+];
 const ROLES = Object.freeze({
   ADMIN: "admin",
   STUDENT: "student",
@@ -247,6 +257,7 @@ const state = {
   isSubmitted: false,
   progress: {},
   submissions: {},
+  customAssignments: [],
   assignmentSettings: {},
   dashboardUnsubscribes: [],
   teacherProfile: null,
@@ -306,6 +317,21 @@ const elements = {
   saveTeacherButton: document.querySelector("#save-teacher"),
   clearTeacherButton: document.querySelector("#clear-teacher-form"),
   teacherList: document.querySelector("#teacher-list"),
+  assignmentBuilder: document.querySelector("#assignment-builder"),
+  customAssignmentTitle: document.querySelector("#custom-assignment-title"),
+  customAssignmentType: document.querySelector("#custom-assignment-type"),
+  customProblemCount: document.querySelector("#custom-problem-count"),
+  customProblemCountOther: document.querySelector("#custom-problem-count-other"),
+  customDifficulty: document.querySelector("#custom-difficulty"),
+  customDueDate: document.querySelector("#custom-due-date"),
+  customClassPeriod: document.querySelector("#custom-class-period"),
+  customFeedbackMode: document.querySelector("#custom-feedback-mode"),
+  customAllowRetries: document.querySelector("#custom-allow-retries"),
+  customMaxAttempts: document.querySelector("#custom-max-attempts"),
+  customTimeEnabled: document.querySelector("#custom-time-enabled"),
+  customTimeLimit: document.querySelector("#custom-time-limit"),
+  saveAssignmentButton: document.querySelector("#save-assignment"),
+  customAssignmentList: document.querySelector("#custom-assignment-list"),
 };
 
 function normalizeEmail(email = "") {
@@ -349,8 +375,12 @@ function getSelectedAssignment() {
   return state.selectedAssignment || assignments[0];
 }
 
+function getAllAssignments() {
+  return [...assignments, ...state.customAssignments];
+}
+
 function getAssignmentById(assignmentId) {
-  return assignments.find((assignment) => assignment.id === assignmentId) || assignments[0];
+  return getAllAssignments().find((assignment) => assignment.id === assignmentId) || assignments[0];
 }
 
 function renderHeaderCounts() {
@@ -971,6 +1001,13 @@ function makeCoordinateGridLineProblem(random, problemNumber = 1) {
         { x: x2, y: y2 },
       ],
     },
+    table: {
+      headers: ["Point", "x", "y"],
+      rows: [
+        ["A", x1, y1],
+        ["B", x2, y2],
+      ],
+    },
     answer:
       questionKind === "slope"
         ? { slope }
@@ -1077,6 +1114,85 @@ function teachersCollection() {
   return collection(db, "teachers");
 }
 
+function assignmentsCollection() {
+  return collection(db, "assignments");
+}
+
+function focusEventsCollection() {
+  return collection(db, "focusEvents");
+}
+
+function getAssignmentTypeConfig(typeId) {
+  return CUSTOM_ASSIGNMENT_TYPES.find((type) => type.id === typeId) || CUSTOM_ASSIGNMENT_TYPES[0];
+}
+
+function normalizeProblemCount(value) {
+  const count = Number(value);
+  if (!Number.isInteger(count) || count < 1) return 10;
+  return Math.min(count, 60);
+}
+
+function normalizeCustomAssignment(data = {}, fallbackId = "") {
+  const typeConfig = getAssignmentTypeConfig(data.assignmentType);
+  const problemCount = normalizeProblemCount(data.problemCount);
+  return {
+    id: data.assignmentId || fallbackId,
+    title: data.title || typeConfig.label,
+    directions: data.directions || typeConfig.directions,
+    problemCount,
+    answerMode: data.answerMode || typeConfig.answerMode,
+    answerPlaceholder: data.answerPlaceholder || "value",
+    generator: typeConfig.generator,
+    isTeacherCreated: true,
+    assignmentType: typeConfig.id,
+    assignmentTypeLabel: typeConfig.label,
+    difficulty: data.difficulty || "mixed",
+    dueDate: data.dueDate || "",
+    classPeriod: data.classPeriod || "",
+    showImmediateFeedback: data.showImmediateFeedback === true,
+    allowRetries: data.allowRetries === true,
+    maxAttempts: normalizeProblemCount(data.maxAttempts || 1),
+    timeLimitMinutes: Number(data.timeLimitMinutes || 0),
+    teacherEmail: normalizeEmail(data.teacherEmail || ""),
+    teacherName: data.teacherName || "",
+    createdAt: data.createdAt || null,
+    updatedAt: data.updatedAt || null,
+  };
+}
+
+async function loadCustomAssignments() {
+  if (!state.user) {
+    state.customAssignments = [];
+    renderAssignmentOptions();
+    renderCustomAssignmentList();
+    return;
+  }
+
+  try {
+    const snapshot = await getDocs(assignmentsCollection());
+    const userEmail = normalizeEmail(state.user?.email || "");
+    const customAssignments = [];
+    snapshot.forEach((assignmentDoc) => {
+      const data = assignmentDoc.data();
+      if (!data?.isTeacherCreated) return;
+      const assignment = normalizeCustomAssignment(data, assignmentDoc.id);
+      if (page === "teacher" && !isAdminAccount() && assignment.teacherEmail && assignment.teacherEmail !== userEmail) {
+        return;
+      }
+      customAssignments.push(assignment);
+    });
+    state.customAssignments = customAssignments.sort((left, right) =>
+      left.title.localeCompare(right.title),
+    );
+  } catch (error) {
+    state.customAssignments = [];
+    const target = page === "teacher" ? elements.teacherNote : elements.studentCloudNote;
+    setBanner(target, readableFirebaseError(error), "warning");
+  }
+  renderAssignmentOptions();
+  renderCustomAssignmentList();
+}
+
 async function loadTeacherProfile() {
   state.teacherProfile = null;
 
@@ -1110,10 +1226,10 @@ function renderAuth() {
 }
 
 function renderAssignmentOptions() {
-  const options = assignments
+  const options = getAllAssignments()
     .map(
       (assignment) =>
-        `<option value="${assignment.id}">${escapeHtml(assignment.title)} (${assignment.problemCount})</option>`,
+        `<option value="${assignment.id}">${escapeHtml(assignment.title)} (${assignment.problemCount})${assignment.isTeacherCreated ? " - Custom" : ""}</option>`,
     )
     .join("");
 
@@ -1133,6 +1249,92 @@ function updateAssignmentDisplay() {
   setText(elements.assignmentDirections, assignment.directions);
   setText(elements.teacherHeading, assignment.title);
   renderHeaderCounts();
+}
+
+function renderAssignmentBuilderOptions() {
+  if (!elements.customAssignmentType) return;
+  elements.customAssignmentType.innerHTML = CUSTOM_ASSIGNMENT_TYPES.map(
+    (type) => `<option value="${type.id}">${escapeHtml(type.label)}</option>`,
+  ).join("");
+}
+
+function getCustomProblemCountInput() {
+  const selected = elements.customProblemCount?.value || "10";
+  if (selected === "custom") {
+    return normalizeProblemCount(elements.customProblemCountOther?.value || 10);
+  }
+  return normalizeProblemCount(selected);
+}
+
+function getCustomAssignmentPayload() {
+  const typeConfig = getAssignmentTypeConfig(elements.customAssignmentType?.value);
+  const title = elements.customAssignmentTitle?.value.trim() || typeConfig.label;
+  const problemCount = getCustomProblemCountInput();
+  const timeEnabled = elements.customTimeEnabled?.checked === true;
+  const assignmentId = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return {
+    assignmentId,
+    isTeacherCreated: true,
+    teacherId: state.user?.uid || "",
+    teacherEmail: normalizeEmail(state.user?.email || ""),
+    teacherName: state.user?.displayName || state.teacherProfile?.name || "",
+    title,
+    assignmentType: typeConfig.id,
+    assignmentTypeLabel: typeConfig.label,
+    answerMode: typeConfig.answerMode,
+    directions: typeConfig.directions,
+    problemCount,
+    difficulty: elements.customDifficulty?.value || "mixed",
+    assignedClassIds: [elements.customClassPeriod?.value.trim() || "default"],
+    classPeriod: elements.customClassPeriod?.value.trim() || "Default class",
+    dueDate: elements.customDueDate?.value || "",
+    showImmediateFeedback: elements.customFeedbackMode?.value === "immediate",
+    allowRetries: elements.customAllowRetries?.checked === true,
+    maxAttempts: normalizeProblemCount(elements.customMaxAttempts?.value || 1),
+    timeLimitMinutes: timeEnabled ? normalizeProblemCount(elements.customTimeLimit?.value || 30) : 0,
+    resetKey: "initial",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+}
+
+function renderCustomAssignmentList() {
+  if (!elements.customAssignmentList) return;
+  if (!state.customAssignments.length) {
+    elements.customAssignmentList.innerHTML = `<div class="empty-state compact-empty">No teacher-created assignments yet.</div>`;
+    return;
+  }
+  elements.customAssignmentList.innerHTML = state.customAssignments
+    .map(
+      (assignment) => `
+        <article class="assignment-card">
+          <div>
+            <p class="eyebrow">${escapeHtml(assignment.assignmentTypeLabel || assignment.assignmentType)}</p>
+            <h3>${escapeHtml(assignment.title)}</h3>
+            <p>${escapeHtml(assignment.problemCount)} problems - ${escapeHtml(assignment.difficulty)} - ${escapeHtml(assignment.classPeriod || "Default class")}</p>
+          </div>
+          <span>${assignment.showImmediateFeedback ? "Immediate feedback" : "After submission"}</span>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+async function saveCustomAssignment() {
+  if (!state.user || !isTeacherAccount()) return;
+  const payload = getCustomAssignmentPayload();
+  setDisabled(elements.saveAssignmentButton, true);
+  try {
+    await setDoc(doc(db, "assignments", payload.assignmentId), payload, { merge: true });
+    setBanner(elements.teacherNote, `${payload.title} was created with ${payload.problemCount} problems.`, "success");
+    if (elements.customAssignmentTitle) elements.customAssignmentTitle.value = "";
+    await loadCustomAssignments();
+    selectAssignment(payload.assignmentId);
+  } catch (error) {
+    setBanner(elements.teacherNote, readableFirebaseError(error), "danger");
+  } finally {
+    setDisabled(elements.saveAssignmentButton, !isTeacherAccount());
+  }
 }
 
 function resetStudentWork() {
@@ -1274,7 +1476,10 @@ function renderProblemPrompt(problem) {
     return `
       <div class="graph-problem">
         ${renderCoordinateGrid(problem)}
-        <p>${escapeHtml(problem.equation)}</p>
+        <div class="graph-prompt-stack">
+          <p>${escapeHtml(problem.equation)}</p>
+          ${renderMathTable(problem.table)}
+        </div>
       </div>
     `;
   }
@@ -1282,10 +1487,28 @@ function renderProblemPrompt(problem) {
   if (problem.equations) {
     return `<div class="system-equations">${problem.equations
       .map((equation) => `<span>${escapeHtml(equation)}</span>`)
-      .join("")}</div>`;
+      .join("")}</div>${renderMathTable(problem.table)}`;
   }
 
-  return escapeHtml(problem.equation);
+  return `${escapeHtml(problem.equation)}${renderMathTable(problem.table)}`;
+}
+
+function renderMathTable(table) {
+  if (!table?.headers?.length || !Array.isArray(table.rows)) return "";
+  return `
+    <div class="math-table-wrap">
+      <table class="math-table">
+        <thead>
+          <tr>${table.headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr>
+        </thead>
+        <tbody>
+          ${table.rows
+            .map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`)
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 function renderCoordinateGrid(problem) {
@@ -1835,7 +2058,7 @@ function updateProblemFeedback(problemId) {
   if (!problem || !card || !feedback) return;
 
   const result = getProblemResult(problem);
-  const shouldRevealGrade = state.isSubmitted;
+  const shouldRevealGrade = state.isSubmitted || getSelectedAssignment().showImmediateFeedback === true;
   card.classList.toggle("is-correct", shouldRevealGrade && result === "correct");
   card.classList.toggle("is-wrong", shouldRevealGrade && result === "wrong");
 
@@ -2097,6 +2320,36 @@ async function hydrateStudentWork(student) {
 
     setBanner(elements.studentCloudNote, readableFirebaseError(error), "danger");
     setSaveState("Cloud unavailable");
+  }
+}
+
+async function recordFocusEvent(eventType) {
+  if (!state.user || !state.selectedStudent || !state.problems.length || state.isSubmitted) return;
+  try {
+    const eventId = `${getSelectedAssignment().id}-${state.selectedStudent.id}-${Date.now()}`;
+    await setDoc(doc(db, "focusEvents", eventId), {
+      eventId,
+      assignmentId: getSelectedAssignment().id,
+      assignmentTitle: getSelectedAssignment().title,
+      studentId: state.selectedStudent.id,
+      studentEmail: state.selectedStudent.email,
+      eventType,
+      pageHidden: document.hidden,
+      createdAt: serverTimestamp(),
+    });
+  } catch {
+    // Focus logging is helpful for lockdown testing, but it should never block student work.
+  }
+}
+
+function handleAssignmentVisibilityChange() {
+  if (document.hidden) {
+    recordFocusEvent("page-hidden");
+    setBanner(
+      elements.studentCloudNote,
+      "Stay on the assignment page. Your teacher may review page-focus events during lockdown testing.",
+      "warning",
+    );
   }
 }
 
@@ -3292,6 +3545,14 @@ function bindEvents() {
   });
   elements.saveTeacherButton?.addEventListener("click", saveTeacher);
   elements.clearTeacherButton?.addEventListener("click", clearTeacherForm);
+  elements.saveAssignmentButton?.addEventListener("click", saveCustomAssignment);
+  elements.customProblemCount?.addEventListener("change", () => {
+    setHidden(elements.customProblemCountOther, elements.customProblemCount.value !== "custom");
+  });
+  elements.customTimeEnabled?.addEventListener("change", () => {
+    setDisabled(elements.customTimeLimit, !elements.customTimeEnabled.checked);
+  });
+  document.addEventListener("visibilitychange", handleAssignmentVisibilityChange);
 }
 
 function initAuthListener() {
@@ -3310,10 +3571,13 @@ function initAuthListener() {
     }
 
     if (page === "student") {
+      await loadCustomAssignments();
       handleStudentAuthState();
     }
 
     if (page === "teacher") {
+      await loadCustomAssignments();
+      setDisabled(elements.saveAssignmentButton, !isTeacherAccount());
       subscribeDashboard();
     }
 
@@ -3324,6 +3588,7 @@ function initAuthListener() {
 }
 
 function init() {
+  renderAssignmentBuilderOptions();
   renderAssignmentOptions();
   renderHeaderCounts();
   updateAssignmentDisplay();
@@ -3334,6 +3599,7 @@ function init() {
   updateStudentScore();
   renderDashboard();
   renderTeacherList();
+  renderCustomAssignmentList();
   bindEvents();
   initAuthListener();
 }

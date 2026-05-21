@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Teacher Dashboard | DragonMath</title>
-    <link rel="stylesheet" href="styles.css?v=20260519-4" />
+    <link rel="stylesheet" href="styles.css?v=20260521-1" />
   </head>
   <body data-page="teacher">
     <header class="app-header">
@@ -36,6 +36,82 @@
 
       <section aria-labelledby="teacher-heading">
         <div class="dashboard-grid">
+          <section class="assignment-builder" id="assignment-builder" aria-labelledby="assignment-builder-heading">
+            <div class="builder-heading">
+              <div>
+                <p class="eyebrow">Assignment Builder</p>
+                <h2 id="assignment-builder-heading">Create Assignment</h2>
+              </div>
+              <button class="primary-button" id="save-assignment" type="button" disabled>
+                Create Assignment
+              </button>
+            </div>
+            <div class="builder-grid">
+              <label>
+                <span>Assignment title</span>
+                <input id="custom-assignment-title" type="text" placeholder="Unit 4 Slope Practice" />
+              </label>
+              <label>
+                <span>Assignment type</span>
+                <select id="custom-assignment-type"></select>
+              </label>
+              <label>
+                <span>Problems</span>
+                <select id="custom-problem-count">
+                  <option value="5">5 problems</option>
+                  <option value="10" selected>10 problems</option>
+                  <option value="15">15 problems</option>
+                  <option value="20">20 problems</option>
+                  <option value="custom">Custom amount</option>
+                </select>
+              </label>
+              <label>
+                <span>Custom amount</span>
+                <input id="custom-problem-count-other" type="number" min="1" max="60" value="12" hidden />
+              </label>
+              <label>
+                <span>Difficulty</span>
+                <select id="custom-difficulty">
+                  <option value="easy">Easy</option>
+                  <option value="mixed" selected>Mixed</option>
+                  <option value="challenge">Challenge</option>
+                </select>
+              </label>
+              <label>
+                <span>Due date</span>
+                <input id="custom-due-date" type="date" />
+              </label>
+              <label>
+                <span>Class / period</span>
+                <input id="custom-class-period" type="text" placeholder="Period 1" />
+              </label>
+              <label>
+                <span>Feedback</span>
+                <select id="custom-feedback-mode">
+                  <option value="after-submit" selected>Only after submission</option>
+                  <option value="immediate">Show immediately</option>
+                </select>
+              </label>
+              <label class="check-field">
+                <input id="custom-allow-retries" type="checkbox" />
+                <span>Allow retries</span>
+              </label>
+              <label>
+                <span>Maximum attempts</span>
+                <input id="custom-max-attempts" type="number" min="1" max="10" value="1" />
+              </label>
+              <label class="check-field">
+                <input id="custom-time-enabled" type="checkbox" />
+                <span>Enable time limit</span>
+              </label>
+              <label>
+                <span>Time limit minutes</span>
+                <input id="custom-time-limit" type="number" min="1" max="180" value="30" disabled />
+              </label>
+            </div>
+            <div class="custom-assignment-list" id="custom-assignment-list"></div>
+          </section>
+
           <section class="dashboard-summary" aria-label="Class summary">
             <div>
               <p class="eyebrow">Live Class Data</p>
@@ -130,6 +206,6 @@
       </section>
     </main>
 
-    <script type="module" src="app.js?v=20260519-4"></script>
+    <script type="module" src="app.js?v=20260521-1"></script>
   </body>
 </html>
