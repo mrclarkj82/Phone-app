@@ -8,6 +8,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
+import { roster } from "../../app";
 import PrivateHeader from "../components/PrivateHeader";
 import { db } from "../lib/firebase";
 
@@ -24,7 +25,7 @@ const emptyClassForm = {
   name: "",
   period: "",
   teacherUid: "",
-  studentUids: [],
+  studentKeys: [],
 };
 
 const roleLabels = {
@@ -95,12 +96,11 @@ export default function AdminDashboard() {
   const sortedAccounts = useMemo(() => [...accounts].sort(sortByName), [accounts]);
 
   const teachers = useMemo(
-    () => sortedAccounts.filter((account) => account.role === "teacher" && account.active !== false),
-    [sortedAccounts],
-  );
-
-  const students = useMemo(
-    () => sortedAccounts.filter((account) => account.role === "student" && account.active !== false),
+    () =>
+      sortedAccounts.filter(
+        (account) =>
+          (account.role === "teacher" || account.role === "admin") && account.active !== false,
+      ),
     [sortedAccounts],
   );
 
@@ -155,7 +155,11 @@ export default function AdminDashboard() {
       name: classRecord.name || "",
       period: classRecord.period || "",
       teacherUid: classRecord.teacherUid || "",
-      studentUids: Array.isArray(classRecord.studentUids) ? classRecord.studentUids : [],
+      studentKeys: Array.isArray(classRecord.studentKeys)
+        ? classRecord.studentKeys
+        : Array.isArray(classRecord.studentUids)
+          ? classRecord.studentUids
+          : [],
     });
     setMessage(`Editing ${classRecord.name || classRecord.id}.`);
     setMessageTone("neutral");
@@ -244,7 +248,7 @@ export default function AdminDashboard() {
     const classId = editingClassId || cleanId(classForm.id || `${classForm.period}-${classForm.name}`);
     const name = classForm.name.trim();
     const teacher = accountByUid.get(classForm.teacherUid);
-    const studentUids = classForm.studentUids.filter(Boolean);
+    const studentKeys = classForm.studentKeys.filter(Boolean);
 
     if (!classId || !name || !classForm.teacherUid) {
       setMessage("Enter a class ID, class name, and teacher.");
@@ -252,7 +256,7 @@ export default function AdminDashboard() {
       return;
     }
 
-    if (!studentUids.length) {
+    if (!studentKeys.length) {
       setMessage("Assign at least one student to this class.");
       setMessageTone("warning");
       return;
@@ -265,9 +269,7 @@ export default function AdminDashboard() {
         period: classForm.period.trim(),
         teacherUid: classForm.teacherUid,
         teacherEmail: teacher?.email || "",
-        teacherName: teacher?.displayName || "",
-        studentUids,
-        studentEmails: studentUids.map((uid) => accountByUid.get(uid)?.email || "").filter(Boolean),
+        studentKeys,
         updatedAt: serverTimestamp(),
       };
 
@@ -292,7 +294,7 @@ export default function AdminDashboard() {
         );
       }
 
-      setMessage(`${name} saved with ${studentUids.length} students.`);
+      setMessage(`${name} saved with ${studentKeys.length} students.`);
       setMessageTone("success");
       clearClassForm();
     } catch (error) {
@@ -320,13 +322,13 @@ export default function AdminDashboard() {
 
   function toggleClassStudent(uid) {
     setClassForm((current) => {
-      const studentUids = new Set(current.studentUids);
-      if (studentUids.has(uid)) {
-        studentUids.delete(uid);
+      const studentKeys = new Set(current.studentKeys);
+      if (studentKeys.has(uid)) {
+        studentKeys.delete(uid);
       } else {
-        studentUids.add(uid);
+        studentKeys.add(uid);
       }
-      return { ...current, studentUids: [...studentUids] };
+      return { ...current, studentKeys: [...studentKeys] };
     });
   }
 
@@ -345,7 +347,7 @@ export default function AdminDashboard() {
             <strong>{teachers.length}</strong> teachers
           </span>
           <span>
-            <strong>{students.length}</strong> students
+            <strong>{roster.length}</strong> students
           </span>
           <span>
             <strong>{classes.length}</strong> classes
@@ -500,27 +502,26 @@ export default function AdminDashboard() {
                   <h3 className="m-0 text-lg font-black">Assigned To Class</h3>
                 </div>
                 <span className="text-sm font-bold text-slate-500">
-                  {classForm.studentUids.length} selected
+                  {classForm.studentKeys.length} selected
                 </span>
               </div>
               <div className="grid max-h-80 gap-2 overflow-auto pr-1 sm:grid-cols-2">
-                {students.length ? (
-                  students.map((student) => {
-                    const uid = student.uid || student.id;
+                {roster.length ? (
+                  roster.map((student) => {
+                    const uid = student.key;
                     return (
                       <label
                         className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-md border border-slate-200 bg-slate-50 p-3"
                         key={uid}
                       >
                         <input
-                          checked={classForm.studentUids.includes(uid)}
+                          checked={classForm.studentKeys.includes(uid)}
                           className="mt-1 h-4 min-h-0 w-4"
                           onChange={() => toggleClassStudent(uid)}
                           type="checkbox"
                         />
                         <span className="min-w-0">
-                          <strong className="block truncate">{student.displayName || student.email}</strong>
-                          <small className="block truncate text-slate-500">{student.email}</small>
+                          <strong className="block truncate">{student.name}</strong>
                         </span>
                       </label>
                     );
@@ -617,9 +618,13 @@ export default function AdminDashboard() {
             </div>
             <div className="grid gap-3 p-4">
               {sortedClasses.map((classRecord) => {
-                const teacher = accountByUid.get(classRecord.teacherUid);
-                const studentNames = (classRecord.studentUids || [])
-                  .map((uid) => accountByUid.get(uid)?.displayName || accountByUid.get(uid)?.email)
+                const studentKeys = Array.isArray(classRecord.studentKeys)
+                  ? classRecord.studentKeys
+                  : Array.isArray(classRecord.studentUids)
+                    ? classRecord.studentUids
+                    : [];
+                const studentNames = studentKeys
+                  .map((key) => roster.find((student) => student.key === key)?.name)
                   .filter(Boolean);
 
                 return (
@@ -628,7 +633,7 @@ export default function AdminDashboard() {
                       <p className="eyebrow">{classRecord.period ? `Period ${classRecord.period}` : classRecord.id}</p>
                       <h3 className="m-0 text-lg font-black">{classRecord.name || classRecord.id}</h3>
                       <p className="m-0 mt-1 text-sm font-semibold text-slate-600">
-                        {teacher?.displayName || classRecord.teacherName || "No teacher selected"}
+                        {classRecord.teacherUid ? "Teacher assigned" : "No teacher selected"}
                       </p>
                     </div>
                     <p className="m-0 text-sm leading-6 text-slate-600">

@@ -36,7 +36,7 @@ export default function PrivateHeader({ title, eyebrow, children }) {
           ))}
         </nav>
         <div className="grid gap-0.5 text-right text-sm text-slate-100">
-          <strong className="font-black">{account?.displayName || account?.email}</strong>
+          <strong className="font-black">Signed in</strong>
           <span className="capitalize text-teal-100">{account?.role}</span>
         </div>
         <button

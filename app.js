@@ -29,7 +29,7 @@ const assignments = [
   },
 ];
 
-const roster = [
+export const roster = [
   {
     key: "akers-lillian",
     name: "Lillian Akers",
@@ -159,6 +159,7 @@ const state = {
   problems: [],
   answers: new Map(),
   submissions: loadSubmissions(),
+  visibleStudentKeys: null,
 };
 
 let elements = {};
@@ -230,6 +231,12 @@ async function findStudentByAccessCode(accessCode) {
   return roster.find((student) => student.accessHash === accessHash) || null;
 }
 
+function getVisibleRoster() {
+  if (!Array.isArray(state.visibleStudentKeys)) return roster;
+  const visibleKeys = new Set(state.visibleStudentKeys);
+  return roster.filter((student) => visibleKeys.has(student.key));
+}
+
 function setAccessNote(message, status = "") {
   if (!elements.accessNote) return;
 
@@ -249,7 +256,7 @@ function getAssignmentById(assignmentId) {
 function renderHeaderCounts() {
   const assignment = getSelectedAssignment();
   setText(elements.headerProblemCount, assignment.problemCount);
-  setText(elements.headerStudentCount, roster.length);
+  setText(elements.headerStudentCount, getVisibleRoster().length);
 }
 
 function hashString(value) {
@@ -930,7 +937,9 @@ function renderDashboard() {
 
   const assignment = getSelectedAssignment();
   const assignmentSubmissions = getAssignmentSubmissions(assignment);
-  const rows = roster.map((student) => {
+  const visibleRoster = getVisibleRoster();
+  const visibleKeys = new Set(visibleRoster.map((student) => student.key));
+  const rows = visibleRoster.map((student) => {
     const submission = assignmentSubmissions[student.key];
     const submittedAt = submission
       ? new Intl.DateTimeFormat(undefined, {
@@ -966,7 +975,9 @@ function renderDashboard() {
     button.addEventListener("click", () => resetStudentSubmission(button.dataset.resetStudent));
   });
 
-  const submissions = Object.values(assignmentSubmissions);
+  const submissions = Object.values(assignmentSubmissions).filter((submission) =>
+    visibleKeys.has(submission.studentKey),
+  );
   const submittedCount = submissions.length;
   const average = submittedCount
     ? Math.round(submissions.reduce((sum, item) => sum + item.percent, 0) / submittedCount)
@@ -975,7 +986,7 @@ function renderDashboard() {
     ? Math.max(...submissions.map((item) => item.percent))
     : null;
 
-  setText(elements.submittedCount, `${submittedCount} / ${roster.length}`);
+  setText(elements.submittedCount, `${submittedCount} / ${visibleRoster.length}`);
   setText(elements.classAverage, average === null ? "--" : `${average}%`);
   setText(elements.highestScore, highest === null ? "--" : `${highest}%`);
   updateDashboardSyncStatus();
@@ -1007,7 +1018,7 @@ function resetDashboard() {
 
 function resetStudentSubmission(studentKey) {
   const assignment = getSelectedAssignment();
-  const student = roster.find((item) => item.key === studentKey);
+  const student = getVisibleRoster().find((item) => item.key === studentKey);
   if (!student) return;
 
   const confirmed = window.confirm(`Reset ${student.name}'s submitted answers for ${assignment.title}?`);
@@ -1093,7 +1104,7 @@ function init() {
   bindEvents();
 }
 
-export function mountAssignmentDashboard() {
+export function mountAssignmentDashboard(options = {}) {
   if (dashboardRefreshTimer) {
     window.clearInterval(dashboardRefreshTimer);
     dashboardRefreshTimer = null;
@@ -1106,6 +1117,9 @@ export function mountAssignmentDashboard() {
   state.problems = [];
   state.answers = new Map();
   state.submissions = loadSubmissions();
+  state.visibleStudentKeys = Array.isArray(options.visibleStudentKeys)
+    ? options.visibleStudentKeys
+    : null;
   init();
 
   return () => {
