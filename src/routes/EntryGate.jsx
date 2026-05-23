@@ -13,6 +13,10 @@ export default function EntryGate({ allowedRole, children }) {
   }
 
   if (status !== "assigned" || !account) {
+    if (location.pathname !== "/login") {
+      return <Navigate to="/login" replace />;
+    }
+
     return <LoginPage />;
   }
 
