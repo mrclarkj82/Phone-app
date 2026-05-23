@@ -21,7 +21,7 @@ export default function App() {
       <Route
         path="/teacher"
         element={
-          <EntryGate allowedRole="teacher">
+          <EntryGate allowedRoles={["teacher", "admin"]}>
             <TeacherDashboard />
           </EntryGate>
         }
