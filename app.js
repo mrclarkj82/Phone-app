@@ -1,47 +1,20 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import {
-  GoogleAuthProvider,
-  getAuth,
-  onAuthStateChanged,
-  signInWithPopup,
-  signOut,
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  getFirestore,
-  onSnapshot,
-  serverTimestamp,
-  setDoc,
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-import {
-  deleteObject,
-  getDownloadURL,
-  getStorage,
-  ref as storageRef,
-  uploadString,
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBQeaSzDm4UOm1XzW3uBWzG36C1v3XABhs",
-  authDomain: "dragonmath-f6f56.firebaseapp.com",
-  projectId: "dragonmath-f6f56",
-  storageBucket: "dragonmath-f6f56.firebasestorage.app",
-  messagingSenderId: "1011267897815",
-  appId: "1:1011267897815:web:72409b23d79021f0f22392",
-};
-
 const LINEAR_ASSIGNMENT_ID = "linear-equations-doral-v1";
+const STORAGE_KEY = "freshman-algebra-linear-dashboard-doral-v3";
+const LEGACY_STORAGE_KEYS = [
+  "freshman-algebra-linear-dashboard-doral-v2",
+  "freshman-algebra-linear-dashboard-doral-v1",
+];
+const ANSWER_TOLERANCE = 0.0001;
+const ACCESS_HASH_SALT = "freshman-algebra-doral-id-v1";
+const DASHBOARD_REFRESH_INTERVAL_MS = 3000;
+
 const assignments = [
   {
     id: LINEAR_ASSIGNMENT_ID,
     title: "Linear Equations",
     directions: "Solve for x",
     problemCount: 30,
-    answerMode: "single",
+    answerType: "single",
     answerPlaceholder: "x =",
     generator: makeLinearProblem,
   },
@@ -50,292 +23,179 @@ const assignments = [
     title: "Systems of Equations",
     directions: "Solve for x and y",
     problemCount: 15,
-    answerMode: "pair",
+    answerType: "ordered-pair",
     answerPlaceholder: "value",
     generator: makeSystemProblem,
   },
-  {
-    id: "slope-two-points-v1",
-    title: "Slope from Two Points",
-    directions: "Find the slope between the two points",
-    problemCount: 30,
-    answerMode: "slope",
-    answerPlaceholder: "slope",
-    generator: makeSlopeProblem,
-  },
-  {
-    id: "slope-intercept-form-v1",
-    title: "Slope Intercept Form",
-    directions: "Identify the slope m and y-intercept b",
-    problemCount: 30,
-    answerMode: "slopeIntercept",
-    answerPlaceholder: "value",
-    generator: makeSlopeInterceptProblem,
-  },
-  {
-    id: "linear-inequalities-html-v1",
-    title: "Linear Inequalities HTML",
-    directions: "Solve each inequality for x",
-    problemCount: 30,
-    answerMode: "inequality",
-    answerPlaceholder: "boundary",
-    generator: makeLinearInequalityProblem,
-  },
-  {
-    id: "coordinate-grid-lines-v1",
-    title: "Coordinate Grid Lines",
-    directions: "Use the graph to answer each question",
-    problemCount: 30,
-    answerMode: "graphLine",
-    answerPlaceholder: "value",
-    generator: makeCoordinateGridLineProblem,
-  },
 ];
-const PROGRESS_SAVE_DELAY = 650;
-
-const firebaseApp = initializeApp(firebaseConfig);
-const auth = getAuth(firebaseApp);
-const provider = new GoogleAuthProvider();
-const db = getFirestore(firebaseApp);
-const storage = getStorage(firebaseApp);
 
 const roster = [
   {
-    id: "S1001",
-    name: "Amaya Solbes",
-    email: "amaya.solbes@student.doralacademynv.org",
-  },
-  {
-    id: "S1002",
-    name: "Austin Davis",
-    email: "austin.davis@student.doralacademynv.org",
-  },
-  {
-    id: "S1003",
-    name: "Camila Lopez",
-    email: "camila.lopez@student.doralacademynv.org",
-  },
-  {
-    id: "S1004",
-    name: "Tony Mkhitaryan",
-    email: "tony.mkhitaryan@student.doralacademynv.org",
-  },
-  {
-    id: "S1005",
-    name: "Emme Nguyen",
-    email: "emme.nguyen@student.doralacademynv.org",
-  },
-  {
-    id: "S1006",
-    name: "Brilynn Moates",
-    email: "brilynn.moates@student.doralacademynv.org",
-  },
-  {
-    id: "S1007",
-    name: "Elias Terry",
-    email: "elias.terry@student.doralacademynv.org",
-  },
-  {
-    id: "S1008",
-    name: "Raevyn Moore",
-    email: "raevyn.moore@student.doralacademynv.org",
-  },
-  {
-    id: "S1009",
-    name: "Madison Osborn",
-    email: "madison.osborn@student.doralacademynv.org",
-  },
-  {
-    id: "S1010",
-    name: "Antony Stoev",
-    email: "antony.stoev@student.doralacademynv.org",
-  },
-  {
-    id: "S1011",
-    name: "Capri Vickers",
-    email: "capri.vickers@student.doralacademynv.org",
-  },
-  {
-    id: "S1012",
-    name: "Joshua Hearne",
-    email: "joshua.hearne@student.doralacademynv.org",
-  },
-  {
-    id: "S1013",
+    key: "akers-lillian",
     name: "Lillian Akers",
-    email: "lillian.akers@student.doralacademynv.org",
+    accessHash: "dcf4289b3363df6ddfbc2e17d440a6542c0a1cf5a6a2cf783250e8683244d70c",
   },
   {
-    id: "S1014",
-    name: "Zoe Tomlinson",
-    email: "zoe.tomlinson@student.doralacademynv.org",
-  },
-  {
-    id: "S1015",
-    name: "Zaim Ishola",
-    email: "zaim.ishola@student.doralacademynv.org",
-  },
-  {
-    id: "S1016",
-    name: "Presley Peterson",
-    email: "presley.peterson@student.doralacademynv.org",
-  },
-  {
-    id: "S1017",
-    name: "Evan Hernandez",
-    email: "evan.hernandez@student.doralacademynv.org",
-  },
-  {
-    id: "S1018",
-    name: "Mason Peraza",
-    email: "mason.peraza@student.doralacademynv.org",
-  },
-  {
-    id: "S1019",
-    name: "Melia Mosley",
-    email: "melia.mosley@student.doralacademynv.org",
-  },
-  {
-    id: "S1020",
+    key: "canda-rayden",
     name: "Rayden Canda",
-    email: "rayden.canda@student.doralacademynv.org",
+    accessHash: "6c77a26797d9cf2c35b3c8cd0656a207e403ad7f485e63be3818e3846b756ecc",
   },
   {
-    id: "S1021",
-    name: "Julian Pitura",
-    email: "julian.pitura@student.doralacademynv.org",
+    key: "davis-austin",
+    name: "Austin Davis",
+    accessHash: "56c064ffa17e9135caafb8cfa8b30471db7448eddfe420598ed7a93d50e7ed85",
   },
   {
-    id: "S1022",
-    name: "Elijan Rosas",
-    email: "elijan.rosas@student.doralacademynv.org",
+    key: "hearne-joshua",
+    name: "Joshua Hearne",
+    accessHash: "bca251d043f8f4f9b5ed4306a72d1a04fbe26a22a532343ece6c3afd8697d373",
   },
   {
-    id: "S1023",
+    key: "ishola-zaim",
+    name: "Zaim Ishola",
+    accessHash: "33903a8a2dd9001452791961615dae052df0f9c29a42114435126a5ec7930b57",
+  },
+  {
+    key: "jezbera-madyson",
     name: "Madyson Jezbera",
-    email: "madyson.jezbera@student.doralacademynv.org",
+    accessHash: "a4492b8a0949fb6bd800fbd9069165ff2855f9ff34e8a9d23c894a475b837caf",
   },
   {
-    id: "S1024",
+    key: "kassaya-naol",
     name: "Naol Kassaya",
-    email: "naol.kassaya@student.doralacademynv.org",
+    accessHash: "ad3ddf18829e56f70f45ebd7b6a00e59798001387169b405235f16e85e301bb6",
   },
   {
-    id: "S1025",
-    name: "Gabriella Novo",
-    email: "gabriella.novo@student.doralacademynv.org",
+    key: "lopez-camila",
+    name: "Camila Lopez",
+    accessHash: "a7d610db14a238d65541c85bc1acc18bcb91bec6fab3dc0bf531400fdd2b1c79",
   },
-];
-
-const rosterByEmail = new Map(roster.map((student) => [normalizeEmail(student.email), student]));
-const ADMIN_EMAIL = "joseph.clark@doralacademynv.org";
-const TEACHER_GROUP_ID = "teacher-group";
-const CUSTOM_ASSIGNMENT_TYPES = [
-  { id: "linear-equations", label: "Linear Equations", generator: makeLinearProblem, answerMode: "single", directions: "Solve for x" },
-  { id: "systems-equations", label: "Systems of Equations", generator: makeSystemProblem, answerMode: "pair", directions: "Solve for x and y" },
-  { id: "slope-two-points", label: "Slope from Two Points", generator: makeSlopeProblem, answerMode: "slope", directions: "Find the slope between the two points" },
-  { id: "graphing-linear-equations", label: "Graphing Linear Equations", generator: makeCoordinateGridLineProblem, answerMode: "graphLine", directions: "Use the graph to answer each question" },
-  { id: "writing-equations-from-graphs", label: "Writing Equations from Graphs", generator: makeCoordinateGridLineProblem, answerMode: "graphLine", directions: "Write equations from graphs" },
-  { id: "multi-step-equations", label: "Solving Multi-Step Equations", generator: makeLinearProblem, answerMode: "single", directions: "Solve each multi-step equation" },
-  { id: "inequalities", label: "Inequalities", generator: makeLinearInequalityProblem, answerMode: "inequality", directions: "Solve each inequality for x" },
-  { id: "coordinate-grid-problems", label: "Coordinate Grid Problems", generator: makeCoordinateGridLineProblem, answerMode: "graphLine", directions: "Use the coordinate grid to answer" },
-];
-const ROLES = Object.freeze({
-  ADMIN: "admin",
-  STUDENT: "student",
-  TEACHER: "teacher",
-});
+  {
+    key: "mkhitaryan-tony",
+    name: "Tony Mkhitaryan",
+    accessHash: "13b2acb575b192664537c961f75d1e3da2b68ec2a0fd850fb1e14a6b4b8e465a",
+  },
+  {
+    key: "moates-brilynn",
+    name: "Brilynn Moates",
+    accessHash: "a286f5251b9c061a01a38912b43c02c4674be985b7da2adb6ce29059f85dcd1c",
+  },
+  {
+    key: "moore-raevyn",
+    name: "Raevyn Moore",
+    accessHash: "76cc5e66cbee03b3e5abd3b6bd69ef32dcb589e429e5704f00912e671367dd74",
+  },
+  {
+    key: "mosley-melia",
+    name: "Melia Mosley",
+    accessHash: "c79e9e11ece3672fb8fb06157061ec5997321aa7ccdbad4fecc672f95b66efd0",
+  },
+  {
+    key: "nguyen-emme",
+    name: "Emme Nguyen",
+    accessHash: "7bfdf23602cd2fa847eb8cae265051934c6c9b5514b12c4a04110ce710af000c",
+  },
+  {
+    key: "novo-gabriella",
+    name: "Gabriella Novo",
+    accessHash: "70633a433e1c20417daef946bdfaf5a1b052a99f67f1f29f93ec8f95ca8c4287",
+  },
+  {
+    key: "osborn-madison",
+    name: "Madison Osborn (Maddie)",
+    accessHash: "10eb5155bb3aad6c949de9ce64e23f73924bad7963346b6629f77911e577dd57",
+  },
+  {
+    key: "peraza-mason",
+    name: "Mason Peraza",
+    accessHash: "a7ec436cefe0c7d8341d0ce352edde803db124bca422381903159ec13039f1fb",
+  },
+  {
+    key: "peterson-presley",
+    name: "Presley Peterson",
+    accessHash: "00d8fa15ea5cfcffbe0ff17ab786487c556ce716d8e5dba70b588c1b9c5afd01",
+  },
+  {
+    key: "pitura-julian",
+    name: "Julian Pitura (Jude)",
+    accessHash: "855b350d4fc90dd9edbeeb0751ede166da9ad994776ec4dcbc7d01ba5dad8a26",
+  },
+  {
+    key: "rosas-elijan",
+    name: "Elijan Rosas",
+    accessHash: "36cb3ac06d17bcd8221a3f87558c26caeb0432ea7e6910d8b69ad62fa2915533",
+  },
+  {
+    key: "solbes-amaya",
+    name: "Amaya Solbes",
+    accessHash: "1aa46dcb795f6b6ca193bf8e4b1f40205170d97cdd479de870e198a69db593c0",
+  },
+  {
+    key: "stoev-antony",
+    name: "Antony Stoev (Tony)",
+    accessHash: "903dda2c16a3d58e51633eaa44fc71c532734d90701157405d21e7d4400ce903",
+  },
+  {
+    key: "terry-elias",
+    name: "Elias Terry (Eli)",
+    accessHash: "61fdbaeb4e5ce523a68a16a9dfdbfb10fc328d471b961854c3f0c55d1249133d",
+  },
+  {
+    key: "tomlinson-zoe",
+    name: "Zoe Tomlinson",
+    accessHash: "1d80d56123fe854e91a5570f87ee82ae5d613cfd46e844faaa4707f2820ef8b7",
+  },
+  {
+    key: "vickers-capri",
+    name: "Capri Vickers",
+    accessHash: "c23a9fe4d7b969aa51330de048696805e460e42715493b33322adabcb01a9981",
+  },
+].sort(compareStudentsByLastName);
 
 const state = {
-  user: null,
-  authReady: false,
   selectedAssignment: assignments[0],
-  loadedAssignmentRunKey: "",
-  selectedStudent: roster[0],
+  selectedStudent: null,
+  lockedSubmission: null,
   problems: [],
   answers: new Map(),
-  isSubmitted: false,
-  progress: {},
-  submissions: {},
-  customAssignments: [],
-  assignmentSettings: {},
-  dashboardUnsubscribes: [],
-  teacherProfile: null,
-  teachers: {},
-  adminUnsubscribe: null,
-  editingTeacherEmail: "",
-  selectedWorkStudentId: "",
-  saveTimer: null,
-  isSaving: false,
+  submissions: loadSubmissions(),
 };
 
-const page = document.body.dataset.page;
+let elements = {};
+let dashboardRefreshTimer = null;
 
-const elements = {
-  assignmentSelect: document.querySelector("#assignment-select"),
-  dashboardAssignmentSelect: document.querySelector("#dashboard-assignment-select"),
-  loadAssignment: document.querySelector("#load-assignment"),
-  submitAssignment: document.querySelector("#submit-assignment"),
-  problemList: document.querySelector("#problem-list"),
-  assignmentDirections: document.querySelector("#assignment-directions"),
-  assignmentTitle: document.querySelector("#assignment-title"),
-  studentHeading: document.querySelector("#student-heading"),
-  currentScore: document.querySelector("#current-score"),
-  currentPercent: document.querySelector("#current-percent"),
-  answeredCount: document.querySelector("#answered-count"),
-  correctCount: document.querySelector("#correct-count"),
-  submissionNote: document.querySelector("#submission-note"),
-  saveState: document.querySelector("#save-state"),
-  studentCloudNote: document.querySelector("#student-cloud-note"),
-  dashboardBody: document.querySelector("#dashboard-body"),
-  submittedCount: document.querySelector("#submitted-count"),
-  classAverage: document.querySelector("#class-average"),
-  highestScore: document.querySelector("#highest-score"),
-  lastUpdate: document.querySelector("#last-update"),
-  refreshDashboard: document.querySelector("#refresh-dashboard"),
-  exportDashboard: document.querySelector("#export-dashboard"),
-  resetDashboard: document.querySelector("#reset-dashboard"),
-  teacherNote: document.querySelector("#teacher-note"),
-  teacherHeading: document.querySelector("#teacher-heading"),
-  studentWorkPanel: document.querySelector("#student-work-panel"),
-  studentWorkTitle: document.querySelector("#student-work-title"),
-  studentWorkMeta: document.querySelector("#student-work-meta"),
-  studentWorkProblems: document.querySelector("#student-work-problems"),
-  closeWorkPanel: document.querySelector("#close-work-panel"),
-  headerProblemCount: document.querySelector("#header-problem-count"),
-  headerStudentCount: document.querySelector("#header-student-count"),
-  authDot: document.querySelector("#auth-dot"),
-  authName: document.querySelector("#auth-name"),
-  authEmail: document.querySelector("#auth-email"),
-  signInButton: document.querySelector("#sign-in-button"),
-  signOutButton: document.querySelector("#sign-out-button"),
-  adminNote: document.querySelector("#admin-note"),
-  adminTeacherCount: document.querySelector("#admin-teacher-count"),
-  teacherNameInput: document.querySelector("#teacher-name"),
-  teacherEmailInput: document.querySelector("#teacher-email"),
-  teacherStudentList: document.querySelector("#teacher-student-list"),
-  saveTeacherButton: document.querySelector("#save-teacher"),
-  clearTeacherButton: document.querySelector("#clear-teacher-form"),
-  teacherList: document.querySelector("#teacher-list"),
-  assignmentBuilder: document.querySelector("#assignment-builder"),
-  customAssignmentTitle: document.querySelector("#custom-assignment-title"),
-  customAssignmentType: document.querySelector("#custom-assignment-type"),
-  customProblemCount: document.querySelector("#custom-problem-count"),
-  customProblemCountOther: document.querySelector("#custom-problem-count-other"),
-  customDifficulty: document.querySelector("#custom-difficulty"),
-  customDueDate: document.querySelector("#custom-due-date"),
-  customClassPeriod: document.querySelector("#custom-class-period"),
-  customFeedbackMode: document.querySelector("#custom-feedback-mode"),
-  customAllowRetries: document.querySelector("#custom-allow-retries"),
-  customMaxAttempts: document.querySelector("#custom-max-attempts"),
-  customTimeEnabled: document.querySelector("#custom-time-enabled"),
-  customTimeLimit: document.querySelector("#custom-time-limit"),
-  saveAssignmentButton: document.querySelector("#save-assignment"),
-  customAssignmentList: document.querySelector("#custom-assignment-list"),
-};
+function collectElements() {
+  elements = {
+    assignmentSelect: document.querySelector("#assignment-select"),
+    dashboardAssignmentSelect: document.querySelector("#dashboard-assignment-select"),
+    studentId: document.querySelector("#student-id"),
+    accessNote: document.querySelector("#student-access-note"),
+    loadAssignment: document.querySelector("#load-assignment"),
+    submitAssignment: document.querySelector("#submit-assignment"),
+    problemList: document.querySelector("#problem-list"),
+    assignmentDirections: document.querySelector("#assignment-directions"),
+    assignmentTitle: document.querySelector("#assignment-title"),
+    currentScore: document.querySelector("#current-score"),
+    currentPercent: document.querySelector("#current-percent"),
+    answeredCount: document.querySelector("#answered-count"),
+    correctCount: document.querySelector("#correct-count"),
+    submissionNote: document.querySelector("#submission-note"),
+    dashboardBody: document.querySelector("#dashboard-body"),
+    submittedCount: document.querySelector("#submitted-count"),
+    classAverage: document.querySelector("#class-average"),
+    highestScore: document.querySelector("#highest-score"),
+    dashboardSyncStatus: document.querySelector("#dashboard-sync-status"),
+    refreshDashboard: document.querySelector("#refresh-dashboard"),
+    resetDashboard: document.querySelector("#reset-dashboard"),
+    headerProblemCount: document.querySelector("#header-problem-count"),
+    headerStudentCount: document.querySelector("#header-student-count"),
+  };
+}
 
-function normalizeEmail(email = "") {
-  return email.trim().toLowerCase();
+function compareStudentsByLastName(a, b) {
+  const [aLast] = a.key.split("-");
+  const [bLast] = b.key.split("-");
+  return aLast.localeCompare(bLast) || a.name.localeCompare(b.name);
 }
 
 function setText(element, value) {
@@ -344,113 +204,52 @@ function setText(element, value) {
   }
 }
 
-function setHidden(element, hidden) {
-  if (element) {
-    element.hidden = hidden;
-  }
-}
-
-function setDisabled(element, disabled) {
-  if (element) {
-    element.disabled = disabled;
-  }
-}
-
 function escapeHtml(value) {
-  return `${value}`
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
-function setBanner(element, message, tone = "neutral") {
-  if (!element) return;
-  element.textContent = message;
-  element.dataset.tone = tone;
+function normalizeStudentId(value) {
+  return value.replace(/\D/g, "").slice(0, 9);
+}
+
+async function sha256Hex(value) {
+  const data = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function findStudentByAccessCode(accessCode) {
+  const accessHash = await sha256Hex(`${ACCESS_HASH_SALT}:${accessCode}`);
+  return roster.find((student) => student.accessHash === accessHash) || null;
+}
+
+function setAccessNote(message, status = "") {
+  if (!elements.accessNote) return;
+
+  elements.accessNote.textContent = message;
+  elements.accessNote.classList.toggle("is-error", status === "error");
+  elements.accessNote.classList.toggle("is-success", status === "success");
 }
 
 function getSelectedAssignment() {
   return state.selectedAssignment || assignments[0];
 }
 
-function getAllAssignments() {
-  return [...assignments, ...state.customAssignments];
-}
-
 function getAssignmentById(assignmentId) {
-  return getAllAssignments().find((assignment) => assignment.id === assignmentId) || assignments[0];
+  return assignments.find((assignment) => assignment.id === assignmentId) || assignments[0];
 }
 
 function renderHeaderCounts() {
-  setText(elements.headerProblemCount, getSelectedAssignment().problemCount);
-  setText(elements.headerStudentCount, getVisibleRoster().length);
-}
-
-function getStudentById(studentId) {
-  return roster.find((student) => student.id === studentId) || null;
-}
-
-function getStudentsByIds(studentIds = []) {
-  const allowed = new Set(studentIds);
-  return roster.filter((student) => allowed.has(student.id));
-}
-
-function isAdminAccount() {
-  return normalizeEmail(state.user?.email) === ADMIN_EMAIL;
-}
-
-function teacherDocId(email = "") {
-  return normalizeEmail(email);
-}
-
-function teacherRef(email = state.user?.email || "") {
-  return doc(db, "teachers", teacherDocId(email));
-}
-
-function roleRef(email = "") {
-  return doc(db, "roles", teacherDocId(email));
-}
-
-function normalizeTeacher(data = {}, fallbackEmail = "") {
-  const email = normalizeEmail(data.email || fallbackEmail);
-  const studentIds = Array.isArray(data.studentIds)
-    ? data.studentIds.filter((studentId) => Boolean(getStudentById(studentId)))
-    : [];
-
-  return {
-    email,
-    name: data.name || email || "Teacher",
-    role: data.role || ROLES.TEACHER,
-    assignmentGroupId: data.assignmentGroupId || TEACHER_GROUP_ID,
-    studentIds,
-    reportFiles: Array.isArray(data.reportFiles)
-      ? data.reportFiles
-      : studentIds.map((studentId) => `${studentId}.json`),
-    createdAt: data.createdAt || null,
-    updatedAt: data.updatedAt || null,
-  };
-}
-
-function getAdminTeacherProfile() {
-  return {
-    email: ADMIN_EMAIL,
-    name: "Joseph Clark",
-    role: ROLES.ADMIN,
-    assignmentGroupId: TEACHER_GROUP_ID,
-    studentIds: roster.map((student) => student.id),
-    reportFiles: roster.map((student) => `${student.id}.json`),
-  };
-}
-
-function getVisibleRoster() {
-  if (page === "student") return roster;
-  if (isAdminAccount()) return roster;
-  if (state.teacherProfile?.studentIds?.length) {
-    return getStudentsByIds(state.teacherProfile.studentIds);
-  }
-  return [];
+  const assignment = getSelectedAssignment();
+  setText(elements.headerProblemCount, assignment.problemCount);
+  setText(elements.headerStudentCount, roster.length);
 }
 
 function hashString(value) {
@@ -520,7 +319,6 @@ function makeTwoStep(random) {
   const constant = integerBetween(random, -18, 18);
   const right = coefficient * solution + constant;
   return {
-    type: "Two-step equation",
     equation: `${formatLinear(coefficient, constant)} = ${right}`,
     answer: solution,
   };
@@ -528,7 +326,7 @@ function makeTwoStep(random) {
 
 function makeVariablesBothSides(random) {
   const solution = nonZeroBetween(random, -10, 10);
-  const leftCoefficient = nonZeroBetween(random, -8, 8);
+  let leftCoefficient = nonZeroBetween(random, -8, 8);
   let rightCoefficient = nonZeroBetween(random, -8, 8);
   while (rightCoefficient === leftCoefficient) {
     rightCoefficient = nonZeroBetween(random, -8, 8);
@@ -536,7 +334,6 @@ function makeVariablesBothSides(random) {
   const leftConstant = integerBetween(random, -16, 16);
   const rightConstant = (leftCoefficient - rightCoefficient) * solution + leftConstant;
   return {
-    type: "Variables on both sides",
     equation: `${formatLinear(leftCoefficient, leftConstant)} = ${formatLinear(
       rightCoefficient,
       rightConstant,
@@ -549,11 +346,11 @@ function makeParentheses(random) {
   const solution = integerBetween(random, -12, 12);
   const coefficient = nonZeroBetween(random, -7, 7);
   const inside = integerBetween(random, -9, 9);
-  const insideText = inside === 0 ? "x" : `x ${inside > 0 ? "+" : "-"} ${Math.abs(inside)}`;
   const right = coefficient * (solution + inside);
   return {
-    type: "Parentheses",
-    equation: `${coefficient}(${insideText}) = ${right}`,
+    equation: `${coefficient}(${
+      inside === 0 ? "x" : `x ${inside > 0 ? "+" : "-"} ${Math.abs(inside)}`
+    }) = ${right}`,
     answer: solution,
   };
 }
@@ -563,13 +360,11 @@ function makeDistributed(random) {
   const coefficient = nonZeroBetween(random, -6, 6);
   const inside = integerBetween(random, -8, 8);
   const outside = integerBetween(random, -14, 14);
-  const insideText = inside === 0 ? "x" : `x ${inside > 0 ? "+" : "-"} ${Math.abs(inside)}`;
   const right = coefficient * (solution + inside) + outside;
   return {
-    type: "Distributed equation",
-    equation: `${coefficient}(${insideText}) ${outside >= 0 ? "+" : "-"} ${Math.abs(
-      outside,
-    )} = ${right}`,
+    equation: `${coefficient}(${
+      inside === 0 ? "x" : `x ${inside > 0 ? "+" : "-"} ${Math.abs(inside)}`
+    }) ${outside >= 0 ? "+" : "-"} ${Math.abs(outside)} = ${right}`,
     answer: solution,
   };
 }
@@ -581,7 +376,6 @@ function makeFraction(random) {
   const constant = integerBetween(random, -12, 12);
   const right = quotient + constant;
   return {
-    type: "Fraction equation",
     equation: `x / ${divisor} ${constant >= 0 ? "+" : "-"} ${Math.abs(constant)} = ${right}`,
     answer: solution,
   };
@@ -615,7 +409,6 @@ function makeSystemProblem(random) {
   }
 
   return {
-    type: "System of equations",
     equations: [
       formatSystemEquation(
         xCoefficientA,
@@ -632,401 +425,14 @@ function makeSystemProblem(random) {
   };
 }
 
-function greatestCommonDivisor(left, right) {
-  let a = Math.abs(left);
-  let b = Math.abs(right);
-  while (b !== 0) {
-    const next = a % b;
-    a = b;
-    b = next;
-  }
-  return a || 1;
-}
-
-function reduceFraction(numerator, denominator) {
-  if (denominator === 0) {
-    return { numerator: 1, denominator: 0, undefined: true };
-  }
-
-  if (numerator === 0) {
-    return { numerator: 0, denominator: 1, undefined: false };
-  }
-
-  const divisor = greatestCommonDivisor(numerator, denominator);
-  let reducedNumerator = numerator / divisor;
-  let reducedDenominator = denominator / divisor;
-
-  if (reducedDenominator < 0) {
-    reducedNumerator *= -1;
-    reducedDenominator *= -1;
-  }
-
-  return {
-    numerator: reducedNumerator,
-    denominator: reducedDenominator,
-    undefined: false,
-  };
-}
-
-function formatFractionValue(fraction) {
-  if (!fraction || fraction.undefined) return "undefined";
-  if (fraction.denominator === 1) return `${fraction.numerator}`;
-  return `${fraction.numerator}/${fraction.denominator}`;
-}
-
-function formatSlopeCoefficient(coefficient) {
-  const fraction = reduceFraction(coefficient.numerator, coefficient.denominator);
-  if (fraction.numerator === 1 && fraction.denominator === 1) return "x";
-  if (fraction.numerator === -1 && fraction.denominator === 1) return "-x";
-  return `${formatFractionValue(fraction)}x`;
-}
-
-function formatSlopeInterceptEquation(slope, intercept) {
-  const slopeText = formatSlopeCoefficient(slope);
-  if (intercept.numerator === 0) return `y = ${slopeText}`;
-  const sign = intercept.numerator > 0 ? "+" : "-";
-  return `y = ${slopeText} ${sign} ${formatFractionValue({
-    numerator: Math.abs(intercept.numerator),
-    denominator: intercept.denominator,
-  })}`;
-}
-
-function fractionToNumber(fraction) {
-  if (!fraction || fraction.undefined) return NaN;
-  return fraction.numerator / fraction.denominator;
-}
-
-function parseFractionInput(value) {
-  const rawValue = `${value ?? ""}`.trim();
-  if (!rawValue) return null;
-
-  const fractionMatch = rawValue.match(/^([+-]?\d+)\s*(?:\/\s*([+-]?\d+))?$/);
-  if (fractionMatch) {
-    const numerator = Number(fractionMatch[1]);
-    const denominator = fractionMatch[2] === undefined ? 1 : Number(fractionMatch[2]);
-    if (!Number.isInteger(numerator) || !Number.isInteger(denominator) || denominator === 0) {
-      return null;
-    }
-    return reduceFraction(numerator, denominator);
-  }
-
-  const decimal = Number(rawValue);
-  if (!Number.isFinite(decimal)) return null;
-
-  const decimalPlaces = rawValue.includes(".") ? rawValue.split(".").at(-1).length : 0;
-  const denominator = 10 ** decimalPlaces;
-  return reduceFraction(Math.round(decimal * denominator), denominator);
-}
-
-function fractionsEqual(left, right) {
-  if (!left || !right || left.undefined || right.undefined) return false;
-  const reducedLeft = reduceFraction(left.numerator, left.denominator);
-  const reducedRight = reduceFraction(right.numerator, right.denominator);
-  return (
-    reducedLeft.numerator === reducedRight.numerator &&
-    reducedLeft.denominator === reducedRight.denominator
-  );
-}
-
-function flipInequalitySymbol(symbol) {
-  return {
-    "<": ">",
-    ">": "<",
-    "<=": ">=",
-    ">=": "<=",
-  }[symbol];
-}
-
-function formatInequalitySymbol(symbol) {
-  return symbol;
-}
-
-function makeInequalityAnswer(coefficient, symbol, rightValue) {
-  const boundary = rightValue / coefficient;
-  return {
-    boundary,
-    symbol: coefficient < 0 ? flipInequalitySymbol(symbol) : symbol,
-  };
-}
-
-function makeLinearInequalityProblem(random, problemNumber = 1) {
-  const noSignFlip = problemNumber <= 20;
-  const negativeCoefficient = problemNumber > 20 && problemNumber <= 26;
-  const variablesBothSides = problemNumber >= 27;
-  const boundary = integerBetween(random, -12, 12);
-  const symbolOptions = ["<", ">", "<=", ">="];
-  const baseSymbol = symbolOptions[integerBetween(random, 0, symbolOptions.length - 1)];
-  let equation = "";
-  let answer = { boundary, symbol: baseSymbol };
-  let type = "Positive coefficient";
-
-  if (noSignFlip) {
-    const coefficient = nonZeroBetween(random, 2, 9);
-    const constant = problemNumber <= 10 ? integerBetween(random, 1, 18) : integerBetween(random, -18, -1);
-    const rightValue = coefficient * boundary + constant;
-    equation = `${formatLinear(coefficient, constant)} ${formatInequalitySymbol(baseSymbol)} ${rightValue}`;
-    answer = makeInequalityAnswer(coefficient, baseSymbol, rightValue - constant);
-    type = problemNumber <= 10 ? "Positive coefficient" : "Negative constant";
-  } else if (negativeCoefficient) {
-    const coefficient = -integerBetween(random, 2, 9);
-    const constant = integerBetween(random, -12, 12);
-    const rightValue = coefficient * boundary + constant;
-    equation = `${formatLinear(coefficient, constant)} ${formatInequalitySymbol(baseSymbol)} ${rightValue}`;
-    answer = makeInequalityAnswer(coefficient, baseSymbol, rightValue - constant);
-    type = "Negative coefficient";
-  } else if (variablesBothSides) {
-    let leftCoefficient = nonZeroBetween(random, -8, 8);
-    let rightCoefficient = nonZeroBetween(random, -8, 8);
-    while (leftCoefficient === rightCoefficient) {
-      rightCoefficient = nonZeroBetween(random, -8, 8);
-    }
-
-    const coefficientDifference = leftCoefficient - rightCoefficient;
-    const leftConstant = integerBetween(random, -12, 12);
-    const rightConstant = coefficientDifference * boundary + leftConstant;
-    equation = `${formatLinear(leftCoefficient, leftConstant)} ${formatInequalitySymbol(
-      baseSymbol,
-    )} ${formatLinear(rightCoefficient, rightConstant)}`;
-    answer = makeInequalityAnswer(coefficientDifference, baseSymbol, rightConstant - leftConstant);
-    type = "Variables on both sides";
-  }
-
-  return {
-    type,
-    equation,
-    answer,
-  };
-}
-
-function makeSlopeProblem(random, problemNumber = 1) {
-  const isPositive = problemNumber <= 10;
-  const isNegative = problemNumber > 10 && problemNumber <= 20;
-  const isZero = problemNumber > 20 && problemNumber <= 26;
-  const isVertical = problemNumber >= 27;
-  const x1 = integerBetween(random, -9, 9);
-  const y1 = integerBetween(random, -9, 9);
-  let x2 = x1;
-  let y2 = y1;
-
-  if (isVertical) {
-    while (y2 === y1) {
-      y2 = integerBetween(random, -9, 9);
-    }
-  } else if (isZero) {
-    while (x2 === x1) {
-      x2 = integerBetween(random, -9, 9);
-    }
-  } else {
-    while (x2 === x1) {
-      x2 = integerBetween(random, -9, 9);
-    }
-
-    const horizontalChange = x2 - x1;
-    const minMagnitude = problemNumber <= 6 ? 1 : 2;
-    const maxMagnitude = problemNumber <= 16 ? 7 : 12;
-    let verticalChange = nonZeroBetween(random, minMagnitude, maxMagnitude);
-    if (isNegative) {
-      verticalChange *= -1;
-    }
-    if (horizontalChange < 0) {
-      verticalChange *= -1;
-    }
-    y2 = y1 + verticalChange;
-  }
-
-  const run = x2 - x1;
-  const rise = y2 - y1;
-  const slope = reduceFraction(rise, run);
-
-  return {
-    type: isVertical
-      ? "Challenge: vertical line"
-      : isZero
-        ? "Zero slope"
-        : isNegative
-          ? "Negative slope"
-          : "Positive slope",
-    equation: `Find the slope between (${x1}, ${y1}) and (${x2}, ${y2}).`,
-    points: [
-      { x: x1, y: y1 },
-      { x: x2, y: y2 },
-    ],
-    answer: slope.undefined ? { kind: "undefined" } : { kind: "number", ...slope },
-  };
-}
-
-function makeSlopeInterceptProblem(random, problemNumber = 1) {
-  const inSlopeInterceptForm = problemNumber <= 20;
-  const scaledYForm = problemNumber > 20 && problemNumber <= 26;
-  const standardForm = problemNumber >= 27;
-  let equation = "";
-  let slope = reduceFraction(nonZeroBetween(random, 1, 6), 1);
-  let intercept = reduceFraction(integerBetween(random, 1, 9), 1);
-  let type = "Slope-intercept form";
-
-  if (inSlopeInterceptForm) {
-    if (problemNumber > 10) {
-      const makeNegativeSlope = problemNumber % 2 === 1;
-      slope = reduceFraction(
-        makeNegativeSlope ? -nonZeroBetween(random, 1, 7) : nonZeroBetween(random, 1, 7),
-        1,
-      );
-      intercept = reduceFraction(
-        makeNegativeSlope ? integerBetween(random, -9, 9) : -nonZeroBetween(random, 1, 9),
-        1,
-      );
-    }
-
-    equation = formatSlopeInterceptEquation(slope, intercept);
-    type = problemNumber > 10 ? "Negative slope or intercept" : "Slope-intercept form";
-  } else if (scaledYForm) {
-    const yCoefficient = integerBetween(random, 2, 6);
-    const xCoefficient = nonZeroBetween(random, -12, 12);
-    const constant = integerBetween(random, -18, 18);
-    slope = reduceFraction(xCoefficient, yCoefficient);
-    intercept = reduceFraction(constant, yCoefficient);
-    equation = `${yCoefficient}y = ${formatLinear(xCoefficient, constant)}`;
-    type = "Solve for y";
-  } else if (standardForm) {
-    const xCoefficient = nonZeroBetween(random, -8, 8);
-    const yCoefficient = nonZeroBetween(random, 2, 8);
-    const constant = integerBetween(random, -24, 24);
-    slope = reduceFraction(-xCoefficient, yCoefficient);
-    intercept = reduceFraction(constant, yCoefficient);
-    equation = `${formatLinear(xCoefficient, 0)} ${yCoefficient > 0 ? "+" : "-"} ${Math.abs(
-      yCoefficient,
-    )}y = ${constant}`;
-    type = "Standard form";
-  }
-
-  return {
-    type,
-    equation,
-    answer: {
-      m: slope,
-      b: intercept,
-    },
-  };
-}
-
-function makeCoordinateGridLineProblem(random, problemNumber = 1) {
-  const slopeRanges =
-    problemNumber <= 10
-      ? [
-          [1, 1],
-          [2, 1],
-          [3, 1],
-        ]
-      : problemNumber <= 18
-        ? [
-            [-3, 1],
-            [-2, 1],
-            [-1, 1],
-            [1, 1],
-            [2, 1],
-            [3, 1],
-          ]
-        : [
-            [-3, 2],
-            [-2, 3],
-            [-1, 2],
-            [1, 2],
-            [2, 3],
-            [3, 2],
-          ];
-  const [slopeNumerator, slopeDenominator] = slopeRanges[integerBetween(random, 0, slopeRanges.length - 1)];
-  const slope = reduceFraction(slopeNumerator, slopeDenominator);
-  let intercept = reduceFraction(integerBetween(random, -6, 6), 1);
-  let x1 = 0;
-  let x2 = 0;
-  let y1 = 0;
-  let y2 = 0;
-  let attempts = 0;
-
-  while (
-    (x1 === x2 ||
-      Math.abs(x1) > 10 ||
-      Math.abs(x2) > 10 ||
-      !Number.isInteger(y1) ||
-      !Number.isInteger(y2) ||
-      Math.abs(y1) > 10 ||
-      Math.abs(y2) > 10) &&
-    attempts < 80
-  ) {
-    x1 = slope.denominator * integerBetween(random, -4, 4);
-    x2 = slope.denominator * integerBetween(random, -4, 4);
-    intercept = reduceFraction(integerBetween(random, -6, 6), 1);
-    y1 = fractionToNumber(slope) * x1 + fractionToNumber(intercept);
-    y2 = fractionToNumber(slope) * x2 + fractionToNumber(intercept);
-    attempts += 1;
-  }
-
-  const questionKind =
-    problemNumber <= 10
-      ? "slope"
-      : problemNumber <= 18
-        ? "intercept"
-        : problemNumber <= 24
-          ? "point"
-          : "equation";
-  const pointMultiplier = x1 === 0 ? 1 : x1 / slope.denominator;
-  const pointX = x1 === 0 ? x2 : x1 + slope.denominator * (pointMultiplier > 0 ? -1 : 1);
-  const pointY = fractionToNumber(slope) * pointX + fractionToNumber(intercept);
-  const safePoint =
-    Number.isInteger(pointY) && Math.abs(pointX) <= 10 && Math.abs(pointY) <= 10
-      ? { x: pointX, y: pointY }
-      : { x: x2, y: y2 };
-  const prompts = {
-    slope: "Find the slope of the line shown on the graph.",
-    intercept: "Find the y-intercept of the line shown on the graph.",
-    point: "Enter one point on the line shown on the graph.",
-    equation: "Write the equation of the line in y = mx + b form.",
-  };
-  const typeLabels = {
-    slope: problemNumber <= 5 ? "Positive slope from graph" : "Slope from graph",
-    intercept: "Y-intercept from graph",
-    point: "Point on a graphed line",
-    equation: "Equation from graph",
-  };
-
-  return {
-    type: typeLabels[questionKind],
-    equation: prompts[questionKind],
-    graphQuestion: questionKind,
-    graph: {
-      slope,
-      intercept,
-      points: [
-        { x: x1, y: y1 },
-        { x: x2, y: y2 },
-      ],
-    },
-    table: {
-      headers: ["Point", "x", "y"],
-      rows: [
-        ["A", x1, y1],
-        ["B", x2, y2],
-      ],
-    },
-    answer:
-      questionKind === "slope"
-        ? { slope }
-        : questionKind === "intercept"
-          ? { b: intercept }
-          : questionKind === "point"
-            ? { point: safePoint }
-            : { m: slope, b: intercept },
-  };
-}
-
-function makeProblem(student, problemNumber, attempt = 0, assignment = getSelectedAssignment()) {
-  const seedText = `${assignment.id}:${getAssignmentRunKey(assignment)}:${student.id}:${student.name}:${problemNumber}:${attempt}`;
+function makeProblem(assignment, student, problemNumber, attempt = 0) {
+  const seedText = `${assignment.id}:${student.key}:${student.name}:${problemNumber}:${attempt}`;
   const random = mulberry32(hashString(seedText));
-  const problem = assignment.generator(random, problemNumber);
+  const problem = assignment.generator(random);
   return {
     ...problem,
-    answerMode: assignment.answerMode,
-    id: `${assignment.id}-${student.id}-${problemNumber}`,
+    answerType: assignment.answerType,
+    id: `${assignment.id}-${student.key}-${problemNumber}`,
     number: problemNumber,
   };
 }
@@ -1035,16 +441,16 @@ function getProblemSignature(problem) {
   return problem.equations ? problem.equations.join("|") : problem.equation;
 }
 
-function generateAssignment(student, assignment = getSelectedAssignment()) {
+function generateAssignment(student, assignment) {
   const problems = [];
   const seen = new Set();
 
   for (let problemNumber = 1; problemNumber <= assignment.problemCount; problemNumber += 1) {
     let attempt = 0;
-    let problem = makeProblem(student, problemNumber, attempt, assignment);
+    let problem = makeProblem(assignment, student, problemNumber, attempt);
     while (seen.has(getProblemSignature(problem)) && attempt < 20) {
       attempt += 1;
-      problem = makeProblem(student, problemNumber, attempt, assignment);
+      problem = makeProblem(assignment, student, problemNumber, attempt);
     }
     seen.add(getProblemSignature(problem));
     problems.push(problem);
@@ -1053,183 +459,114 @@ function generateAssignment(student, assignment = getSelectedAssignment()) {
   return problems;
 }
 
-function getSignedInRosterStudent() {
-  if (!state.user?.email) return null;
-  return rosterByEmail.get(normalizeEmail(state.user.email)) || null;
+function createEmptySubmissionStore() {
+  return assignments.reduce((store, assignment) => {
+    store[assignment.id] = {};
+    return store;
+  }, {});
 }
 
-function isTeacherAccount() {
-  return isAdminAccount() || Boolean(state.teacherProfile);
+function isLegacySubmissionStore(saved) {
+  return Object.values(saved).some(
+    (value) =>
+      value &&
+      typeof value === "object" &&
+      "studentId" in value &&
+      "correct" in value &&
+      "submittedAt" in value,
+  );
 }
 
-function getSignedInRole() {
-  if (isAdminAccount()) return ROLES.ADMIN;
-  if (isTeacherAccount()) return ROLES.TEACHER;
-  if (getSignedInRosterStudent()) return ROLES.STUDENT;
-  return "";
-}
+function normalizeSubmissions(saved) {
+  const normalized = createEmptySubmissionStore();
+  if (!saved || typeof saved !== "object") return normalized;
 
-function assignmentRef(assignment = getSelectedAssignment()) {
-  return doc(db, "assignments", assignment.id);
-}
-
-function getAssignmentRunKey(assignment = getSelectedAssignment()) {
-  return state.assignmentSettings[assignment.id]?.resetKey || "initial";
-}
-
-function setAssignmentSettings(assignmentId, data = {}) {
-  state.assignmentSettings[assignmentId] = {
-    resetKey: data.resetKey || "initial",
-    resetAt: data.resetAt || null,
-    resetByEmail: data.resetByEmail || "",
-  };
-}
-
-async function loadAssignmentSettings(assignment = getSelectedAssignment()) {
-  try {
-    const snapshot = await getDoc(assignmentRef(assignment));
-    setAssignmentSettings(assignment.id, snapshot.exists() ? snapshot.data() : {});
-  } catch {
-    setAssignmentSettings(assignment.id, {});
+  if (isLegacySubmissionStore(saved)) {
+    normalized[LINEAR_ASSIGNMENT_ID] = saved;
+    return normalized;
   }
+
+  assignments.forEach((assignment) => {
+    if (saved[assignment.id] && typeof saved[assignment.id] === "object") {
+      normalized[assignment.id] = saved[assignment.id];
+    }
+  });
+
+  return normalized;
 }
 
-function submissionRef(student) {
-  return doc(db, "assignments", getSelectedAssignment().id, "submissions", student.id);
+function mergeSubmissions(...stores) {
+  const merged = createEmptySubmissionStore();
+
+  stores.forEach((store) => {
+    const normalized = normalizeSubmissions(store);
+    assignments.forEach((assignment) => {
+      Object.entries(normalized[assignment.id] || {}).forEach(([studentKey, submission]) => {
+        const existing = merged[assignment.id][studentKey];
+        if (
+          !existing ||
+          new Date(submission.submittedAt || 0) >= new Date(existing.submittedAt || 0)
+        ) {
+          merged[assignment.id][studentKey] = submission;
+        }
+      });
+    });
+  });
+
+  return merged;
 }
 
-function progressRef(student) {
-  return doc(db, "assignments", getSelectedAssignment().id, "progress", student.id);
+function loadSubmissions() {
+  const savedStores = [STORAGE_KEY, ...LEGACY_STORAGE_KEYS].map((key) => {
+    try {
+      return JSON.parse(localStorage.getItem(key));
+    } catch {
+      return null;
+    }
+  });
+
+  return mergeSubmissions(...savedStores);
 }
 
-function submissionsCollection() {
-  return collection(db, "assignments", getSelectedAssignment().id, "submissions");
+function saveSubmissions() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.submissions));
 }
 
-function progressCollection() {
-  return collection(db, "assignments", getSelectedAssignment().id, "progress");
+function getAssignmentSubmissions(assignment = getSelectedAssignment()) {
+  if (!state.submissions[assignment.id]) {
+    state.submissions[assignment.id] = {};
+  }
+
+  return state.submissions[assignment.id];
 }
 
-function teachersCollection() {
-  return collection(db, "teachers");
+function getSubmission(student, assignment = getSelectedAssignment()) {
+  if (!student) return null;
+  return getAssignmentSubmissions(assignment)[student.key] || null;
 }
 
-function assignmentsCollection() {
-  return collection(db, "assignments");
+function serializeAnswers() {
+  return Object.fromEntries(state.answers);
 }
 
-function focusEventsCollection() {
-  return collection(db, "focusEvents");
-}
-
-function getAssignmentTypeConfig(typeId) {
-  return CUSTOM_ASSIGNMENT_TYPES.find((type) => type.id === typeId) || CUSTOM_ASSIGNMENT_TYPES[0];
-}
-
-function normalizeProblemCount(value) {
-  const count = Number(value);
-  if (!Number.isInteger(count) || count < 1) return 10;
-  return Math.min(count, 60);
-}
-
-function normalizeCustomAssignment(data = {}, fallbackId = "") {
-  const typeConfig = getAssignmentTypeConfig(data.assignmentType);
-  const problemCount = normalizeProblemCount(data.problemCount);
-  return {
-    id: data.assignmentId || fallbackId,
-    title: data.title || typeConfig.label,
-    directions: data.directions || typeConfig.directions,
-    problemCount,
-    answerMode: data.answerMode || typeConfig.answerMode,
-    answerPlaceholder: data.answerPlaceholder || "value",
-    generator: typeConfig.generator,
-    isTeacherCreated: true,
-    assignmentType: typeConfig.id,
-    assignmentTypeLabel: typeConfig.label,
-    difficulty: data.difficulty || "mixed",
-    dueDate: data.dueDate || "",
-    classPeriod: data.classPeriod || "",
-    showImmediateFeedback: data.showImmediateFeedback === true,
-    allowRetries: data.allowRetries === true,
-    maxAttempts: normalizeProblemCount(data.maxAttempts || 1),
-    timeLimitMinutes: Number(data.timeLimitMinutes || 0),
-    teacherEmail: normalizeEmail(data.teacherEmail || ""),
-    teacherName: data.teacherName || "",
-    createdAt: data.createdAt || null,
-    updatedAt: data.updatedAt || null,
-  };
-}
-
-async function loadCustomAssignments() {
-  if (!state.user) {
-    state.customAssignments = [];
-    renderAssignmentOptions();
-    renderCustomAssignmentList();
+function restoreAnswers(savedAnswers) {
+  if (!savedAnswers || typeof savedAnswers !== "object") {
+    state.answers = new Map();
     return;
   }
 
-  try {
-    const snapshot = await getDocs(assignmentsCollection());
-    const userEmail = normalizeEmail(state.user?.email || "");
-    const customAssignments = [];
-    snapshot.forEach((assignmentDoc) => {
-      const data = assignmentDoc.data();
-      if (!data?.isTeacherCreated) return;
-      const assignment = normalizeCustomAssignment(data, assignmentDoc.id);
-      if (page === "teacher" && !isAdminAccount() && assignment.teacherEmail && assignment.teacherEmail !== userEmail) {
-        return;
-      }
-      customAssignments.push(assignment);
-    });
-    state.customAssignments = customAssignments.sort((left, right) =>
-      left.title.localeCompare(right.title),
-    );
-  } catch (error) {
-    state.customAssignments = [];
-    const target = page === "teacher" ? elements.teacherNote : elements.studentCloudNote;
-    setBanner(target, readableFirebaseError(error), "warning");
-  }
-  renderAssignmentOptions();
-  renderCustomAssignmentList();
+  state.answers = new Map(Object.entries(savedAnswers));
 }
 
-async function loadTeacherProfile() {
-  state.teacherProfile = null;
-
-  if (!state.user) return null;
-
-  if (isAdminAccount()) {
-    state.teacherProfile = getAdminTeacherProfile();
-    return state.teacherProfile;
-  }
-
-  try {
-    const snapshot = await getDoc(teacherRef());
-    state.teacherProfile = snapshot.exists() ? normalizeTeacher(snapshot.data(), state.user.email) : null;
-    return state.teacherProfile;
-  } catch (error) {
-    state.teacherProfile = null;
-    throw error;
-  }
-}
-
-function renderAuth() {
-  const signedIn = Boolean(state.user);
-  const displayName = state.user?.displayName || "Google account";
-  const email = state.user?.email || "Not signed in";
-
-  setText(elements.authName, signedIn ? displayName : "Not signed in");
-  setText(elements.authEmail, signedIn ? email : "Google authentication");
-  setHidden(elements.signInButton, signedIn);
-  setHidden(elements.signOutButton, !signedIn);
-  elements.authDot?.classList.toggle("is-signed-in", signedIn);
+function isAssignmentLocked() {
+  return Boolean(state.lockedSubmission);
 }
 
 function renderAssignmentOptions() {
-  const options = getAllAssignments()
+  const options = assignments
     .map(
       (assignment) =>
-        `<option value="${assignment.id}">${escapeHtml(assignment.title)} (${assignment.problemCount})${assignment.isTeacherCreated ? " - Custom" : ""}</option>`,
+        `<option value="${assignment.id}">${assignment.title} (${assignment.problemCount})</option>`,
     )
     .join("");
 
@@ -1244,117 +581,36 @@ function renderAssignmentOptions() {
   }
 }
 
+function renderStudentAccess() {
+  if (!elements.studentId) return;
+
+  elements.studentId.value = "";
+  setAccessNote("");
+}
+
 function updateAssignmentDisplay() {
   const assignment = getSelectedAssignment();
   setText(elements.assignmentDirections, assignment.directions);
-  setText(elements.teacherHeading, assignment.title);
   renderHeaderCounts();
 }
 
-function renderAssignmentBuilderOptions() {
-  if (!elements.customAssignmentType) return;
-  elements.customAssignmentType.innerHTML = CUSTOM_ASSIGNMENT_TYPES.map(
-    (type) => `<option value="${type.id}">${escapeHtml(type.label)}</option>`,
-  ).join("");
-}
-
-function getCustomProblemCountInput() {
-  const selected = elements.customProblemCount?.value || "10";
-  if (selected === "custom") {
-    return normalizeProblemCount(elements.customProblemCountOther?.value || 10);
-  }
-  return normalizeProblemCount(selected);
-}
-
-function getCustomAssignmentPayload() {
-  const typeConfig = getAssignmentTypeConfig(elements.customAssignmentType?.value);
-  const title = elements.customAssignmentTitle?.value.trim() || typeConfig.label;
-  const problemCount = getCustomProblemCountInput();
-  const timeEnabled = elements.customTimeEnabled?.checked === true;
-  const assignmentId = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  return {
-    assignmentId,
-    isTeacherCreated: true,
-    teacherId: state.user?.uid || "",
-    teacherEmail: normalizeEmail(state.user?.email || ""),
-    teacherName: state.user?.displayName || state.teacherProfile?.name || "",
-    title,
-    assignmentType: typeConfig.id,
-    assignmentTypeLabel: typeConfig.label,
-    answerMode: typeConfig.answerMode,
-    directions: typeConfig.directions,
-    problemCount,
-    difficulty: elements.customDifficulty?.value || "mixed",
-    assignedClassIds: [elements.customClassPeriod?.value.trim() || "default"],
-    classPeriod: elements.customClassPeriod?.value.trim() || "Default class",
-    dueDate: elements.customDueDate?.value || "",
-    showImmediateFeedback: elements.customFeedbackMode?.value === "immediate",
-    allowRetries: elements.customAllowRetries?.checked === true,
-    maxAttempts: normalizeProblemCount(elements.customMaxAttempts?.value || 1),
-    timeLimitMinutes: timeEnabled ? normalizeProblemCount(elements.customTimeLimit?.value || 30) : 0,
-    resetKey: "initial",
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  };
-}
-
-function renderCustomAssignmentList() {
-  if (!elements.customAssignmentList) return;
-  if (!state.customAssignments.length) {
-    elements.customAssignmentList.innerHTML = `<div class="empty-state compact-empty">No teacher-created assignments yet.</div>`;
-    return;
-  }
-  elements.customAssignmentList.innerHTML = state.customAssignments
-    .map(
-      (assignment) => `
-        <article class="assignment-card">
-          <div>
-            <p class="eyebrow">${escapeHtml(assignment.assignmentTypeLabel || assignment.assignmentType)}</p>
-            <h3>${escapeHtml(assignment.title)}</h3>
-            <p>${escapeHtml(assignment.problemCount)} problems - ${escapeHtml(assignment.difficulty)} - ${escapeHtml(assignment.classPeriod || "Default class")}</p>
-          </div>
-          <span>${assignment.showImmediateFeedback ? "Immediate feedback" : "After submission"}</span>
-        </article>
-      `,
-    )
-    .join("");
-}
-
-async function saveCustomAssignment() {
-  if (!state.user || !isTeacherAccount()) return;
-  const payload = getCustomAssignmentPayload();
-  setDisabled(elements.saveAssignmentButton, true);
-  try {
-    await setDoc(doc(db, "assignments", payload.assignmentId), payload, { merge: true });
-    setBanner(elements.teacherNote, `${payload.title} was created with ${payload.problemCount} problems.`, "success");
-    if (elements.customAssignmentTitle) elements.customAssignmentTitle.value = "";
-    await loadCustomAssignments();
-    selectAssignment(payload.assignmentId);
-  } catch (error) {
-    setBanner(elements.teacherNote, readableFirebaseError(error), "danger");
-  } finally {
-    setDisabled(elements.saveAssignmentButton, !isTeacherAccount());
-  }
-}
-
-function resetStudentWork() {
+function resetStudentWorkspace(title = "Enter your student ID to begin") {
+  state.selectedStudent = null;
+  state.lockedSubmission = null;
   state.problems = [];
   state.answers = new Map();
-  state.isSubmitted = false;
-  state.loadedAssignmentRunKey = "";
-  syncStudentFields();
+  setText(elements.assignmentTitle, title);
   setText(elements.submissionNote, "");
-  setSaveState("Not started");
-  setDisabled(elements.submitAssignment, true);
-  setText(elements.submitAssignment, "Submit Grade");
+  if (elements.submitAssignment) {
+    elements.submitAssignment.disabled = true;
+    elements.submitAssignment.textContent = "Submit Grade";
+  }
   renderProblems();
   updateStudentScore();
 }
 
 function selectAssignment(assignmentId, options = {}) {
-  const previousAssignmentId = getSelectedAssignment().id;
   state.selectedAssignment = getAssignmentById(assignmentId);
-
   if (elements.assignmentSelect) {
     elements.assignmentSelect.value = state.selectedAssignment.id;
   }
@@ -1365,222 +621,88 @@ function selectAssignment(assignmentId, options = {}) {
   updateAssignmentDisplay();
 
   if (options.resetStudentWork) {
-    resetStudentWork();
+    setAccessNote("");
+    resetStudentWorkspace();
   }
 
-  if (page === "teacher" && previousAssignmentId !== state.selectedAssignment.id) {
-    state.progress = {};
-    state.submissions = {};
-    renderDashboard();
-    subscribeDashboard();
-  }
+  renderDashboard();
 }
 
-function renderStudentIdentity() {
-  const signedInStudent = getSignedInRosterStudent();
-  if (signedInStudent) {
-    state.selectedStudent = signedInStudent;
-  }
+async function loadSelectedStudent() {
+  if (!elements.studentId) return;
 
-  setText(
-    elements.studentHeading,
-    signedInStudent ? signedInStudent.name : state.user ? "Roster account required" : "Your Assignment",
-  );
-  syncStudentFields();
-}
-
-function syncStudentFields() {
   const assignment = getSelectedAssignment();
-  const signedInStudent = getSignedInRosterStudent();
-  const emptyTitle = !state.user
-    ? "Sign in to see your assignment"
-    : signedInStudent
-      ? "Load your assignment to begin"
-      : "This Google account is not on the student roster";
+  const accessCode = normalizeStudentId(elements.studentId.value);
+  elements.studentId.value = accessCode;
 
+  if (accessCode.length !== 9) {
+    resetStudentWorkspace();
+    setAccessNote("Use the full 9-digit student ID.", "error");
+    return;
+  }
+
+  let student = null;
+  try {
+    student = await findStudentByAccessCode(accessCode);
+  } catch {
+    resetStudentWorkspace("Access check unavailable");
+    setAccessNote("Open this page from GitHub Pages or localhost and try again.", "error");
+    return;
+  }
+
+  if (!student) {
+    resetStudentWorkspace("Student ID not found");
+    setAccessNote("Check the number and try again.", "error");
+    return;
+  }
+
+  state.selectedStudent = student;
+  state.problems = generateAssignment(student, assignment);
+  state.lockedSubmission = getSubmission(student, assignment);
+  restoreAnswers(state.lockedSubmission?.answers);
+  elements.assignmentTitle.textContent = `${student.name}'s ${assignment.problemCount} ${assignment.title.toLowerCase()} problems`;
   setText(
-    elements.assignmentTitle,
-    state.problems.length
-      ? `${state.selectedStudent.name}'s ${assignment.problemCount} ${assignment.title.toLowerCase()} problems`
-      : emptyTitle,
+    elements.submissionNote,
+    state.lockedSubmission
+      ? `Submitted: ${state.lockedSubmission.correct} out of ${state.lockedSubmission.total} (${state.lockedSubmission.percent}%). Ask your teacher to reset this attempt before trying again.`
+      : "",
   );
+  setAccessNote(
+    state.lockedSubmission
+      ? `Submitted attempt loaded for ${student.name}.`
+      : `Access granted for ${student.name}.`,
+    "success",
+  );
+  if (elements.submitAssignment) {
+    elements.submitAssignment.disabled = isAssignmentLocked();
+    elements.submitAssignment.textContent = isAssignmentLocked() ? "Submitted" : "Submit Grade";
+  }
+  renderProblems();
+  updateStudentScore();
 }
 
-function renderProblems() {
-  if (!elements.problemList) return;
-
-  if (!state.user) {
-    elements.problemList.innerHTML = `<div class="empty-state">Sign in with Google to start.</div>`;
-    return;
-  }
-
-  if (!getSignedInRosterStudent()) {
-    elements.problemList.innerHTML = `<div class="empty-state">Use your roster Google account to open your assignment.</div>`;
-    return;
-  }
-
-  if (!state.problems.length) {
-    elements.problemList.innerHTML = `<div class="empty-state">Load the assignment when ready.</div>`;
-    return;
-  }
-
-  elements.problemList.innerHTML = state.problems
-    .map(
-      (problem) => `
-        <article class="problem-card" data-problem-id="${problem.id}">
-          <span class="problem-number">${problem.number}</span>
-          <div>
-            <div class="problem-type">${escapeHtml(problem.type)}</div>
-            <div class="equation">${renderProblemPrompt(problem)}</div>
-          </div>
-          <div class="answer-row ${getAnswerRowClass(problem)}">
-            ${renderAnswerInputs(problem)}
-            <span class="feedback" data-feedback="${problem.id}">Not answered</span>
-          </div>
-        </article>
-      `,
-    )
-    .join("");
-
-  elements.problemList.querySelectorAll("[data-answer-input]").forEach((input) => {
-    const savedAnswer = state.answers.get(input.dataset.answerInput);
-    const answerKey = input.dataset.answerKey || "x";
-    const savedValue =
-      savedAnswer && typeof savedAnswer === "object"
-        ? savedAnswer[answerKey] || ""
-        : savedAnswer || "";
-    input.value =
-      input.tagName === "SELECT" && !savedValue
-        ? answerKey === "kind"
-          ? "number"
-          : "<"
-        : savedValue;
-    input.disabled = state.isSubmitted;
-    input.addEventListener(input.tagName === "SELECT" ? "change" : "input", handleAnswerInput);
-  });
-
-  state.problems.forEach((problem) => updateProblemFeedback(problem.id));
-}
-
-function getAnswerRowClass(problem) {
-  if (problem.answerMode === "pair") return "is-pair";
-  if (problem.answerMode === "slope") return "is-slope";
-  if (problem.answerMode === "slopeIntercept") return "is-slope-intercept";
-  if (problem.answerMode === "inequality") return "is-inequality";
-  if (problem.answerMode === "graphLine") return `is-graph-line is-graph-${problem.graphQuestion}`;
-  return "";
-}
-
-function renderProblemPrompt(problem) {
-  if (problem.answerMode === "graphLine") {
-    return `
-      <div class="graph-problem">
-        ${renderCoordinateGrid(problem)}
-        <div class="graph-prompt-stack">
-          <p>${escapeHtml(problem.equation)}</p>
-          ${renderMathTable(problem.table)}
-        </div>
-      </div>
-    `;
-  }
-
+function renderEquation(problem) {
   if (problem.equations) {
     return `<div class="system-equations">${problem.equations
-      .map((equation) => `<span>${escapeHtml(equation)}</span>`)
-      .join("")}</div>${renderMathTable(problem.table)}`;
+      .map((equation) => `<span>${equation}</span>`)
+      .join("")}</div>`;
   }
 
-  return `${escapeHtml(problem.equation)}${renderMathTable(problem.table)}`;
+  return problem.equation;
 }
 
-function renderMathTable(table) {
-  if (!table?.headers?.length || !Array.isArray(table.rows)) return "";
-  return `
-    <div class="math-table-wrap">
-      <table class="math-table">
-        <thead>
-          <tr>${table.headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr>
-        </thead>
-        <tbody>
-          ${table.rows
-            .map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`)
-            .join("")}
-        </tbody>
-      </table>
-    </div>
-  `;
+function getSavedAnswer(problem, answerKey = "x") {
+  return state.answers.get(problem.id)?.[answerKey] || "";
 }
 
-function renderCoordinateGrid(problem) {
-  const size = 260;
-  const center = size / 2;
-  const unit = 11;
-  const toSvgX = (value) => center + value * unit;
-  const toSvgY = (value) => center - value * unit;
-  const slope = problem.graph.slope;
-  const intercept = problem.graph.intercept;
-  const start = { x: -10, y: fractionToNumber(slope) * -10 + fractionToNumber(intercept) };
-  const end = { x: 10, y: fractionToNumber(slope) * 10 + fractionToNumber(intercept) };
-  const clipId = `grid-clip-${problem.id.replace(/[^a-zA-Z0-9-]/g, "-")}`;
-  const gridLines = [];
-  const tickLabels = [];
-
-  for (let value = -10; value <= 10; value += 1) {
-    const position = toSvgX(value);
-    const axisClass = value === 0 ? "grid-axis" : "grid-line";
-    gridLines.push(
-      `<line class="${axisClass}" x1="${position}" y1="${toSvgY(-10)}" x2="${position}" y2="${toSvgY(10)}" />`,
-      `<line class="${axisClass}" x1="${toSvgX(-10)}" y1="${position}" x2="${toSvgX(10)}" y2="${position}" />`,
-    );
-    if (value !== 0) {
-      tickLabels.push(
-        `<text class="x-tick" x="${toSvgX(value)}" y="${toSvgY(0) + 9}">${value}</text>`,
-        `<text class="y-tick" x="${toSvgX(0) - 5}" y="${toSvgY(value) + 2}">${value}</text>`,
-      );
-    }
-  }
-
-  return `
-    <figure class="coordinate-graph" aria-label="Coordinate grid from -10 to 10">
-      <svg viewBox="0 0 ${size} ${size}" role="img" aria-label="Line through (${problem.graph.points[0].x}, ${problem.graph.points[0].y}) and (${problem.graph.points[1].x}, ${problem.graph.points[1].y})">
-        <defs>
-          <clipPath id="${clipId}">
-            <rect x="${toSvgX(-10)}" y="${toSvgY(10)}" width="${unit * 20}" height="${unit * 20}" />
-          </clipPath>
-        </defs>
-        <rect class="grid-background" x="${toSvgX(-10)}" y="${toSvgY(10)}" width="${unit * 20}" height="${unit * 20}" />
-        ${gridLines.join("")}
-        <g class="axis-labels" aria-hidden="true">
-          <text x="${toSvgX(10) + 8}" y="${toSvgY(0) + 4}">x</text>
-          <text x="${toSvgX(0) + 5}" y="${toSvgY(10) - 6}">y</text>
-          ${tickLabels.join("")}
-        </g>
-        <g clip-path="url(#${clipId})">
-          <line
-            class="graph-line"
-            x1="${toSvgX(start.x)}"
-            y1="${toSvgY(start.y)}"
-            x2="${toSvgX(end.x)}"
-            y2="${toSvgY(end.y)}"
-          />
-        </g>
-        ${problem.graph.points
-          .map(
-            (point, index) => `
-              <g class="graph-point">
-                <circle cx="${toSvgX(point.x)}" cy="${toSvgY(point.y)}" r="3.1" />
-                <text x="${toSvgX(point.x) + 5}" y="${toSvgY(point.y) - 5}">${index === 0 ? "A" : "B"}</text>
-              </g>
-            `,
-          )
-          .join("")}
-      </svg>
-    </figure>
-  `;
+function getProblemStatus(problem) {
+  if (isAssignmentLocked()) return "Locked";
+  return getProblemResult(problem) === "blank" ? "Blank" : "Saved";
 }
 
 function renderAnswerInputs(problem) {
-  if (problem.answerMode === "pair") {
+  const lockedAttribute = isAssignmentLocked() ? "disabled" : "";
+  if (problem.answerType === "ordered-pair") {
     return `
       <label class="answer-field">
         <span>x</span>
@@ -1590,7 +712,9 @@ function renderAnswerInputs(problem) {
           aria-label="x value for problem ${problem.number}"
           data-answer-input="${problem.id}"
           data-answer-key="x"
+          value="${escapeHtml(getSavedAnswer(problem, "x"))}"
           placeholder="x"
+          ${lockedAttribute}
         />
       </label>
       <label class="answer-field">
@@ -1601,198 +725,9 @@ function renderAnswerInputs(problem) {
           aria-label="y value for problem ${problem.number}"
           data-answer-input="${problem.id}"
           data-answer-key="y"
+          value="${escapeHtml(getSavedAnswer(problem, "y"))}"
           placeholder="y"
-        />
-      </label>
-    `;
-  }
-
-  if (problem.answerMode === "slope") {
-    return `
-      <label class="answer-field slope-kind-field">
-        <span>Type</span>
-        <select
-          aria-label="Slope type for problem ${problem.number}"
-          data-answer-input="${problem.id}"
-          data-answer-key="kind"
-        >
-          <option value="number">Number</option>
-          <option value="undefined">Undefined</option>
-        </select>
-      </label>
-      <label class="answer-field">
-        <span>Num.</span>
-        <input
-          type="text"
-          inputmode="numeric"
-          aria-label="Slope numerator for problem ${problem.number}"
-          data-answer-input="${problem.id}"
-          data-answer-key="numerator"
-          placeholder="rise"
-        />
-      </label>
-      <label class="answer-field">
-        <span>Den.</span>
-        <input
-          type="text"
-          inputmode="numeric"
-          aria-label="Slope denominator for problem ${problem.number}"
-          data-answer-input="${problem.id}"
-          data-answer-key="denominator"
-          placeholder="run"
-        />
-      </label>
-    `;
-  }
-
-  if (problem.answerMode === "slopeIntercept") {
-    return `
-      <label class="answer-field">
-        <span>m</span>
-        <input
-          type="text"
-          inputmode="text"
-          aria-label="Slope m for problem ${problem.number}"
-          data-answer-input="${problem.id}"
-          data-answer-key="m"
-          placeholder="m"
-        />
-      </label>
-      <label class="answer-field">
-        <span>b</span>
-        <input
-          type="text"
-          inputmode="text"
-          aria-label="Y-intercept b for problem ${problem.number}"
-          data-answer-input="${problem.id}"
-          data-answer-key="b"
-          placeholder="b"
-        />
-      </label>
-    `;
-  }
-
-  if (problem.answerMode === "inequality") {
-    return `
-      <label class="answer-field">
-        <span>x</span>
-        <select
-          aria-label="Inequality symbol for problem ${problem.number}"
-          data-answer-input="${problem.id}"
-          data-answer-key="symbol"
-        >
-          <option value="<">&lt;</option>
-          <option value=">">&gt;</option>
-          <option value="<=">&lt;=</option>
-          <option value=">=">&gt;=</option>
-        </select>
-      </label>
-      <label class="answer-field">
-        <span>Boundary</span>
-        <input
-          type="text"
-          inputmode="numeric"
-          aria-label="Boundary number for problem ${problem.number}"
-          data-answer-input="${problem.id}"
-          data-answer-key="boundary"
-          placeholder="number"
-        />
-      </label>
-    `;
-  }
-
-  if (problem.answerMode === "graphLine") {
-    if (problem.graphQuestion === "slope") {
-      return `
-        <label class="answer-field">
-          <span>Rise</span>
-          <input
-            type="text"
-            inputmode="numeric"
-            aria-label="Slope numerator for problem ${problem.number}"
-            data-answer-input="${problem.id}"
-            data-answer-key="numerator"
-            placeholder="num."
-          />
-        </label>
-        <label class="answer-field">
-          <span>Run</span>
-          <input
-            type="text"
-            inputmode="numeric"
-            aria-label="Slope denominator for problem ${problem.number}"
-            data-answer-input="${problem.id}"
-            data-answer-key="denominator"
-            placeholder="den."
-          />
-        </label>
-      `;
-    }
-
-    if (problem.graphQuestion === "intercept") {
-      return `
-        <label class="answer-field">
-          <span>b</span>
-          <input
-            type="text"
-            inputmode="text"
-            aria-label="Y-intercept for problem ${problem.number}"
-            data-answer-input="${problem.id}"
-            data-answer-key="b"
-            placeholder="b"
-          />
-        </label>
-      `;
-    }
-
-    if (problem.graphQuestion === "point") {
-      return `
-        <label class="answer-field">
-          <span>x</span>
-          <input
-            type="text"
-            inputmode="numeric"
-            aria-label="x-coordinate for a point on problem ${problem.number}"
-            data-answer-input="${problem.id}"
-            data-answer-key="x"
-            placeholder="x"
-          />
-        </label>
-        <label class="answer-field">
-          <span>y</span>
-          <input
-            type="text"
-            inputmode="numeric"
-            aria-label="y-coordinate for a point on problem ${problem.number}"
-            data-answer-input="${problem.id}"
-            data-answer-key="y"
-            placeholder="y"
-          />
-        </label>
-      `;
-    }
-
-    return `
-      <label class="answer-field">
-        <span>m</span>
-        <input
-          type="text"
-          inputmode="text"
-          aria-label="Slope m for problem ${problem.number}"
-          data-answer-input="${problem.id}"
-          data-answer-key="m"
-          placeholder="m"
-        />
-      </label>
-      <label class="answer-field">
-        <span>b</span>
-        <input
-          type="text"
-          inputmode="text"
-          aria-label="Y-intercept b for problem ${problem.number}"
-          data-answer-input="${problem.id}"
-          data-answer-key="b"
-          placeholder="b"
+          ${lockedAttribute}
         />
       </label>
     `;
@@ -1805,93 +740,71 @@ function renderAnswerInputs(problem) {
       aria-label="Answer for problem ${problem.number}"
       data-answer-input="${problem.id}"
       data-answer-key="x"
+      value="${escapeHtml(getSavedAnswer(problem))}"
       placeholder="${getSelectedAssignment().answerPlaceholder}"
+      ${lockedAttribute}
     />
   `;
 }
 
-function handleAnswerInput(event) {
-  if (state.isSubmitted) return;
+function renderProblems() {
+  if (!elements.problemList) return;
 
+  if (!state.problems.length) {
+    elements.problemList.innerHTML = `<div class="empty-state">Enter your student ID to load the selected assignment.</div>`;
+    return;
+  }
+
+  elements.problemList.innerHTML = state.problems
+    .map(
+      (problem) => `
+        <article class="problem-card" data-problem-id="${problem.id}">
+          <span class="problem-number">${problem.number}</span>
+          <div class="equation">${renderEquation(problem)}</div>
+          <div class="answer-row ${problem.answerType === "ordered-pair" ? "is-pair" : ""}">
+            ${renderAnswerInputs(problem)}
+            <span class="feedback" data-feedback="${problem.id}">${getProblemStatus(problem)}</span>
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+
+  elements.problemList.querySelectorAll("[data-answer-input]").forEach((input) => {
+    input.addEventListener("input", handleAnswerInput);
+  });
+}
+
+function handleAnswerInput(event) {
   const input = event.currentTarget;
   const problemId = input.dataset.answerInput;
   const answerKey = input.dataset.answerKey || "x";
-  const answer = state.answers.get(problemId);
-  const nextAnswer = answer && typeof answer === "object" ? { ...answer } : {};
-  nextAnswer[answerKey] = input.value.trim();
-  state.answers.set(problemId, nextAnswer);
-  updateProblemFeedback(problemId);
+  const answer = state.answers.get(problemId) || {};
+  answer[answerKey] = input.value.trim();
+  state.answers.set(problemId, answer);
+  updateProblemStatus(problemId);
   updateStudentScore();
-  queueProgressSave();
 }
 
 function isBlank(value) {
   return value === undefined || value === "";
 }
 
-function hasAnswerForProblem(problem, answers = state.answers) {
-  const answer = answers.get(problem.id);
-
-  if (problem.answerMode === "pair") {
-    const xValue = answer && typeof answer === "object" ? answer.x : "";
-    const yValue = answer && typeof answer === "object" ? answer.y : "";
-    return !isBlank(xValue) || !isBlank(yValue);
-  }
-
-  if (problem.answerMode === "slope") {
-    const kind = answer && typeof answer === "object" ? answer.kind : "";
-    const numerator = answer && typeof answer === "object" ? answer.numerator : "";
-    const denominator = answer && typeof answer === "object" ? answer.denominator : "";
-    return kind === "undefined" || !isBlank(numerator) || !isBlank(denominator);
-  }
-
-  if (problem.answerMode === "slopeIntercept") {
-    const mValue = answer && typeof answer === "object" ? answer.m : "";
-    const bValue = answer && typeof answer === "object" ? answer.b : "";
-    return !isBlank(mValue) || !isBlank(bValue);
-  }
-
-  if (problem.answerMode === "inequality") {
-    const symbol = answer && typeof answer === "object" ? answer.symbol : "";
-    const boundary = answer && typeof answer === "object" ? answer.boundary : "";
-    return !isBlank(symbol) || !isBlank(boundary);
-  }
-
-  if (problem.answerMode === "graphLine") {
-    const response = answer && typeof answer === "object" ? answer : {};
-    if (problem.graphQuestion === "slope") {
-      return !isBlank(response.numerator) || !isBlank(response.denominator);
-    }
-    if (problem.graphQuestion === "intercept") {
-      return !isBlank(response.b);
-    }
-    if (problem.graphQuestion === "point") {
-      return !isBlank(response.x) || !isBlank(response.y);
-    }
-    return !isBlank(response.m) || !isBlank(response.b);
-  }
-
-  const rawAnswer = answer && typeof answer === "object" ? answer.x : answer;
-  return !isBlank(rawAnswer);
-}
-
 function isCloseEnough(actual, expected) {
-  return Math.abs(actual - expected) < 0.0001;
+  return Math.abs(actual - expected) < ANSWER_TOLERANCE;
 }
 
-function getProblemResult(problem, answers = state.answers) {
-  const answer = answers.get(problem.id);
+function getProblemResult(problem) {
+  const answer = state.answers.get(problem.id) || {};
 
-  if (problem.answerMode === "pair") {
-    const xValue = answer && typeof answer === "object" ? answer.x : "";
-    const yValue = answer && typeof answer === "object" ? answer.y : "";
-    if (isBlank(xValue) && isBlank(yValue)) {
+  if (problem.answerType === "ordered-pair") {
+    if (isBlank(answer.x) && isBlank(answer.y)) {
       return "blank";
     }
 
-    const x = Number(xValue);
-    const y = Number(yValue);
-    if (isBlank(xValue) || isBlank(yValue) || !Number.isFinite(x) || !Number.isFinite(y)) {
+    const x = Number(answer.x);
+    const y = Number(answer.y);
+    if (isBlank(answer.x) || isBlank(answer.y) || !Number.isFinite(x) || !Number.isFinite(y)) {
       return "wrong";
     }
 
@@ -1900,148 +813,11 @@ function getProblemResult(problem, answers = state.answers) {
       : "wrong";
   }
 
-  if (problem.answerMode === "slope") {
-    const kind = answer && typeof answer === "object" ? answer.kind || "number" : "number";
-    const numeratorValue = answer && typeof answer === "object" ? answer.numerator : "";
-    const denominatorValue = answer && typeof answer === "object" ? answer.denominator : "";
-
-    if (kind === "undefined") {
-      return problem.answer.kind === "undefined" ? "correct" : "wrong";
-    }
-
-    if (isBlank(numeratorValue) && isBlank(denominatorValue)) {
-      return "blank";
-    }
-
-    const numerator = Number(numeratorValue);
-    const denominator = Number(denominatorValue);
-    if (
-      isBlank(numeratorValue) ||
-      isBlank(denominatorValue) ||
-      !Number.isInteger(numerator) ||
-      !Number.isInteger(denominator) ||
-      denominator === 0
-    ) {
-      return "wrong";
-    }
-
-    if (problem.answer.kind === "undefined") {
-      return "wrong";
-    }
-
-    const reduced = reduceFraction(numerator, denominator);
-    return reduced.numerator === problem.answer.numerator &&
-      reduced.denominator === problem.answer.denominator
-      ? "correct"
-      : "wrong";
-  }
-
-  if (problem.answerMode === "slopeIntercept") {
-    const mValue = answer && typeof answer === "object" ? answer.m : "";
-    const bValue = answer && typeof answer === "object" ? answer.b : "";
-    if (isBlank(mValue) && isBlank(bValue)) {
-      return "blank";
-    }
-
-    const mAnswer = parseFractionInput(mValue);
-    const bAnswer = parseFractionInput(bValue);
-    if (isBlank(mValue) || isBlank(bValue) || !mAnswer || !bAnswer) {
-      return "wrong";
-    }
-
-    return fractionsEqual(mAnswer, problem.answer.m) && fractionsEqual(bAnswer, problem.answer.b)
-      ? "correct"
-      : "wrong";
-  }
-
-  if (problem.answerMode === "inequality") {
-    const symbol = answer && typeof answer === "object" ? answer.symbol : "";
-    const boundaryValue = answer && typeof answer === "object" ? answer.boundary : "";
-    if (isBlank(symbol) && isBlank(boundaryValue)) {
-      return "blank";
-    }
-
-    const boundary = Number(boundaryValue);
-    if (
-      isBlank(symbol) ||
-      isBlank(boundaryValue) ||
-      !["<", ">", "<=", ">="].includes(symbol) ||
-      !Number.isInteger(boundary)
-    ) {
-      return "wrong";
-    }
-
-    return symbol === problem.answer.symbol && boundary === problem.answer.boundary
-      ? "correct"
-      : "wrong";
-  }
-
-  if (problem.answerMode === "graphLine") {
-    const response = answer && typeof answer === "object" ? answer : {};
-
-    if (problem.graphQuestion === "slope") {
-      const numeratorValue = response.numerator;
-      const denominatorValue = response.denominator;
-      if (isBlank(numeratorValue) && isBlank(denominatorValue)) return "blank";
-
-      const numerator = Number(numeratorValue);
-      const denominator = Number(denominatorValue);
-      if (
-        isBlank(numeratorValue) ||
-        isBlank(denominatorValue) ||
-        !Number.isInteger(numerator) ||
-        !Number.isInteger(denominator) ||
-        denominator === 0
-      ) {
-        return "wrong";
-      }
-
-      return fractionsEqual(reduceFraction(numerator, denominator), problem.answer.slope)
-        ? "correct"
-        : "wrong";
-    }
-
-    if (problem.graphQuestion === "intercept") {
-      if (isBlank(response.b)) return "blank";
-      const bAnswer = parseFractionInput(response.b);
-      return bAnswer && fractionsEqual(bAnswer, problem.answer.b) ? "correct" : "wrong";
-    }
-
-    if (problem.graphQuestion === "point") {
-      if (isBlank(response.x) && isBlank(response.y)) return "blank";
-      const x = Number(response.x);
-      const y = Number(response.y);
-      if (
-        isBlank(response.x) ||
-        isBlank(response.y) ||
-        !Number.isInteger(x) ||
-        !Number.isInteger(y)
-      ) {
-        return "wrong";
-      }
-      const expectedY =
-        fractionToNumber(problem.graph.slope) * x + fractionToNumber(problem.graph.intercept);
-      return isCloseEnough(y, expectedY) ? "correct" : "wrong";
-    }
-
-    if (isBlank(response.m) && isBlank(response.b)) return "blank";
-    const mAnswer = parseFractionInput(response.m);
-    const bAnswer = parseFractionInput(response.b);
-    if (isBlank(response.m) || isBlank(response.b) || !mAnswer || !bAnswer) {
-      return "wrong";
-    }
-
-    return fractionsEqual(mAnswer, problem.answer.m) && fractionsEqual(bAnswer, problem.answer.b)
-      ? "correct"
-      : "wrong";
-  }
-
-  const rawAnswer = answer && typeof answer === "object" ? answer.x : answer;
-  if (isBlank(rawAnswer)) {
+  if (isBlank(answer.x)) {
     return "blank";
   }
 
-  const numericAnswer = Number(rawAnswer);
+  const numericAnswer = Number(answer.x);
   if (!Number.isFinite(numericAnswer)) {
     return "wrong";
   }
@@ -2049,36 +825,19 @@ function getProblemResult(problem, answers = state.answers) {
   return isCloseEnough(numericAnswer, problem.answer) ? "correct" : "wrong";
 }
 
-function updateProblemFeedback(problemId) {
+function updateProblemStatus(problemId) {
   if (!elements.problemList) return;
 
   const problem = state.problems.find((item) => item.id === problemId);
-  const card = elements.problemList.querySelector(`[data-problem-id="${problemId}"]`);
   const feedback = elements.problemList.querySelector(`[data-feedback="${problemId}"]`);
-  if (!problem || !card || !feedback) return;
+  if (!problem || !feedback) return;
 
-  const result = getProblemResult(problem);
-  const shouldRevealGrade = state.isSubmitted || getSelectedAssignment().showImmediateFeedback === true;
-  card.classList.toggle("is-correct", shouldRevealGrade && result === "correct");
-  card.classList.toggle("is-wrong", shouldRevealGrade && result === "wrong");
-
-  if (!shouldRevealGrade) {
-    feedback.textContent = hasAnswerForProblem(problem) ? "Saved" : "Not answered";
-    return;
-  }
-
-  if (result === "correct") {
-    feedback.textContent = "Correct";
-  } else if (result === "wrong") {
-    feedback.textContent = "Incorrect";
-  } else {
-    feedback.textContent = "Blank";
-  }
+  feedback.textContent = getProblemStatus(problem);
 }
 
 function calculateScore() {
   const assignment = getSelectedAssignment();
-  const answered = state.problems.filter((problem) => hasAnswerForProblem(problem)).length;
+  const answered = state.problems.filter((problem) => getProblemResult(problem) !== "blank").length;
   const correct = state.problems.filter((problem) => getProblemResult(problem) === "correct").length;
   return {
     answered,
@@ -2098,1510 +857,261 @@ function updateStudentScore() {
   }
 
   const assignment = getSelectedAssignment();
-  const score = state.problems.length ? calculateScore() : { answered: 0, correct: 0, percent: 0 };
-  elements.currentScore.textContent = state.isSubmitted ? `${score.correct} / ${assignment.problemCount}` : "--";
-  elements.currentPercent.textContent = state.isSubmitted ? `${score.percent}%` : "After submit";
-  elements.answeredCount.textContent = `${score.answered} answered`;
-  elements.correctCount.textContent = state.isSubmitted ? `${score.correct} correct` : "Grade hidden";
-}
+  const answered = state.problems.filter((problem) => getProblemResult(problem) !== "blank").length;
 
-function answersObject() {
-  return Object.fromEntries(state.answers.entries());
-}
-
-function localProgressKey(student = state.selectedStudent, assignment = getSelectedAssignment()) {
-  return `dragonmath:${assignment.id}:${getAssignmentRunKey(assignment)}:${student.id}:progress`;
-}
-
-function buildLocalProgressPayload(score, options = {}) {
-  const assignment = getSelectedAssignment();
-  const payload = {
-    assignmentId: assignment.id,
-    assignmentTitle: assignment.title,
-    assignmentRunKey: getAssignmentRunKey(assignment),
-    studentId: state.selectedStudent.id,
-    studentName: state.selectedStudent.name,
-    studentEmail: state.selectedStudent.email,
-    answers: answersObject(),
-    answered: score.answered,
-    total: assignment.problemCount,
-    graded: Boolean(options.includeGrade),
-    submitted: Boolean(options.includeGrade),
-    updatedAtLocal: new Date().toISOString(),
-  };
-
-  if (options.includeGrade) {
-    payload.correct = score.correct;
-    payload.percent = score.percent;
-    payload.submittedAtLocal = new Date().toISOString();
-  }
-
-  return payload;
-}
-
-function saveLocalProgress(options = {}) {
-  if (!state.selectedStudent || !state.problems.length) return;
-
-  const score = calculateScore();
-  const payload = buildLocalProgressPayload(score, options);
-  localStorage.setItem(localProgressKey(), JSON.stringify(payload));
-}
-
-function readLocalProgress(student = state.selectedStudent) {
-  try {
-    const raw = localStorage.getItem(localProgressKey(student));
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function buildProgressPayload(score, options = {}) {
-  const assignment = getSelectedAssignment();
-  const payload = {
-    assignmentId: assignment.id,
-    assignmentTitle: assignment.title,
-    assignmentRunKey: getAssignmentRunKey(assignment),
-    studentId: state.selectedStudent.id,
-    studentName: state.selectedStudent.name,
-    studentEmail: state.selectedStudent.email,
-    role: getSignedInRole(),
-    uid: state.user.uid,
-    authEmail: state.user.email || "",
-    authName: state.user.displayName || "",
-    answers: answersObject(),
-    answered: score.answered,
-    total: assignment.problemCount,
-    graded: Boolean(options.includeGrade),
-    updatedAt: serverTimestamp(),
-  };
-
-  if (options.includeGrade) {
-    payload.correct = score.correct;
-    payload.percent = score.percent;
-  }
-
-  return payload;
-}
-
-function setSaveState(message) {
-  setText(elements.saveState, message);
-}
-
-function queueProgressSave() {
-  if (!state.user || !state.problems.length) return;
-
-  saveLocalProgress();
-  window.clearTimeout(state.saveTimer);
-  setSaveState("Saving...");
-  state.saveTimer = window.setTimeout(saveProgress, PROGRESS_SAVE_DELAY);
-}
-
-async function saveProgress() {
-  if (!state.user || !state.problems.length || state.isSaving) return;
-
-  state.isSaving = true;
-  try {
-    const score = calculateScore();
-    saveLocalProgress();
-    await setDoc(progressRef(state.selectedStudent), buildProgressPayload(score), { merge: true });
-    setSaveState(`Saved ${formatShortTime(new Date())}`);
-  } catch (error) {
-    setSaveState("Save blocked");
-    setBanner(elements.studentCloudNote, readableFirebaseError(error), "danger");
-  } finally {
-    state.isSaving = false;
-  }
-}
-
-async function loadSelectedStudent() {
-  if (!state.user) {
-    setBanner(elements.studentCloudNote, "Sign in with Google to load an assignment.", "warning");
+  if (!state.problems.length) {
+    elements.currentScore.textContent = `0 / ${assignment.problemCount}`;
+    elements.currentPercent.textContent = "--";
+    elements.answeredCount.textContent = "0 answered";
+    elements.correctCount.textContent = "Grade hidden";
     return;
   }
 
-  const selectedStudent = getSignedInRosterStudent();
-  if (!selectedStudent) {
-    setBanner(
-      elements.studentCloudNote,
-      "This Google account is not on the student roster. Use the student email assigned to this class.",
-      "danger",
+  if (!isAssignmentLocked()) {
+    elements.currentScore.textContent = "Not submitted";
+    elements.currentPercent.textContent = "--";
+    elements.answeredCount.textContent = `${answered} answered`;
+    elements.correctCount.textContent = "Grade hidden";
+    return;
+  }
+
+  const score = state.lockedSubmission || calculateScore();
+  elements.currentScore.textContent = `${score.correct} / ${score.total || assignment.problemCount}`;
+  elements.currentPercent.textContent = `${score.percent}%`;
+  elements.answeredCount.textContent = `${score.answered} answered`;
+  elements.correctCount.textContent = "Submitted";
+}
+
+function submitAssignment() {
+  if (!state.selectedStudent || !state.problems.length) return;
+  if (isAssignmentLocked()) {
+    setText(
+      elements.submissionNote,
+      "This attempt is already submitted and locked. Ask your teacher to reset it before trying again.",
     );
     return;
   }
 
-  state.selectedStudent = selectedStudent;
-  await loadAssignmentSettings();
-  state.loadedAssignmentRunKey = getAssignmentRunKey();
-  state.problems = generateAssignment(selectedStudent);
-  state.answers = new Map();
-  state.isSubmitted = false;
+  const assignment = getSelectedAssignment();
+  const score = calculateScore();
+  const assignmentSubmissions = getAssignmentSubmissions(assignment);
 
-  syncStudentFields();
+  assignmentSubmissions[state.selectedStudent.key] = {
+    assignmentId: assignment.id,
+    assignmentTitle: assignment.title,
+    studentKey: state.selectedStudent.key,
+    name: state.selectedStudent.name,
+    correct: score.correct,
+    total: assignment.problemCount,
+    percent: score.percent,
+    answered: score.answered,
+    answers: serializeAnswers(),
+    submittedAt: new Date().toISOString(),
+  };
+  state.lockedSubmission = assignmentSubmissions[state.selectedStudent.key];
+  saveSubmissions();
   renderProblems();
   updateStudentScore();
-  setSaveState("Loading cloud work...");
-  setDisabled(elements.submitAssignment, true);
-  setText(elements.submitAssignment, "Submit Grade");
-  setBanner(elements.studentCloudNote, `Loading ${selectedStudent.name}'s assignment.`, "neutral");
-
-  await hydrateStudentWork(selectedStudent);
-
-  setDisabled(elements.submitAssignment, state.isSubmitted);
-  setText(elements.submitAssignment, state.isSubmitted ? "Submitted" : "Submit Grade");
-  setSaveState(state.isSubmitted ? "Submitted" : "Ready");
-  setBanner(
-    elements.studentCloudNote,
-    state.isSubmitted
-      ? `${selectedStudent.name}'s submitted grade is shown below.`
-      : `${selectedStudent.name}'s assignment is ready.`,
-    "success",
-  );
-}
-
-async function hydrateStudentWork(student) {
-  const localWork = readLocalProgress(student);
-
-  try {
-    const [progressSnapshot, submissionSnapshot] = await Promise.all([
-      getDoc(progressRef(student)),
-      getDoc(submissionRef(student)),
-    ]);
-
-    const savedWork = submissionSnapshot.exists()
-      ? submissionSnapshot.data()
-      : progressSnapshot.exists()
-        ? progressSnapshot.data()
-        : localWork;
-
-    if (savedWork?.answers && typeof savedWork.answers === "object") {
-      state.answers = new Map(Object.entries(savedWork.answers));
-      state.isSubmitted = submissionSnapshot.exists() || savedWork.graded === true || savedWork.submitted === true;
-      renderProblems();
-      updateStudentScore();
-      if (!submissionSnapshot.exists() && savedWork !== localWork) {
-        saveLocalProgress();
-      }
-      setSaveState(state.isSubmitted ? "Submitted" : savedWork === localWork ? "Restored locally" : "Restored");
-    }
-
-    if (submissionSnapshot.exists() || savedWork?.graded === true || savedWork?.submitted === true) {
-      const submission = submissionSnapshot.exists() ? submissionSnapshot.data() : savedWork;
-      state.isSubmitted = true;
-      renderProblems();
-      updateStudentScore();
-      setText(
-        elements.submissionNote,
-        `Submitted: ${submission.correct} out of ${submission.total} (${submission.percent}%).`,
-      );
-    } else {
-      setText(elements.submissionNote, "");
-    }
-  } catch (error) {
-    if (localWork?.answers && typeof localWork.answers === "object") {
-      state.answers = new Map(Object.entries(localWork.answers));
-      state.isSubmitted = localWork.graded === true || localWork.submitted === true;
-      renderProblems();
-      updateStudentScore();
-      setSaveState(state.isSubmitted ? "Submitted locally" : "Restored locally");
-      setText(
-        elements.submissionNote,
-        state.isSubmitted
-          ? `Submitted locally: ${localWork.correct} out of ${localWork.total} (${localWork.percent}%).`
-          : "",
-      );
-      setBanner(
-        elements.studentCloudNote,
-        `${readableFirebaseError(error)} Your work was restored from this device.`,
-        "warning",
-      );
-      return;
-    }
-
-    setBanner(elements.studentCloudNote, readableFirebaseError(error), "danger");
-    setSaveState("Cloud unavailable");
+  if (elements.dashboardBody) {
+    renderDashboard();
   }
-}
-
-async function recordFocusEvent(eventType) {
-  if (!state.user || !state.selectedStudent || !state.problems.length || state.isSubmitted) return;
-  try {
-    const eventId = `${getSelectedAssignment().id}-${state.selectedStudent.id}-${Date.now()}`;
-    await setDoc(doc(db, "focusEvents", eventId), {
-      eventId,
-      assignmentId: getSelectedAssignment().id,
-      assignmentTitle: getSelectedAssignment().title,
-      studentId: state.selectedStudent.id,
-      studentEmail: state.selectedStudent.email,
-      eventType,
-      pageHidden: document.hidden,
-      createdAt: serverTimestamp(),
-    });
-  } catch {
-    // Focus logging is helpful for lockdown testing, but it should never block student work.
+  if (elements.submitAssignment) {
+    elements.submitAssignment.disabled = true;
+    elements.submitAssignment.textContent = "Submitted";
   }
-}
-
-function handleAssignmentVisibilityChange() {
-  if (document.hidden) {
-    recordFocusEvent("page-hidden");
-    setBanner(
-      elements.studentCloudNote,
-      "Stay on the assignment page. Your teacher may review page-focus events during lockdown testing.",
-      "warning",
-    );
-  }
-}
-
-function buildSubmissionReport(score) {
-  const assignment = getSelectedAssignment();
-  return {
-    assignmentId: assignment.id,
-    assignmentTitle: assignment.title,
-    student: {
-      id: state.selectedStudent.id,
-      name: state.selectedStudent.name,
-      email: state.selectedStudent.email,
-    },
-    submittedBy: {
-      uid: state.user.uid,
-      name: state.user.displayName || "",
-      email: state.user.email || "",
-    },
-    score: {
-      correct: score.correct,
-      total: assignment.problemCount,
-      answered: score.answered,
-      percent: score.percent,
-    },
-    problems: state.problems.map((problem) => ({
-      number: problem.number,
-      type: problem.type,
-      equation: problem.equation || problem.equations,
-      studentAnswer: state.answers.get(problem.id) || "",
-      correctAnswer: problem.answer,
-      result: getProblemResult(problem),
-    })),
-    createdAt: new Date().toISOString(),
-  };
-}
-
-async function uploadSubmissionReport(report) {
-  const reportPath = `assignments/${getSelectedAssignment().id}/submissions/${
-    state.selectedStudent.id
-  }.json`;
-  const fileRef = storageRef(storage, reportPath);
-  await uploadString(fileRef, JSON.stringify(report, null, 2), "raw", {
-    contentType: "application/json",
-  });
-  const reportUrl = await getDownloadURL(fileRef);
-  return { reportPath, reportUrl };
-}
-
-async function submitAssignment() {
-  if (!state.user || !state.selectedStudent || !state.problems.length) return;
-
-  window.clearTimeout(state.saveTimer);
-  setDisabled(elements.submitAssignment, true);
-  setSaveState("Submitting...");
-
-  await loadAssignmentSettings();
-  if (state.loadedAssignmentRunKey && state.loadedAssignmentRunKey !== getAssignmentRunKey()) {
-    state.problems = generateAssignment(state.selectedStudent);
-    state.answers = new Map();
-    state.isSubmitted = false;
-    state.loadedAssignmentRunKey = getAssignmentRunKey();
-    renderProblems();
-    updateStudentScore();
-    setSaveState("Assignment reset");
-    setText(elements.submitAssignment, "Submit Grade");
-    setDisabled(elements.submitAssignment, false);
-    setBanner(
-      elements.studentCloudNote,
-      "This assignment was reset by a teacher. New problems have been loaded.",
-      "warning",
-    );
-    return;
-  }
-
-  const score = calculateScore();
-  const report = buildSubmissionReport(score);
-  let reportInfo = {};
-  saveLocalProgress({ includeGrade: true });
-
-  try {
-    await saveProgress();
-    saveLocalProgress({ includeGrade: true });
-    reportInfo = await uploadSubmissionReport(report);
-  } catch (error) {
-    reportInfo = {
-      reportError: readableFirebaseError(error),
-    };
-  }
-
-  try {
-    await setDoc(
-      submissionRef(state.selectedStudent),
-      {
-        ...buildProgressPayload(score, { includeGrade: true }),
-        submittedAt: serverTimestamp(),
-        reportPath: reportInfo.reportPath || "",
-        reportUrl: reportInfo.reportUrl || "",
-        reportError: reportInfo.reportError || "",
-      },
-      { merge: true },
-    );
-
-    const assignment = getSelectedAssignment();
-    const storageProblem = Boolean(reportInfo.reportError);
-    state.isSubmitted = true;
-    renderProblems();
-    updateStudentScore();
-    setSaveState("Submitted");
-    setText(elements.submitAssignment, "Submitted");
-    setDisabled(elements.submitAssignment, true);
-    setBanner(
-      elements.studentCloudNote,
-      storageProblem
-        ? "Grade submitted. The Storage report was blocked by Firebase rules."
-        : "Grade submitted to the teacher dashboard.",
-      storageProblem ? "warning" : "success",
-    );
-    setText(
-      elements.submissionNote,
-      `Submitted: ${score.correct} out of ${assignment.problemCount} (${score.percent}%).`,
-    );
-  } catch (error) {
-    const assignment = getSelectedAssignment();
-    state.isSubmitted = true;
-    saveLocalProgress({ includeGrade: true });
-    renderProblems();
-    updateStudentScore();
-    setSaveState("Submitted locally");
-    setText(elements.submitAssignment, "Submitted");
-    setDisabled(elements.submitAssignment, true);
-    setBanner(
-      elements.studentCloudNote,
-      `${readableFirebaseError(error)} Grade is saved on this device until Firebase rules are deployed.`,
-      "warning",
-    );
-    setText(
-      elements.submissionNote,
-      `Submitted locally: ${score.correct} out of ${assignment.problemCount} (${score.percent}%).`,
-    );
-  } finally {
-    setDisabled(elements.submitAssignment, state.isSubmitted);
-  }
-}
-
-function normalizeSubmission(data = {}) {
-  const hasGrade = data.graded === true || Boolean(data.submittedAt);
-  return {
-    studentId: data.studentId || "",
-    studentName: data.studentName || data.name || "",
-    studentEmail: data.studentEmail || "",
-    role: data.role || ROLES.STUDENT,
-    answers: data.answers && typeof data.answers === "object" ? data.answers : {},
-    graded: hasGrade,
-    correct: hasGrade ? Number(data.correct || 0) : 0,
-    total: Number(data.total || getSelectedAssignment().problemCount),
-    percent: hasGrade ? Number(data.percent || 0) : 0,
-    answered: Number(data.answered || 0),
-    submittedAt: data.submittedAt || null,
-    updatedAt: data.updatedAt || null,
-    reportUrl: data.reportUrl || "",
-    reportPath: data.reportPath || "",
-    reportError: data.reportError || "",
-  };
-}
-
-function formatTimestamp(value) {
-  if (!value) return "--";
-  const date = typeof value.toDate === "function" ? value.toDate() : new Date(value);
-  if (Number.isNaN(date.getTime())) return "--";
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(date);
-}
-
-function formatShortTime(date) {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(date);
-}
-
-function getDashboardWork(student) {
-  const progress = state.progress[student.id];
-  const submission = state.submissions[student.id];
-
-  if (submission) {
-    return {
-      ...progress,
-      ...submission,
-      isSubmitted: true,
-      workStatus: "Submitted",
-    };
-  }
-
-  if (progress) {
-    return {
-      ...progress,
-      isSubmitted: false,
-      workStatus: "In progress",
-    };
-  }
-
-  return null;
-}
-
-function getWorkStatusClass(work) {
-  if (work?.isSubmitted) return "is-submitted";
-  if (work) return "is-progress";
-  return "";
-}
-
-function answersMapFromWork(work) {
-  return new Map(Object.entries(work?.answers || {}));
-}
-
-function formatAnswerValue(value) {
-  if (value && typeof value === "object") {
-    if ("m" in value || "b" in value) {
-      const mValue =
-        value.m && typeof value.m === "object" ? formatFractionValue(value.m) : value.m || "?";
-      const bValue =
-        value.b && typeof value.b === "object" ? formatFractionValue(value.b) : value.b || "?";
-      if ("m" in value && "b" in value) return `m = ${mValue}, b = ${bValue}`;
-      if ("b" in value) return `b = ${bValue}`;
-      return `m = ${mValue}`;
-    }
-
-    if ("slope" in value) {
-      return `m = ${formatFractionValue(value.slope)}`;
-    }
-
-    if ("point" in value) {
-      return `Any point on the line, such as (${value.point.x}, ${value.point.y})`;
-    }
-
-    if ("symbol" in value || "boundary" in value) {
-      const symbol = value.symbol || "?";
-      const boundary = value.boundary === undefined || value.boundary === "" ? "?" : value.boundary;
-      return `x ${symbol} ${boundary}`;
-    }
-
-    if (value.kind === "undefined") {
-      return "Undefined";
-    }
-
-    if ("numerator" in value || "denominator" in value) {
-      const numerator = value.numerator === undefined || value.numerator === "" ? "?" : value.numerator;
-      const denominator =
-        value.denominator === undefined || value.denominator === "" ? "?" : value.denominator;
-      return `${numerator}/${denominator}`;
-    }
-
-    const parts = ["x", "y"]
-      .map((key) => (value[key] === undefined || value[key] === "" ? "" : `${key} = ${value[key]}`))
-      .filter(Boolean);
-    return parts.length ? parts.join(", ") : "Blank";
-  }
-
-  return value === undefined || value === null || value === "" ? "Blank" : `${value}`;
-}
-
-function getResultLabel(result) {
-  if (result === "correct") return "Correct";
-  if (result === "wrong") return "Needs review";
-  if (result === "pending") return "Pending";
-  return "Blank";
-}
-
-function getResultClass(result) {
-  if (result === "correct") return "is-correct";
-  if (result === "wrong") return "is-wrong";
-  if (result === "pending") return "is-pending";
-  return "is-blank";
-}
-
-function renderStudentWorkPanel() {
-  if (!elements.studentWorkPanel || !elements.studentWorkProblems) return;
-
-  if (!state.user || !isTeacherAccount()) {
-    setText(elements.studentWorkTitle, "Teacher access required");
-    setText(elements.studentWorkMeta, "Sign in with the teacher account to inspect student work.");
-    setHidden(elements.closeWorkPanel, true);
-    elements.studentWorkProblems.innerHTML = `<div class="empty-state">Teacher sign-in required.</div>`;
-    return;
-  }
-
-  const student = getVisibleRoster().find((item) => item.id === state.selectedWorkStudentId);
-  if (!student) {
-    setText(elements.studentWorkTitle, "Choose a student");
-    setText(
-      elements.studentWorkMeta,
-      "Use View Work in the roster to inspect a student's generated problems and saved answers.",
-    );
-    setHidden(elements.closeWorkPanel, true);
-    elements.studentWorkProblems.innerHTML = `<div class="empty-state">No student selected.</div>`;
-    return;
-  }
-
-  const assignment = getSelectedAssignment();
-  const problems = generateAssignment(student, assignment);
-  const work = getDashboardWork(student);
-  const answers = answersMapFromWork(work);
-  const status = work?.workStatus || "Not started";
-  const answered = work?.answered ?? 0;
-  const total = work?.total ?? assignment.problemCount;
-  const revealGrade = Boolean(work?.isSubmitted);
-  const scoreText = revealGrade
-    ? `${work.correct}/${total} correct - ${work.percent}%`
-    : "grade pending";
-
-  setText(elements.studentWorkTitle, `${student.name}'s Problems`);
   setText(
-    elements.studentWorkMeta,
-    `${assignment.title} - ${status} - ${answered}/${total} answered - ${scoreText}`,
+    elements.submissionNote,
+    `Submitted and locked: ${score.correct} out of ${assignment.problemCount} (${score.percent}%).`,
   );
-  setHidden(elements.closeWorkPanel, false);
-
-  elements.studentWorkProblems.innerHTML = problems
-    .map((problem) => {
-      const result = revealGrade
-        ? getProblemResult(problem, answers)
-        : hasAnswerForProblem(problem, answers)
-          ? "pending"
-          : "blank";
-      return `
-        <article class="review-card ${problem.answerMode === "graphLine" ? "is-graph-review" : ""} ${getResultClass(result)}">
-          <div class="review-card-header">
-            <span class="problem-number">${problem.number}</span>
-            <div>
-              <div class="problem-type">${escapeHtml(problem.type)}</div>
-              <div class="equation">${renderProblemPrompt(problem)}</div>
-            </div>
-            <span class="review-status">${getResultLabel(result)}</span>
-          </div>
-          <div class="review-answer-grid">
-            <div>
-              <span>Student answer</span>
-              <strong>${escapeHtml(formatAnswerValue(answers.get(problem.id)))}</strong>
-            </div>
-            <div>
-              <span>Correct answer</span>
-              <strong>${escapeHtml(revealGrade ? formatAnswerValue(problem.answer) : "Available after submit")}</strong>
-            </div>
-          </div>
-        </article>
-      `;
-    })
-    .join("");
 }
 
-function focusStudentWorkPanel() {
-  if (!elements.studentWorkPanel) return;
-
-  elements.studentWorkPanel.classList.remove("is-attention");
-  window.requestAnimationFrame(() => {
-    elements.studentWorkPanel.scrollIntoView({ behavior: "smooth", block: "start" });
-    elements.studentWorkPanel.focus({ preventScroll: true });
-    elements.studentWorkPanel.classList.add("is-attention");
-    window.setTimeout(() => {
-      elements.studentWorkPanel?.classList.remove("is-attention");
-    }, 1400);
-  });
-}
-
-function bindViewWorkButtons() {
+function renderDashboard() {
   if (!elements.dashboardBody) return;
 
-  elements.dashboardBody.querySelectorAll("[data-view-work]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.selectedWorkStudentId = button.dataset.viewWork;
-      const student = getVisibleRoster().find((item) => item.id === state.selectedWorkStudentId);
-      renderDashboard({ focusWorkPanel: true });
-      if (student) {
-        setBanner(elements.teacherNote, `Viewing ${student.name}'s generated problems.`, "success");
-      }
-    });
-  });
-
-  elements.dashboardBody.querySelectorAll("[data-return-work]").forEach((button) => {
-    button.addEventListener("click", () => {
-      returnStudentWork(button.dataset.returnWork);
-    });
-  });
-}
-
-async function returnStudentWork(studentId) {
-  if (!state.user || !isTeacherAccount()) return;
-
-  const student = getVisibleRoster().find((item) => item.id === studentId);
-  if (!student) return;
-
-  const confirmed = window.confirm(
-    `Return ${student.name}'s ${getSelectedAssignment().title}? This will remove the submitted grade and reopen the work for editing.`,
-  );
-  if (!confirmed) return;
-
-  setDashboardControls(false);
-  try {
-    const submissionSnapshot = await getDoc(submissionRef(student));
-    const rawSubmission = submissionSnapshot.exists() ? submissionSnapshot.data() : null;
-    const submission = rawSubmission ? normalizeSubmission(rawSubmission) : state.submissions[student.id];
-
-    if (!submission) {
-      setBanner(elements.teacherNote, `${student.name} does not have submitted work to return.`, "warning");
-      return;
-    }
-
-    const now = new Date().toISOString();
-    const progressPayload = {
-      assignmentId: rawSubmission?.assignmentId || getSelectedAssignment().id,
-      assignmentTitle: rawSubmission?.assignmentTitle || getSelectedAssignment().title,
-      assignmentRunKey: rawSubmission?.assignmentRunKey || getAssignmentRunKey(),
-      studentId: student.id,
-      studentName: student.name,
-      studentEmail: student.email,
-      role: ROLES.STUDENT,
-      answers: submission.answers || {},
-      answered: submission.answered || 0,
-      total: submission.total || getSelectedAssignment().problemCount,
-      graded: false,
-      returned: true,
-      returnedAt: serverTimestamp(),
-      returnedBy: state.user.displayName || "",
-      returnedByEmail: state.user.email || "",
-      updatedAt: serverTimestamp(),
-    };
-    const localProgress = {
-      ...progressPayload,
-      returnedAt: now,
-      updatedAt: now,
-    };
-
-    await setDoc(progressRef(student), progressPayload, { merge: true });
-    if (submissionSnapshot.exists()) {
-      await deleteDoc(submissionSnapshot.ref);
-    } else {
-      await deleteDoc(submissionRef(student)).catch(() => {});
-    }
-    if (submission.reportPath) {
-      await deleteObject(storageRef(storage, submission.reportPath)).catch(() => {});
-    }
-
-    state.progress[student.id] = normalizeSubmission(localProgress);
-    delete state.submissions[student.id];
-    state.selectedWorkStudentId = student.id;
-    renderDashboard({ focusWorkPanel: true });
-    setBanner(elements.teacherNote, `${student.name}'s work was returned for editing.`, "success");
-  } catch (error) {
-    setBanner(elements.teacherNote, readableFirebaseError(error), "danger");
-  } finally {
-    setDashboardControls(true);
-  }
-}
-
-function renderDashboard(options = {}) {
-  if (!elements.dashboardBody) return;
-
-  const canViewWork = Boolean(state.user && isTeacherAccount());
-  const visibleRoster = getVisibleRoster();
-  const visibleStudentIds = new Set(visibleRoster.map((student) => student.id));
-  const rows = visibleRoster.map((student) => {
-    const work = getDashboardWork(student);
-    const submission = state.submissions[student.id];
-    const canReturnWork = canViewWork && Boolean(submission);
-    const scoreText = work?.isSubmitted ? `${work.correct} / ${work.total}` : "--";
-    const gradeText = work?.isSubmitted ? `${work.percent}%` : "--";
-    const reportLink = submission?.reportUrl
-      ? `<a class="table-link" href="${escapeHtml(submission.reportUrl)}" target="_blank" rel="noreferrer">Open</a>`
-      : submission?.reportError
-        ? `<span class="muted-cell">Storage error</span>`
-        : "--";
-
+  const assignment = getSelectedAssignment();
+  const assignmentSubmissions = getAssignmentSubmissions(assignment);
+  const rows = roster.map((student) => {
+    const submission = assignmentSubmissions[student.key];
+    const submittedAt = submission
+      ? new Intl.DateTimeFormat(undefined, {
+          dateStyle: "short",
+          timeStyle: "short",
+        }).format(new Date(submission.submittedAt))
+      : "--";
     return `
-      <tr class="${state.selectedWorkStudentId === student.id ? "is-selected-work" : ""}">
+      <tr>
+        <td>${escapeHtml(student.name)}</td>
         <td>
-          <strong>${escapeHtml(student.name)}</strong>
-          <small>${escapeHtml(student.email)}</small>
-        </td>
-        <td>${student.id}</td>
-        <td>
-          <span class="status-pill ${getWorkStatusClass(work)}">
-            ${work?.workStatus || "Waiting"}
+          <span class="status-pill ${submission ? "is-submitted" : ""}">
+            ${submission ? "Submitted" : "Waiting"}
           </span>
         </td>
-        <td>${scoreText}</td>
-        <td>${gradeText}</td>
-        <td>${work ? `${work.answered} / ${work.total}` : "--"}</td>
-        <td>${submission ? formatTimestamp(submission.submittedAt) : "--"}</td>
+        <td>${submission ? `${submission.correct} / ${submission.total}` : "--"}</td>
+        <td>${submission ? `${submission.percent}%` : "--"}</td>
+        <td>${submission ? `${submission.answered} / ${submission.total}` : "--"}</td>
+        <td>${submittedAt}</td>
         <td>
-          <div class="table-buttons row-buttons">
-            <button
-              class="secondary-button table-button"
-              type="button"
-              data-view-work="${student.id}"
-              ${canViewWork ? "" : "disabled"}
-              aria-pressed="${state.selectedWorkStudentId === student.id ? "true" : "false"}"
-            >
-              View Work
-            </button>
-            <button
-              class="danger-button table-button"
-              type="button"
-              data-return-work="${student.id}"
-              ${canReturnWork ? "" : "disabled"}
-            >
-              Return
-            </button>
-          </div>
+          ${
+            submission
+              ? `<button class="secondary-button table-reset-button" type="button" data-reset-student="${student.key}">Reset</button>`
+              : "--"
+          }
         </td>
-        <td>${reportLink}</td>
       </tr>
     `;
   });
 
-  elements.dashboardBody.innerHTML = rows.length
-    ? rows.join("")
-    : `<tr><td colspan="9" class="muted-cell">No students are assigned to this dashboard.</td></tr>`;
-  bindViewWorkButtons();
-  renderStudentWorkPanel();
-  if (options.focusWorkPanel && state.selectedWorkStudentId) {
-    focusStudentWorkPanel();
-  }
+  elements.dashboardBody.innerHTML = rows.join("");
+  elements.dashboardBody.querySelectorAll("[data-reset-student]").forEach((button) => {
+    button.addEventListener("click", () => resetStudentSubmission(button.dataset.resetStudent));
+  });
 
-  const submissions = Object.values(state.submissions).filter((submission) =>
-    visibleStudentIds.has(submission.studentId),
-  );
+  const submissions = Object.values(assignmentSubmissions);
   const submittedCount = submissions.length;
   const average = submittedCount
     ? Math.round(submissions.reduce((sum, item) => sum + item.percent, 0) / submittedCount)
     : null;
-  const highest = submittedCount ? Math.max(...submissions.map((item) => item.percent)) : null;
-  const lastTimestamp = submissions
-    .map((item) => item.submittedAt)
-    .filter(Boolean)
-    .sort(compareTimestamps)
-    .at(-1);
+  const highest = submittedCount
+    ? Math.max(...submissions.map((item) => item.percent))
+    : null;
 
-  setText(elements.submittedCount, `${submittedCount} / ${visibleRoster.length}`);
+  setText(elements.submittedCount, `${submittedCount} / ${roster.length}`);
   setText(elements.classAverage, average === null ? "--" : `${average}%`);
   setText(elements.highestScore, highest === null ? "--" : `${highest}%`);
-  setText(elements.lastUpdate, lastTimestamp ? formatTimestamp(lastTimestamp) : "--");
+  updateDashboardSyncStatus();
 }
 
-function compareTimestamps(a, b) {
-  const left = typeof a?.toMillis === "function" ? a.toMillis() : new Date(a).getTime();
-  const right = typeof b?.toMillis === "function" ? b.toMillis() : new Date(b).getTime();
-  return left - right;
-}
-
-function setDashboardControls(enabled) {
-  setDisabled(elements.dashboardAssignmentSelect, !enabled);
-  setDisabled(elements.refreshDashboard, !enabled);
-  setDisabled(elements.exportDashboard, !enabled);
-  setDisabled(elements.resetDashboard, !enabled || !isTeacherAccount());
-}
-
-function clearDashboardSubscriptions() {
-  state.dashboardUnsubscribes.forEach((unsubscribe) => unsubscribe());
-  state.dashboardUnsubscribes = [];
-}
-
-function setDashboardDocState(kind, studentId, snapshot) {
-  const target = kind === "submission" ? state.submissions : state.progress;
-  if (snapshot.exists()) {
-    target[studentId] = normalizeSubmission(snapshot.data());
-  } else {
-    delete target[studentId];
-  }
+function refreshDashboard() {
+  state.submissions = loadSubmissions();
   renderDashboard();
 }
 
-function subscribeAssignedDashboardDocs() {
-  getVisibleRoster().forEach((student) => {
-    state.dashboardUnsubscribes.push(
-      onSnapshot(
-        submissionRef(student),
-        (snapshot) => setDashboardDocState("submission", student.id, snapshot),
-        (error) => {
-          setDashboardControls(false);
-          setBanner(elements.teacherNote, readableFirebaseError(error), "danger");
-        },
-      ),
-    );
+function updateDashboardSyncStatus() {
+  if (!elements.dashboardSyncStatus) return;
 
-    state.dashboardUnsubscribes.push(
-      onSnapshot(
-        progressRef(student),
-        (snapshot) => setDashboardDocState("progress", student.id, snapshot),
-        (error) => {
-          setDashboardControls(false);
-          setBanner(elements.teacherNote, readableFirebaseError(error), "danger");
-        },
-      ),
-    );
-  });
+  const timestamp = new Intl.DateTimeFormat(undefined, {
+    timeStyle: "medium",
+  }).format(new Date());
+  elements.dashboardSyncStatus.textContent = `Updated ${timestamp}. This dashboard reads submissions saved in this browser. Student devices need a shared database to appear here.`;
 }
 
-function subscribeDashboardCollections() {
-  state.dashboardUnsubscribes.push(
-    onSnapshot(
-      submissionsCollection(),
-      (snapshot) => {
-        const submissions = {};
-        snapshot.forEach((submissionDoc) => {
-          submissions[submissionDoc.id] = normalizeSubmission(submissionDoc.data());
-        });
-        state.submissions = submissions;
-        renderDashboard();
-      },
-      (error) => {
-        setDashboardControls(false);
-        setBanner(elements.teacherNote, readableFirebaseError(error), "danger");
-      },
-    ),
-  );
+function resetDashboard() {
+  const assignment = getSelectedAssignment();
+  const confirmed = window.confirm(`Clear all submitted grades for ${assignment.title}?`);
+  if (!confirmed) return;
 
-  state.dashboardUnsubscribes.push(
-    onSnapshot(
-      progressCollection(),
-      (snapshot) => {
-        const progress = {};
-        snapshot.forEach((progressDoc) => {
-          progress[progressDoc.id] = normalizeSubmission(progressDoc.data());
-        });
-        state.progress = progress;
-        renderDashboard();
-      },
-      (error) => {
-        setDashboardControls(false);
-        setBanner(elements.teacherNote, readableFirebaseError(error), "danger");
-      },
-    ),
-  );
-}
-
-function subscribeAssignmentSettings() {
-  state.dashboardUnsubscribes.push(
-    onSnapshot(
-      assignmentRef(),
-      (snapshot) => {
-        setAssignmentSettings(getSelectedAssignment().id, snapshot.exists() ? snapshot.data() : {});
-        renderDashboard();
-      },
-      () => {
-        setAssignmentSettings(getSelectedAssignment().id, {});
-      },
-    ),
-  );
-}
-
-function subscribeDashboard() {
-  if (!elements.dashboardBody) return;
-
-  clearDashboardSubscriptions();
-
-  if (!state.user) {
-    state.progress = {};
-    state.submissions = {};
-    state.teacherProfile = null;
-    state.selectedWorkStudentId = "";
-    renderHeaderCounts();
-    renderDashboard();
-    setDashboardControls(false);
-    setBanner(elements.teacherNote, "Sign in with Google to view live grades.", "warning");
-    return;
-  }
-
-  if (!isTeacherAccount()) {
-    state.progress = {};
-    state.submissions = {};
-    state.selectedWorkStudentId = "";
-    renderHeaderCounts();
-    renderDashboard();
-    setDashboardControls(false);
-    setBanner(
-      elements.teacherNote,
-      "This dashboard is only available to assigned teachers.",
-      "danger",
-    );
-    return;
-  }
-
-  setDashboardControls(true);
-  state.progress = {};
-  state.submissions = {};
-  renderHeaderCounts();
+  state.submissions[assignment.id] = {};
+  saveSubmissions();
   renderDashboard();
-  subscribeAssignmentSettings();
-  setBanner(
-    elements.teacherNote,
-    isAdminAccount()
-      ? "Connected as admin. You can see every rostered student."
-      : `Connected as ${state.teacherProfile.name}. Showing assigned students.`,
-    "success",
-  );
-
-  if (isAdminAccount()) {
-    subscribeDashboardCollections();
-  } else {
-    subscribeAssignedDashboardDocs();
-  }
 }
 
-async function refreshDashboard() {
-  if (!state.user || !isTeacherAccount()) return;
+function resetStudentSubmission(studentKey) {
+  const assignment = getSelectedAssignment();
+  const student = roster.find((item) => item.key === studentKey);
+  if (!student) return;
 
-  try {
-    const submissions = {};
-    const progress = {};
-
-    if (isAdminAccount()) {
-      const [snapshot, progressSnapshot] = await Promise.all([
-        getDocs(submissionsCollection()),
-        getDocs(progressCollection()),
-      ]);
-      snapshot.forEach((submissionDoc) => {
-        submissions[submissionDoc.id] = normalizeSubmission(submissionDoc.data());
-      });
-      progressSnapshot.forEach((progressDoc) => {
-        progress[progressDoc.id] = normalizeSubmission(progressDoc.data());
-      });
-    } else {
-      await Promise.all(
-        getVisibleRoster().flatMap((student) => [
-          getDoc(submissionRef(student)).then((snapshot) => {
-            if (snapshot.exists()) submissions[student.id] = normalizeSubmission(snapshot.data());
-          }),
-          getDoc(progressRef(student)).then((snapshot) => {
-            if (snapshot.exists()) progress[student.id] = normalizeSubmission(snapshot.data());
-          }),
-        ]),
-      );
-    }
-
-    state.progress = progress;
-    state.submissions = submissions;
-    renderDashboard();
-    setBanner(elements.teacherNote, "Dashboard refreshed from Firebase.", "success");
-  } catch (error) {
-    setBanner(elements.teacherNote, readableFirebaseError(error), "danger");
-  }
-}
-
-async function resetDashboard() {
-  if (!state.user || !isTeacherAccount()) return;
-
-  const confirmed = window.confirm(
-    "YOU ARE ABOUT TO RESET ALL PROBLEMS. THIS MEANS ALL SAVED GRADES WILL BE RESET. DO YOU WANT TO CONTINUE?",
-  );
+  const confirmed = window.confirm(`Reset ${student.name}'s submitted answers for ${assignment.title}?`);
   if (!confirmed) return;
 
-  setDashboardControls(false);
-  try {
-    const resetKey = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    const [snapshot, progressSnapshot] = await Promise.all([
-      getDocs(submissionsCollection()),
-      getDocs(progressCollection()),
-    ]);
-    await setDoc(
-      assignmentRef(),
-      {
-        assignmentId: getSelectedAssignment().id,
-        assignmentTitle: getSelectedAssignment().title,
-        resetKey,
-        resetAt: serverTimestamp(),
-        resetBy: state.user.displayName || "",
-        resetByEmail: state.user.email || "",
-      },
-      { merge: true },
-    );
-    setAssignmentSettings(getSelectedAssignment().id, {
-      resetKey,
-      resetByEmail: state.user.email || "",
-    });
-    await Promise.all(
-      [
-        ...snapshot.docs.map(async (submissionDoc) => {
-          const submission = normalizeSubmission(submissionDoc.data());
-          await deleteDoc(submissionDoc.ref);
-          if (submission.reportPath) {
-            await deleteObject(storageRef(storage, submission.reportPath)).catch(() => {});
-          }
-        }),
-        ...progressSnapshot.docs.map((progressDoc) => deleteDoc(progressDoc.ref)),
-      ],
-    );
-    state.progress = {};
-    state.submissions = {};
-    state.selectedWorkStudentId = "";
-    renderDashboard();
-    setBanner(elements.teacherNote, "Assignment reset. New problems will generate and saved grades were cleared.", "success");
-  } catch (error) {
-    setBanner(elements.teacherNote, readableFirebaseError(error), "danger");
-  } finally {
-    setDashboardControls(true);
-  }
-}
-
-function exportDashboard() {
-  const headers = [
-    "Student",
-    "Email",
-    "ID",
-    "Status",
-    "Score",
-    "Grade",
-    "Answered",
-    "Submitted",
-    "Report URL",
-  ];
-  const rows = getVisibleRoster().map((student) => {
-    const work = getDashboardWork(student);
-    const submission = state.submissions[student.id];
-    return [
-      student.name,
-      student.email,
-      student.id,
-      work?.workStatus || "Waiting",
-      work?.isSubmitted ? `${work.correct}/${work.total}` : "",
-      work?.isSubmitted ? `${work.percent}%` : "",
-      work ? `${work.answered}/${work.total}` : "",
-      submission ? formatTimestamp(submission.submittedAt) : "",
-      submission?.reportUrl || "",
-    ];
-  });
-  const csv = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${`${cell}`.replaceAll('"', '""')}"`).join(","))
-    .join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `dragonmath-linear-equations-${new Date().toISOString().slice(0, 10)}.csv`;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
-function renderTeacherStudentOptions(selectedStudentIds = []) {
-  if (!elements.teacherStudentList) return;
-
-  const selected = new Set(selectedStudentIds);
-  elements.teacherStudentList.innerHTML = roster
-    .map(
-      (student) => `
-        <label class="student-check">
-          <input
-            type="checkbox"
-            value="${student.id}"
-            ${selected.has(student.id) ? "checked" : ""}
-          />
-          <span>
-            <strong>${escapeHtml(student.name)}</strong>
-            <small>${escapeHtml(student.email)}</small>
-          </span>
-        </label>
-      `,
-    )
-    .join("");
-}
-
-function selectedAdminStudentIds() {
-  if (!elements.teacherStudentList) return [];
-  return [...elements.teacherStudentList.querySelectorAll('input[type="checkbox"]:checked')].map(
-    (input) => input.value,
-  );
-}
-
-function clearTeacherForm() {
-  state.editingTeacherEmail = "";
-  if (elements.teacherNameInput) elements.teacherNameInput.value = "";
-  if (elements.teacherEmailInput) {
-    elements.teacherEmailInput.value = "";
-    elements.teacherEmailInput.disabled = false;
-  }
-  renderTeacherStudentOptions();
-  setText(elements.saveTeacherButton, "Save Teacher");
-}
-
-function editTeacher(email) {
-  const teacher = state.teachers[normalizeEmail(email)];
-  if (!teacher) return;
-
-  state.editingTeacherEmail = teacher.email;
-  if (elements.teacherNameInput) elements.teacherNameInput.value = teacher.name;
-  if (elements.teacherEmailInput) {
-    elements.teacherEmailInput.value = teacher.email;
-    elements.teacherEmailInput.disabled = true;
-  }
-  renderTeacherStudentOptions(teacher.studentIds);
-  setText(elements.saveTeacherButton, "Update Teacher");
-  setBanner(elements.adminNote, `Editing ${teacher.name}.`, "neutral");
-}
-
-function setAdminControls(enabled) {
-  setDisabled(elements.teacherNameInput, !enabled);
-  setDisabled(elements.teacherEmailInput, !enabled || Boolean(state.editingTeacherEmail));
-  setDisabled(elements.saveTeacherButton, !enabled);
-  setDisabled(elements.clearTeacherButton, !enabled);
-  elements.teacherStudentList
-    ?.querySelectorAll("input")
-    .forEach((input) => {
-      input.disabled = !enabled;
-    });
-}
-
-async function saveTeacher() {
-  if (!isAdminAccount()) return;
-
-  const name = elements.teacherNameInput?.value.trim() || "";
-  const email = normalizeEmail(elements.teacherEmailInput?.value || state.editingTeacherEmail);
-  const studentIds = selectedAdminStudentIds();
-
-  if (!name || !email) {
-    setBanner(elements.adminNote, "Enter a teacher name and email.", "warning");
-    return;
-  }
-
-  if (!studentIds.length) {
-    setBanner(elements.adminNote, "Assign at least one student to this teacher.", "warning");
-    return;
-  }
-
-  const payload = {
-    name,
-    email,
-    role: ROLES.TEACHER,
-    assignmentGroupId: TEACHER_GROUP_ID,
-    studentIds,
-    reportFiles: studentIds.map((studentId) => `${studentId}.json`),
-    updatedAt: serverTimestamp(),
-  };
-
-  if (!state.editingTeacherEmail) {
-    payload.createdAt = serverTimestamp();
-  }
-
-  setAdminControls(false);
-  try {
-    await Promise.all([
-      setDoc(teacherRef(email), payload, { merge: true }),
-      setDoc(
-        roleRef(email),
-        {
-          email,
-          role: ROLES.TEACHER,
-          assignmentGroupId: TEACHER_GROUP_ID,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      ),
-    ]);
-    setBanner(elements.adminNote, `${name} saved with ${studentIds.length} assigned students.`, "success");
-    clearTeacherForm();
-  } catch (error) {
-    setBanner(elements.adminNote, readableFirebaseError(error), "danger");
-  } finally {
-    setAdminControls(true);
-  }
-}
-
-async function deleteTeacher(email) {
-  if (!isAdminAccount()) return;
-
-  const teacher = state.teachers[normalizeEmail(email)];
-  if (!teacher) return;
-
-  const confirmed = window.confirm(`Remove ${teacher.name} as a DragonMath teacher?`);
-  if (!confirmed) return;
-
-  try {
-    await Promise.all([deleteDoc(teacherRef(teacher.email)), deleteDoc(roleRef(teacher.email))]);
-    if (state.editingTeacherEmail === teacher.email) {
-      clearTeacherForm();
-    }
-    setBanner(elements.adminNote, `${teacher.name} was removed.`, "success");
-  } catch (error) {
-    setBanner(elements.adminNote, readableFirebaseError(error), "danger");
-  }
-}
-
-function renderTeacherList() {
-  if (!elements.teacherList) return;
-
-  const teachers = Object.values(state.teachers).sort((left, right) =>
-    left.name.localeCompare(right.name),
-  );
-
-  setText(elements.adminTeacherCount, teachers.length);
-
-  if (!teachers.length) {
-    elements.teacherList.innerHTML = `<div class="empty-state">No teachers have been created yet.</div>`;
-    return;
-  }
-
-  elements.teacherList.innerHTML = teachers
-    .map((teacher) => {
-      const assignedStudents = getStudentsByIds(teacher.studentIds);
-      return `
-        <article class="teacher-card">
-          <div>
-            <p class="eyebrow">${escapeHtml(teacher.assignmentGroupId)}</p>
-            <h3>${escapeHtml(teacher.name)}</h3>
-            <p>${escapeHtml(teacher.email)}</p>
-          </div>
-          <div class="teacher-card-meta">
-            <span>${assignedStudents.length} students</span>
-            <span>${assignments.length} assignments</span>
-          </div>
-          <p class="teacher-student-summary">
-            ${escapeHtml(assignedStudents.map((student) => student.name).join(", ") || "No students assigned")}
-          </p>
-          <div class="teacher-card-actions">
-            <button class="secondary-button table-button" type="button" data-edit-teacher="${escapeHtml(
-              teacher.email,
-            )}">Edit</button>
-            <button class="danger-button table-button" type="button" data-delete-teacher="${escapeHtml(
-              teacher.email,
-            )}">Remove</button>
-          </div>
-        </article>
-      `;
-    })
-    .join("");
-
-  elements.teacherList.querySelectorAll("[data-edit-teacher]").forEach((button) => {
-    button.addEventListener("click", () => editTeacher(button.dataset.editTeacher));
-  });
-  elements.teacherList.querySelectorAll("[data-delete-teacher]").forEach((button) => {
-    button.addEventListener("click", () => deleteTeacher(button.dataset.deleteTeacher));
-  });
-}
-
-function subscribeAdmin() {
-  if (!elements.teacherList) return;
-
-  if (state.adminUnsubscribe) {
-    state.adminUnsubscribe();
-    state.adminUnsubscribe = null;
-  }
-
-  if (!state.user) {
-    state.teachers = {};
-    renderTeacherList();
-    setAdminControls(false);
-    setBanner(elements.adminNote, "Sign in with the admin Google account.", "warning");
-    return;
-  }
-
-  if (!isAdminAccount()) {
-    state.teachers = {};
-    renderTeacherList();
-    setAdminControls(false);
-    setBanner(elements.adminNote, "Only joseph.clark@doralacademynv.org can use this admin page.", "danger");
-    return;
-  }
-
-  renderTeacherStudentOptions();
-  setAdminControls(true);
-  setBanner(elements.adminNote, "Admin connected. Create teachers and assign students here.", "success");
-
-  state.adminUnsubscribe = onSnapshot(
-    teachersCollection(),
-    (snapshot) => {
-      const teachers = {};
-      snapshot.forEach((teacherDoc) => {
-        const teacher = normalizeTeacher(teacherDoc.data(), teacherDoc.id);
-        teachers[teacher.email] = teacher;
-      });
-      state.teachers = teachers;
-      renderTeacherList();
-    },
-    (error) => {
-      setAdminControls(false);
-      setBanner(elements.adminNote, readableFirebaseError(error), "danger");
-    },
-  );
-}
-
-function handleStudentAuthState() {
-  const signedInStudent = getSignedInRosterStudent();
-  const previousStudentId = state.selectedStudent?.id;
-
-  if (signedInStudent) {
-    state.selectedStudent = signedInStudent;
-    if (previousStudentId && previousStudentId !== signedInStudent.id) {
-      state.problems = [];
-      state.answers = new Map();
-      state.isSubmitted = false;
-      setText(elements.submissionNote, "");
-      setSaveState("Not started");
-    }
-  } else if (state.user) {
-    state.problems = [];
-    state.answers = new Map();
-    state.isSubmitted = false;
-    setText(elements.submissionNote, "");
-    setSaveState("Not started");
-  }
-
-  renderStudentIdentity();
-  setDisabled(elements.assignmentSelect, !signedInStudent);
-  setDisabled(elements.loadAssignment, !signedInStudent);
-  setDisabled(elements.submitAssignment, !signedInStudent || !state.problems.length);
-
-  if (!state.user) {
-    state.problems = [];
-    state.answers = new Map();
-    state.isSubmitted = false;
-    renderProblems();
-    updateStudentScore();
-    setSaveState("Not started");
-    setText(elements.submissionNote, "");
-    setBanner(elements.studentCloudNote, "Sign in with Google to begin.", "warning");
-    return;
-  }
-
-  if (signedInStudent) {
-    setBanner(
-      elements.studentCloudNote,
-      `Signed in as ${signedInStudent.name}.`,
-      "success",
-    );
-  } else {
-    setBanner(
-      elements.studentCloudNote,
-      "This Google account is not on the student roster. Use the student email assigned to this class.",
-      "danger",
-    );
-  }
-
-  renderProblems();
-  updateStudentScore();
-}
-
-function readableFirebaseError(error) {
-  const code = error?.code || "";
-  if (code.includes("unauthorized-domain")) {
-    return "Firebase Auth blocked this domain. Add mrclarkj83.github.io in Firebase Authentication authorized domains.";
-  }
-  if (code.includes("permission-denied")) {
-    return "Firebase denied this action. Check Firestore and Storage rules for signed-in users.";
-  }
-  if (code.includes("popup-closed")) {
-    return "Google sign-in was closed before it finished.";
-  }
-  if (code.includes("network-request-failed") || code.includes("unavailable")) {
-    return "Firebase is temporarily unavailable. Check the connection and try again.";
-  }
-  return error?.message || "Firebase could not finish the request.";
-}
-
-async function signIn() {
-  try {
-    await signInWithPopup(auth, provider);
-  } catch (error) {
-    const target =
-      page === "teacher"
-        ? elements.teacherNote
-        : page === "admin"
-          ? elements.adminNote
-          : elements.studentCloudNote;
-    setBanner(target, readableFirebaseError(error), "danger");
-  }
-}
-
-async function signOutCurrentUser() {
-  await signOut(auth);
+  delete getAssignmentSubmissions(assignment)[student.key];
+  saveSubmissions();
+  renderDashboard();
 }
 
 function bindEvents() {
-  elements.signInButton?.addEventListener("click", signIn);
-  elements.signOutButton?.addEventListener("click", signOutCurrentUser);
+  if (elements.assignmentSelect) {
+    elements.assignmentSelect.addEventListener("change", () => {
+      selectAssignment(elements.assignmentSelect.value, { resetStudentWork: true });
+    });
+  }
 
-  elements.assignmentSelect?.addEventListener("change", () => {
-    selectAssignment(elements.assignmentSelect.value, { resetStudentWork: true });
-  });
+  if (elements.dashboardAssignmentSelect) {
+    elements.dashboardAssignmentSelect.addEventListener("change", () => {
+      selectAssignment(elements.dashboardAssignmentSelect.value);
+    });
+  }
 
-  elements.dashboardAssignmentSelect?.addEventListener("change", () => {
-    selectAssignment(elements.dashboardAssignmentSelect.value);
-  });
-
-  elements.loadAssignment?.addEventListener("click", loadSelectedStudent);
-  elements.submitAssignment?.addEventListener("click", submitAssignment);
-  elements.refreshDashboard?.addEventListener("click", refreshDashboard);
-  elements.resetDashboard?.addEventListener("click", resetDashboard);
-  elements.exportDashboard?.addEventListener("click", exportDashboard);
-  elements.closeWorkPanel?.addEventListener("click", () => {
-    state.selectedWorkStudentId = "";
-    renderDashboard();
-  });
-  elements.saveTeacherButton?.addEventListener("click", saveTeacher);
-  elements.clearTeacherButton?.addEventListener("click", clearTeacherForm);
-  elements.saveAssignmentButton?.addEventListener("click", saveCustomAssignment);
-  elements.customProblemCount?.addEventListener("change", () => {
-    setHidden(elements.customProblemCountOther, elements.customProblemCount.value !== "custom");
-  });
-  elements.customTimeEnabled?.addEventListener("change", () => {
-    setDisabled(elements.customTimeLimit, !elements.customTimeEnabled.checked);
-  });
-  document.addEventListener("visibilitychange", handleAssignmentVisibilityChange);
-}
-
-function initAuthListener() {
-  onAuthStateChanged(auth, async (user) => {
-    state.user = user;
-    state.authReady = true;
-    renderAuth();
-
-    if (page === "teacher" || page === "admin") {
-      try {
-        await loadTeacherProfile();
-      } catch (error) {
-        const target = page === "admin" ? elements.adminNote : elements.teacherNote;
-        setBanner(target, readableFirebaseError(error), "danger");
+  if (elements.studentId) {
+    elements.studentId.addEventListener("input", () => {
+      const normalizedValue = normalizeStudentId(elements.studentId.value);
+      if (elements.studentId.value !== normalizedValue) {
+        elements.studentId.value = normalizedValue;
       }
-    }
 
-    if (page === "student") {
-      await loadCustomAssignments();
-      handleStudentAuthState();
-    }
+      setAccessNote("");
+      if (state.selectedStudent) {
+        resetStudentWorkspace();
+      }
+    });
 
-    if (page === "teacher") {
-      await loadCustomAssignments();
-      setDisabled(elements.saveAssignmentButton, !isTeacherAccount());
-      subscribeDashboard();
-    }
+    elements.studentId.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        loadSelectedStudent();
+      }
+    });
+  }
 
-    if (page === "admin") {
-      subscribeAdmin();
-    }
-  });
+  if (elements.loadAssignment) {
+    elements.loadAssignment.addEventListener("click", loadSelectedStudent);
+  }
+  if (elements.submitAssignment) {
+    elements.submitAssignment.addEventListener("click", submitAssignment);
+  }
+  if (elements.refreshDashboard) {
+    elements.refreshDashboard.addEventListener("click", refreshDashboard);
+  }
+  if (elements.resetDashboard) {
+    elements.resetDashboard.addEventListener("click", resetDashboard);
+  }
+
+  if (elements.dashboardBody) {
+    window.addEventListener("storage", (event) => {
+      if (event.key === STORAGE_KEY || LEGACY_STORAGE_KEYS.includes(event.key)) {
+        refreshDashboard();
+      }
+    });
+
+    window.addEventListener("focus", refreshDashboard);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        refreshDashboard();
+      }
+    });
+
+    dashboardRefreshTimer = window.setInterval(refreshDashboard, DASHBOARD_REFRESH_INTERVAL_MS);
+  }
 }
 
 function init() {
-  renderAssignmentBuilderOptions();
   renderAssignmentOptions();
-  renderHeaderCounts();
   updateAssignmentDisplay();
-  renderAuth();
-  renderStudentIdentity();
-  renderTeacherStudentOptions();
+  renderStudentAccess();
   renderProblems();
   updateStudentScore();
   renderDashboard();
-  renderTeacherList();
-  renderCustomAssignmentList();
   bindEvents();
-  initAuthListener();
 }
 
-init();
+export function mountAssignmentDashboard() {
+  if (dashboardRefreshTimer) {
+    window.clearInterval(dashboardRefreshTimer);
+    dashboardRefreshTimer = null;
+  }
+
+  collectElements();
+  state.selectedAssignment = assignments[0];
+  state.selectedStudent = null;
+  state.lockedSubmission = null;
+  state.problems = [];
+  state.answers = new Map();
+  state.submissions = loadSubmissions();
+  init();
+
+  return () => {
+    if (dashboardRefreshTimer) {
+      window.clearInterval(dashboardRefreshTimer);
+      dashboardRefreshTimer = null;
+    }
+  };
+}

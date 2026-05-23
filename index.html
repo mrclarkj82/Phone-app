@@ -3,86 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Student Assignment | DragonMath</title>
-    <link rel="stylesheet" href="styles.css?v=20260521-1" />
+    <title>Freshman Algebra Assignments</title>
   </head>
-  <body data-page="student">
-    <header class="app-header">
-      <div>
-        <p class="eyebrow">DragonMath Algebra I</p>
-        <h1>Student Assignment</h1>
-      </div>
-      <div class="header-stack">
-        <div class="header-stats" aria-label="Assignment summary">
-          <span><strong id="header-problem-count">30</strong> problems</span>
-          <span><strong id="header-student-count">25</strong> students</span>
-        </div>
-        <div class="auth-strip" aria-label="Google account">
-          <span class="auth-dot" id="auth-dot" aria-hidden="true"></span>
-          <div>
-            <strong id="auth-name">Checking sign-in</strong>
-            <small id="auth-email">Google authentication</small>
-          </div>
-          <button class="light-button" id="sign-in-button" type="button">Sign in</button>
-          <button class="light-button" id="sign-out-button" type="button" hidden>Sign out</button>
-        </div>
-      </div>
-    </header>
-
-    <main class="app-shell">
-      <section class="status-banner" id="student-cloud-note" aria-live="polite">
-        Sign in with Google to begin.
-      </section>
-
-      <section aria-labelledby="student-heading">
-        <div class="workspace-grid">
-          <aside class="student-panel" aria-label="Student information">
-            <div>
-              <p class="eyebrow">Linear Equations</p>
-              <h2 id="student-heading">Student</h2>
-            </div>
-
-            <label for="assignment-select">Assignment</label>
-            <select id="assignment-select" disabled></select>
-
-            <button class="primary-button" id="load-assignment" type="button" disabled>
-              Load Assignment
-            </button>
-
-            <div class="score-box" aria-live="polite">
-              <span>Grade</span>
-              <strong id="current-score">--</strong>
-              <small id="current-percent">After submit</small>
-            </div>
-
-            <div class="save-box">
-              <span>Cloud save</span>
-              <strong id="save-state">Not started</strong>
-            </div>
-
-            <button class="submit-button" id="submit-assignment" type="button" disabled>
-              Submit Grade
-            </button>
-            <p class="submission-note" id="submission-note"></p>
-          </aside>
-
-          <section class="assignment-panel" aria-label="Linear equation problems">
-            <div class="assignment-toolbar">
-              <div>
-                <p class="eyebrow" id="assignment-directions">Solve for x</p>
-                <h2 id="assignment-title">Sign in to see your assignment</h2>
-              </div>
-              <div class="mini-metrics">
-                <span id="answered-count">0 answered</span>
-                <span id="correct-count">0 correct</span>
-              </div>
-            </div>
-            <div class="problem-list" id="problem-list"></div>
-          </section>
-        </div>
-      </section>
-    </main>
-
-    <script type="module" src="app.js?v=20260521-1"></script>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

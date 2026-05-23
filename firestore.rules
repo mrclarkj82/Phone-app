@@ -6,85 +6,98 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function signedInEmail() {
-      return request.auth.token.email;
+    function hasAllowedRole(role) {
+      return role in ['student', 'teacher', 'admin'];
     }
 
-    function isAdmin() {
-      return signedIn() && signedInEmail() == "joseph.clark@doralacademynv.org";
+    function accountPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
     }
 
-    function teacherPath() {
-      return /databases/$(database)/documents/teachers/$(signedInEmail());
+    function assignedAccount() {
+      return get(accountPath()).data;
     }
 
-    function isTeacher() {
-      return signedIn() && exists(teacherPath());
+    function hasAssignedActiveAccount() {
+      return signedIn()
+        && exists(accountPath())
+        && assignedAccount().uid == request.auth.uid
+        && assignedAccount().email == request.auth.token.email
+        && assignedAccount().active == true
+        && hasAllowedRole(assignedAccount().role);
     }
 
-    function isAssignedTeacher(studentId) {
-      return isTeacher() && studentId in get(teacherPath()).data.studentIds;
+    function hasRole(role) {
+      return hasAssignedActiveAccount() && assignedAccount().role == role;
     }
 
-    function canReadOwnDoc(path) {
-      return signedIn() && (!exists(path) || resource.data.studentEmail == signedInEmail());
+    function teacherOrAdmin() {
+      return hasRole('teacher') || hasRole('admin');
     }
 
-    function canWriteOwnRosterDoc(studentId) {
-      return signedIn() &&
-        request.resource.data.studentId == studentId &&
-        request.resource.data.studentEmail == signedInEmail();
+    function validUserDocument(data) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'role', 'active'])
+        && data.uid is string
+        && data.email is string
+        && data.displayName is string
+        && data.active is bool
+        && hasAllowedRole(data.role);
     }
 
-    function ownsTeacherCreatedAssignment() {
-      return signedIn() &&
-        request.resource.data.isTeacherCreated == true &&
-        request.resource.data.teacherEmail == signedInEmail();
+    function isOwnEmail(data) {
+      return signedIn() && data.email == request.auth.token.email;
     }
 
-    match /teachers/{teacherEmail} {
-      allow get: if isAdmin() || (signedIn() && teacherEmail == signedInEmail());
-      allow list, create, update, delete: if isAdmin();
-    }
-
-    match /roles/{roleEmail} {
-      allow get: if isAdmin() || (signedIn() && roleEmail == signedInEmail());
-      allow list, create, update, delete: if isAdmin();
+    match /users/{userId} {
+      // Google Auth may identify a user before the Firestore account check.
+      // Only the already-assigned user record may be read during that check.
+      allow get: if signedIn()
+        && (userId == request.auth.uid || isOwnEmail(resource.data) || hasRole('admin'));
+      allow list: if signedIn() && (isOwnEmail(resource.data) || hasRole('admin'));
+      allow create, update: if hasRole('admin') && validUserDocument(request.resource.data);
+      allow delete: if hasRole('admin');
     }
 
     match /assignments/{assignmentId} {
-      allow read: if signedIn();
-      allow create: if isAdmin() || (isTeacher() && ownsTeacherCreatedAssignment());
-      allow update: if isAdmin() ||
-        (isTeacher() && !resource.data.isTeacherCreated) ||
-        (isTeacher() && resource.data.teacherEmail == signedInEmail() && request.resource.data.teacherEmail == signedInEmail());
-      allow delete: if isAdmin();
-
-      match /progress/{studentId} {
-        allow get: if isAdmin() ||
-          isAssignedTeacher(studentId) ||
-          canReadOwnDoc(/databases/$(database)/documents/assignments/$(assignmentId)/progress/$(studentId));
-        allow list: if isAdmin() || isTeacher();
-        allow create, update: if isAdmin() || isAssignedTeacher(studentId) || canWriteOwnRosterDoc(studentId);
-        allow delete: if isAdmin() || isTeacher();
-      }
-
-      match /submissions/{studentId} {
-        allow get: if isAdmin() ||
-          isAssignedTeacher(studentId) ||
-          canReadOwnDoc(/databases/$(database)/documents/assignments/$(assignmentId)/submissions/$(studentId));
-        allow list: if isAdmin() || isTeacher();
-        allow create, update: if isAdmin() || canWriteOwnRosterDoc(studentId);
-        allow delete: if isAdmin() || isTeacher();
-      }
+      allow read: if hasAssignedActiveAccount();
+      allow create, update, delete: if teacherOrAdmin();
     }
 
-    match /focusEvents/{eventId} {
-      allow create: if isAdmin() ||
-        isAssignedTeacher(request.resource.data.studentId) ||
-        canWriteOwnRosterDoc(request.resource.data.studentId);
-      allow read: if isAdmin() || isTeacher();
-      allow update, delete: if isAdmin();
+    match /submissions/{submissionId} {
+      allow read: if hasAssignedActiveAccount()
+        && (teacherOrAdmin() || resource.data.studentUid == request.auth.uid);
+      allow create: if hasAssignedActiveAccount()
+        && (
+          teacherOrAdmin()
+          || (hasRole('student') && request.resource.data.studentUid == request.auth.uid)
+        );
+      allow update: if hasAssignedActiveAccount()
+        && (
+          teacherOrAdmin()
+          || (
+            hasRole('student')
+            && resource.data.studentUid == request.auth.uid
+            && request.resource.data.studentUid == resource.data.studentUid
+          )
+        );
+      allow delete: if teacherOrAdmin();
+    }
+
+    match /studentData/{studentUid}/{studentDocument=**} {
+      allow read, write: if hasAssignedActiveAccount()
+        && (teacherOrAdmin() || studentUid == request.auth.uid);
+    }
+
+    match /teacherData/{teacherDocument=**} {
+      allow read, write: if teacherOrAdmin();
+    }
+
+    match /adminData/{adminDocument=**} {
+      allow read, write: if hasRole('admin');
+    }
+
+    match /{document=**} {
+      allow read, write: if hasRole('admin');
     }
   }
 }
