@@ -4,6 +4,11 @@ import LoadingScreen from "../pages/LoadingScreen";
 import LoginPage from "../pages/LoginPage";
 import { roleHome } from "./routeUtils";
 
+function canAccessRole(accountRole, allowedRole) {
+  if (accountRole === allowedRole) return true;
+  return accountRole === "admin" && allowedRole === "teacher";
+}
+
 export default function EntryGate({ allowedRole, children }) {
   const { account, status } = useAuth();
   const location = useLocation();
@@ -23,7 +28,7 @@ export default function EntryGate({ allowedRole, children }) {
   const home = roleHome(account.role);
 
   if (allowedRole) {
-    if (account.role === allowedRole && location.pathname === home) {
+    if (canAccessRole(account.role, allowedRole)) {
       return children;
     }
 
