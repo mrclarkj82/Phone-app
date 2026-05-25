@@ -85,108 +85,110 @@ export default function TeacherDashboard() {
             {classError}
           </section>
         ) : null}
+        <section className="teacher-tool-section" aria-labelledby="assignment-builder-heading">
+          <section
+            aria-labelledby="assignment-builder-heading"
+            className="assignment-builder"
+            id="assignment-builder"
+          >
+            <div className="builder-heading">
+              <div>
+                <p className="eyebrow">Assignment Builder</p>
+                <h2 id="assignment-builder-heading">Create Assignment</h2>
+              </div>
+              <button className="primary-button" id="save-assignment" type="button">
+                Create Assignment
+              </button>
+            </div>
+            <div className="builder-grid">
+              <label>
+                <span>Assignment title</span>
+                <input
+                  id="custom-assignment-title"
+                  placeholder="Unit 4 Slope Practice"
+                  type="text"
+                />
+              </label>
+              <label>
+                <span>Assignment type</span>
+                <select id="custom-assignment-type" />
+              </label>
+              <label>
+                <span>Problems</span>
+                <select defaultValue="10" id="custom-problem-count">
+                  <option value="5">5 problems</option>
+                  <option value="10">10 problems</option>
+                  <option value="15">15 problems</option>
+                  <option value="20">20 problems</option>
+                  <option value="custom">Custom amount</option>
+                </select>
+              </label>
+              <label>
+                <span>Custom amount</span>
+                <input
+                  hidden
+                  id="custom-problem-count-other"
+                  max="60"
+                  min="1"
+                  type="number"
+                  defaultValue="12"
+                />
+              </label>
+              <label>
+                <span>Difficulty</span>
+                <select defaultValue="mixed" id="custom-difficulty">
+                  <option value="easy">Easy</option>
+                  <option value="mixed">Mixed</option>
+                  <option value="challenge">Challenge</option>
+                </select>
+              </label>
+              <label>
+                <span>Due date</span>
+                <input id="custom-due-date" type="date" />
+              </label>
+              <label>
+                <span>Class / period</span>
+                <input id="custom-class-period" placeholder="Period 1" type="text" />
+              </label>
+              <label>
+                <span>Feedback</span>
+                <select defaultValue="after-submit" id="custom-feedback-mode">
+                  <option value="after-submit">Only after submission</option>
+                  <option value="immediate">Show immediately</option>
+                </select>
+              </label>
+              <label className="check-field">
+                <input id="custom-allow-retries" type="checkbox" />
+                <span>Allow retries</span>
+              </label>
+              <label>
+                <span>Maximum attempts</span>
+                <input defaultValue="1" id="custom-max-attempts" max="10" min="1" type="number" />
+              </label>
+              <label className="check-field">
+                <input id="custom-time-enabled" type="checkbox" />
+                <span>Enable time limit</span>
+              </label>
+              <label>
+                <span>Time limit minutes</span>
+                <input
+                  defaultValue="30"
+                  disabled
+                  id="custom-time-limit"
+                  max="180"
+                  min="1"
+                  type="number"
+                />
+              </label>
+            </div>
+            <p className="dashboard-sync-status" id="teacher-note" aria-live="polite" />
+            <section className="assignment-preview" id="assignment-preview" aria-label="Assignment preview" />
+            <div className="custom-assignment-list" id="custom-assignment-list" />
+          </section>
+        </section>
+
         <section aria-labelledby="teacher-heading">
           <div className="dashboard-grid">
-            <section
-              aria-labelledby="assignment-builder-heading"
-              className="assignment-builder"
-              id="assignment-builder"
-            >
-              <div className="builder-heading">
-                <div>
-                  <p className="eyebrow">Assignment Builder</p>
-                  <h2 id="assignment-builder-heading">Create Assignment</h2>
-                </div>
-                <button className="primary-button" id="save-assignment" type="button">
-                  Create Assignment
-                </button>
-              </div>
-              <div className="builder-grid">
-                <label>
-                  <span>Assignment title</span>
-                  <input
-                    id="custom-assignment-title"
-                    placeholder="Unit 4 Slope Practice"
-                    type="text"
-                  />
-                </label>
-                <label>
-                  <span>Assignment type</span>
-                  <select id="custom-assignment-type" />
-                </label>
-                <label>
-                  <span>Problems</span>
-                  <select defaultValue="10" id="custom-problem-count">
-                    <option value="5">5 problems</option>
-                    <option value="10">10 problems</option>
-                    <option value="15">15 problems</option>
-                    <option value="20">20 problems</option>
-                    <option value="custom">Custom amount</option>
-                  </select>
-                </label>
-                <label>
-                  <span>Custom amount</span>
-                  <input
-                    hidden
-                    id="custom-problem-count-other"
-                    max="60"
-                    min="1"
-                    type="number"
-                    defaultValue="12"
-                  />
-                </label>
-                <label>
-                  <span>Difficulty</span>
-                  <select defaultValue="mixed" id="custom-difficulty">
-                    <option value="easy">Easy</option>
-                    <option value="mixed">Mixed</option>
-                    <option value="challenge">Challenge</option>
-                  </select>
-                </label>
-                <label>
-                  <span>Due date</span>
-                  <input id="custom-due-date" type="date" />
-                </label>
-                <label>
-                  <span>Class / period</span>
-                  <input id="custom-class-period" placeholder="Period 1" type="text" />
-                </label>
-                <label>
-                  <span>Feedback</span>
-                  <select defaultValue="after-submit" id="custom-feedback-mode">
-                    <option value="after-submit">Only after submission</option>
-                    <option value="immediate">Show immediately</option>
-                  </select>
-                </label>
-                <label className="check-field">
-                  <input id="custom-allow-retries" type="checkbox" />
-                  <span>Allow retries</span>
-                </label>
-                <label>
-                  <span>Maximum attempts</span>
-                  <input defaultValue="1" id="custom-max-attempts" max="10" min="1" type="number" />
-                </label>
-                <label className="check-field">
-                  <input id="custom-time-enabled" type="checkbox" />
-                  <span>Enable time limit</span>
-                </label>
-                <label>
-                  <span>Time limit minutes</span>
-                  <input
-                    defaultValue="30"
-                    disabled
-                    id="custom-time-limit"
-                    max="180"
-                    min="1"
-                    type="number"
-                  />
-                </label>
-              </div>
-              <p className="dashboard-sync-status" id="teacher-note" aria-live="polite" />
-              <section className="assignment-preview" id="assignment-preview" aria-label="Assignment preview" />
-              <div className="custom-assignment-list" id="custom-assignment-list" />
-            </section>
-
             <section className="dashboard-summary" aria-label="Class summary">
               <div>
                 <p className="eyebrow">Teacher</p>

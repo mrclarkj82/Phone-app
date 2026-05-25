@@ -2,7 +2,9 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
+import { startCoordinateGraphRepair } from "./coordinateGraphRepair";
 import "./index.css";
+import "./teacherEnhancements.css";
 
 const REDIRECT_KEY = "github-pages-spa-redirect";
 const restoredPath = window.sessionStorage.getItem(REDIRECT_KEY);
@@ -24,3 +26,5 @@ createRoot(document.getElementById("root")).render(
     </AuthProvider>
   </BrowserRouter>,
 );
+
+startCoordinateGraphRepair();

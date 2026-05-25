@@ -1,0 +1,18 @@
+.teacher-tool-section {
+  margin-bottom: 18px;
+}
+
+.axis-labels {
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 2px;
+}
+
+.graph-point text {
+  dominant-baseline: middle;
+  paint-order: stroke;
+  pointer-events: none;
+  stroke: #ffffff;
+  stroke-width: 2.5px;
+  text-anchor: middle;
+}
