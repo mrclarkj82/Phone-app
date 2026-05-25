@@ -8,11 +8,17 @@ export default function PrivateHeader({ title, eyebrow, children }) {
       ? [
           { label: "Admin", to: "/admin" },
           { label: "Teacher", to: "/teacher" },
+          { label: "Create", to: "/assignments/create" },
         ]
-      : [
+      : account?.role === "teacher"
+        ? [
+            { label: "Teacher", to: "/teacher" },
+            { label: "Create", to: "/assignments/create" },
+          ]
+        : [
           {
-            label: account?.role === "teacher" ? "Teacher" : "Student",
-            to: account?.role === "teacher" ? "/teacher" : "/student",
+            label: "Student",
+            to: "/student",
           },
         ];
 

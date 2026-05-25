@@ -3,6 +3,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
 import { startCoordinateGraphRepair } from "./coordinateGraphRepair";
+import { startStudentWorkScrollGuard } from "./studentWorkScrollGuard";
 import "./index.css";
 import "./teacherEnhancements.css";
 
@@ -28,3 +29,4 @@ createRoot(document.getElementById("root")).render(
 );
 
 startCoordinateGraphRepair();
+startStudentWorkScrollGuard();

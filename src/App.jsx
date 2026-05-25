@@ -1,6 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 import EntryGate from "./routes/EntryGate";
 import AdminDashboard from "./pages/AdminDashboard";
+import AssignmentMaker from "./pages/AssignmentMaker";
 import StudentDashboard from "./pages/StudentDashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
 
@@ -23,6 +24,14 @@ export default function App() {
         element={
           <EntryGate allowedRoles={["teacher", "admin"]}>
             <TeacherDashboard />
+          </EntryGate>
+        }
+      />
+      <Route
+        path="/assignments/create"
+        element={
+          <EntryGate allowedRoles={["teacher", "admin"]}>
+            <AssignmentMaker />
           </EntryGate>
         }
       />
