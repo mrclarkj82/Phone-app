@@ -1,4 +1,4 @@
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { collection, deleteDoc, doc, onSnapshot, query, where } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
@@ -7,11 +7,23 @@ import useAssignmentDashboard from "../hooks/useAssignmentDashboard";
 import { db } from "../lib/firebase";
 import LoadingScreen from "./LoadingScreen";
 
+const baseAssignments = [
+  { title: "Linear Equations", problemCount: 30 },
+  { title: "Systems of Equations", problemCount: 15 },
+  { title: "Slope from Two Points", problemCount: 30 },
+  { title: "Slope-Intercept Form", problemCount: 30 },
+  { title: "Linear Inequalities", problemCount: 30 },
+  { title: "Coordinate Grid Lines", problemCount: 30 },
+];
+
 export default function AssignmentMaker() {
   const { account } = useAuth();
   const [accountClasses, setAccountClasses] = useState([]);
   const [classesLoaded, setClassesLoaded] = useState(false);
   const [classError, setClassError] = useState("");
+  const [teacherAssignments, setTeacherAssignments] = useState([]);
+  const [teacherAssignmentsLoaded, setTeacherAssignmentsLoaded] = useState(false);
+  const [assignmentError, setAssignmentError] = useState("");
 
   useEffect(() => {
     if (!account) return undefined;
@@ -40,17 +52,66 @@ export default function AssignmentMaker() {
     return unsubscribe;
   }, [account]);
 
+  useEffect(() => {
+    if (!account?.uid) return undefined;
+
+    setTeacherAssignmentsLoaded(false);
+    setAssignmentError("");
+
+    const assignmentSource = query(
+      collection(db, "assignments"),
+      where("teacherUid", "==", account.uid),
+    );
+
+    const unsubscribe = onSnapshot(
+      assignmentSource,
+      (snapshot) => {
+        setTeacherAssignments(
+          snapshot.docs
+            .map((item) => ({ id: item.id, ...item.data() }))
+            .filter((assignment) => assignment.active !== false)
+            .sort((left, right) =>
+              (left.title || left.assignmentTypeLabel || "").localeCompare(
+                right.title || right.assignmentTypeLabel || "",
+              ),
+            ),
+        );
+        setTeacherAssignmentsLoaded(true);
+        setAssignmentError("");
+      },
+      (error) => {
+        setAssignmentError(error.message || "Unable to load teacher-created assignments.");
+        setTeacherAssignmentsLoaded(true);
+      },
+    );
+
+    return unsubscribe;
+  }, [account]);
+
   return (
     <AssignmentMakerContent
       account={account}
       accountClasses={accountClasses}
+      assignmentError={assignmentError}
       classError={classError}
       classesLoaded={classesLoaded}
+      teacherAssignments={teacherAssignments}
+      teacherAssignmentsLoaded={teacherAssignmentsLoaded}
     />
   );
 }
 
-function AssignmentMakerContent({ account, accountClasses, classError, classesLoaded }) {
+function AssignmentMakerContent({
+  account,
+  accountClasses,
+  assignmentError,
+  classError,
+  classesLoaded,
+  teacherAssignments,
+  teacherAssignmentsLoaded,
+}) {
+  const [deleteStatus, setDeleteStatus] = useState("");
+  const [deletingAssignmentId, setDeletingAssignmentId] = useState("");
   const classOptions = useMemo(
     () =>
       accountClasses
@@ -63,6 +124,27 @@ function AssignmentMakerContent({ account, accountClasses, classError, classesLo
   );
 
   useAssignmentDashboard({ account, enabled: classesLoaded });
+
+  async function deleteTeacherAssignment(assignment) {
+    if (!assignment?.id || deletingAssignmentId) return;
+
+    const confirmed = window.confirm(
+      `Delete "${assignment.title || "this assignment"}"? The base assignments will stay available.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingAssignmentId(assignment.id);
+    setDeleteStatus("Deleting assignment...");
+
+    try {
+      await deleteDoc(doc(db, "assignments", assignment.id));
+      setDeleteStatus(`${assignment.title || "Assignment"} was deleted.`);
+    } catch (error) {
+      setDeleteStatus(error.message || "Unable to delete assignment.");
+    } finally {
+      setDeletingAssignmentId("");
+    }
+  }
 
   if (!classesLoaded) {
     return <LoadingScreen label="Loading assignment maker" />;
@@ -221,7 +303,15 @@ function AssignmentMakerContent({ account, accountClasses, classError, classesLo
             </div>
 
             <p className="dashboard-sync-status" id="teacher-note" aria-live="polite" />
-            <div className="custom-assignment-list" id="custom-assignment-list" />
+            <div hidden id="custom-assignment-list" />
+            <AssignmentLibrary
+              assignmentError={assignmentError}
+              deleteStatus={deleteStatus}
+              deletingAssignmentId={deletingAssignmentId}
+              onDeleteAssignment={deleteTeacherAssignment}
+              teacherAssignments={teacherAssignments}
+              teacherAssignmentsLoaded={teacherAssignmentsLoaded}
+            />
           </section>
 
           <section className="grid gap-4 self-start">
@@ -234,5 +324,73 @@ function AssignmentMakerContent({ account, accountClasses, classError, classesLo
         </section>
       </main>
     </>
+  );
+}
+
+function AssignmentLibrary({
+  assignmentError,
+  deleteStatus,
+  deletingAssignmentId,
+  onDeleteAssignment,
+  teacherAssignments,
+  teacherAssignmentsLoaded,
+}) {
+  return (
+    <section className="custom-assignment-list" aria-label="Available assignments">
+      {baseAssignments.map((assignment) => (
+        <article className="assignment-card" key={assignment.title}>
+          <div>
+            <p className="eyebrow">Base Assignment</p>
+            <h3>{assignment.title}</h3>
+            <p>{assignment.problemCount} problems</p>
+          </div>
+          <span>Always available</span>
+        </article>
+      ))}
+
+      {assignmentError ? (
+        <div className="empty-state compact-empty">{assignmentError}</div>
+      ) : null}
+
+      {!assignmentError && !teacherAssignmentsLoaded ? (
+        <div className="empty-state compact-empty">Loading teacher-created assignments...</div>
+      ) : null}
+
+      {!assignmentError && teacherAssignmentsLoaded && !teacherAssignments.length ? (
+        <div className="empty-state compact-empty">No teacher-created assignments yet.</div>
+      ) : null}
+
+      {!assignmentError
+        ? teacherAssignments.map((assignment) => (
+            <article className="assignment-card" key={assignment.id}>
+              <div>
+                <p className="eyebrow">
+                  {assignment.assignmentTypeLabel || assignment.assignmentType || "Teacher-Created"}
+                </p>
+                <h3>{assignment.title || "Untitled assignment"}</h3>
+                <p>
+                  {assignment.problemCount || 0} problems - {assignment.difficulty || "mixed"} -{" "}
+                  {assignment.classPeriod || "Default class"}
+                </p>
+              </div>
+              <span>{assignment.showImmediateFeedback ? "Immediate feedback" : "After submission"}</span>
+              <button
+                className="danger-button table-reset-button"
+                disabled={deletingAssignmentId === assignment.id}
+                onClick={() => onDeleteAssignment(assignment)}
+                type="button"
+              >
+                {deletingAssignmentId === assignment.id ? "Deleting..." : "Delete"}
+              </button>
+            </article>
+          ))
+        : null}
+
+      {deleteStatus ? (
+        <p className="dashboard-sync-status" aria-live="polite">
+          {deleteStatus}
+        </p>
+      ) : null}
+    </section>
   );
 }

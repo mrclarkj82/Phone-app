@@ -35,6 +35,10 @@ service cloud.firestore {
       return hasRole('teacher') || hasRole('admin');
     }
 
+    function ownsAssignment(data) {
+      return data.teacherUid is string && data.teacherUid == request.auth.uid;
+    }
+
     function isClassTeacher(data) {
       return hasRole('teacher') && data.teacherUid == request.auth.uid;
     }
@@ -70,7 +74,16 @@ service cloud.firestore {
 
     match /assignments/{assignmentId} {
       allow read: if hasAssignedActiveAccount();
-      allow create, update, delete: if teacherOrAdmin();
+      allow create: if hasRole('admin')
+        || (hasRole('teacher') && ownsAssignment(request.resource.data));
+      allow update: if hasRole('admin')
+        || (
+          hasRole('teacher')
+          && ownsAssignment(resource.data)
+          && ownsAssignment(request.resource.data)
+        );
+      allow delete: if hasRole('admin')
+        || (hasRole('teacher') && ownsAssignment(resource.data));
     }
 
     match /teachers/{teacherId} {
