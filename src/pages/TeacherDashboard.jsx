@@ -183,6 +183,7 @@ export default function TeacherDashboard() {
                 </label>
               </div>
               <p className="dashboard-sync-status" id="teacher-note" aria-live="polite" />
+              <section className="assignment-preview" id="assignment-preview" aria-label="Assignment preview" />
               <div className="custom-assignment-list" id="custom-assignment-list" />
             </section>
 
@@ -212,6 +213,35 @@ export default function TeacherDashboard() {
               <p className="dashboard-sync-status" id="dashboard-sync-status" aria-live="polite" />
             </section>
 
+            <section
+              aria-label="Student work review"
+              className="student-work-panel"
+              id="student-work-panel"
+              tabIndex="-1"
+            >
+              <div className="student-work-header">
+                <div>
+                  <p className="eyebrow">Student Work</p>
+                  <h3 id="student-work-title">Choose a student</h3>
+                  <p id="student-work-meta">
+                    Use View Work in the roster to inspect generated problems, submitted answers,
+                    and the answer key.
+                  </p>
+                </div>
+                <button
+                  className="secondary-button table-reset-button"
+                  hidden
+                  id="close-work-panel"
+                  type="button"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="student-work-problems" id="student-work-problems">
+                <div className="empty-state compact-empty">No student selected.</div>
+              </div>
+            </section>
+
             <section className="dashboard-table-wrap" aria-label="Submitted grades">
               <div className="table-actions">
                 <h3>Roster</h3>
@@ -234,6 +264,7 @@ export default function TeacherDashboard() {
                       <th scope="col">Grade</th>
                       <th scope="col">Answered</th>
                       <th scope="col">Submitted</th>
+                      <th scope="col">Work</th>
                       <th scope="col">Reset</th>
                     </tr>
                   </thead>

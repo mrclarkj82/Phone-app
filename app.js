@@ -267,6 +267,7 @@ const state = {
   customAssignments: [],
   account: null,
   assignmentUnsubscribe: null,
+  selectedWorkStudentKey: "",
 };
 
 let elements = {};
@@ -311,7 +312,13 @@ function collectElements() {
     customTimeEnabled: document.querySelector("#custom-time-enabled"),
     customTimeLimit: document.querySelector("#custom-time-limit"),
     saveAssignmentButton: document.querySelector("#save-assignment"),
+    assignmentPreview: document.querySelector("#assignment-preview"),
     customAssignmentList: document.querySelector("#custom-assignment-list"),
+    studentWorkPanel: document.querySelector("#student-work-panel"),
+    studentWorkTitle: document.querySelector("#student-work-title"),
+    studentWorkMeta: document.querySelector("#student-work-meta"),
+    studentWorkProblems: document.querySelector("#student-work-problems"),
+    closeWorkPanel: document.querySelector("#close-work-panel"),
   };
 }
 
@@ -1215,35 +1222,221 @@ function getCustomProblemCountInput() {
   return normalizeProblemCount(selected);
 }
 
-function getCustomAssignmentPayload() {
+function getCustomAssignmentDraft() {
   const typeConfig = getAssignmentTypeConfig(elements.customAssignmentType?.value);
   const title = elements.customAssignmentTitle?.value.trim() || typeConfig.label;
   const problemCount = getCustomProblemCountInput();
   const timeEnabled = elements.customTimeEnabled?.checked === true;
-  const assignmentId = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const classPeriod = elements.customClassPeriod?.value.trim();
+
   return {
-    assignmentId,
-    isTeacherCreated: true,
-    teacherUid: state.account?.uid || "",
+    id: `preview-${typeConfig.id}`,
     title,
     assignmentType: typeConfig.id,
     assignmentTypeLabel: typeConfig.label,
     answerMode: typeConfig.answerMode,
+    answerPlaceholder: "value",
     directions: typeConfig.directions,
     problemCount,
     difficulty: elements.customDifficulty?.value || "mixed",
-    assignedClassIds: [elements.customClassPeriod?.value.trim() || "default"],
-    classPeriod: elements.customClassPeriod?.value.trim() || "Default class",
+    classKey: classPeriod || "default",
+    classPeriod: classPeriod || "Default class",
     dueDate: elements.customDueDate?.value || "",
     showImmediateFeedback: elements.customFeedbackMode?.value === "immediate",
     allowRetries: elements.customAllowRetries?.checked === true,
     maxAttempts: normalizeProblemCount(elements.customMaxAttempts?.value || 1),
     timeLimitMinutes: timeEnabled ? normalizeProblemCount(elements.customTimeLimit?.value || 30) : 0,
+    generator: typeConfig.generator,
+  };
+}
+
+function getCustomAssignmentPayload() {
+  const draft = getCustomAssignmentDraft();
+  const assignmentId = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return {
+    assignmentId,
+    isTeacherCreated: true,
+    teacherUid: state.account?.uid || "",
+    title: draft.title,
+    assignmentType: draft.assignmentType,
+    assignmentTypeLabel: draft.assignmentTypeLabel,
+    answerMode: draft.answerMode,
+    directions: draft.directions,
+    problemCount: draft.problemCount,
+    difficulty: draft.difficulty,
+    assignedClassIds: [draft.classKey || "default"],
+    classPeriod: draft.classPeriod,
+    dueDate: draft.dueDate,
+    showImmediateFeedback: draft.showImmediateFeedback,
+    allowRetries: draft.allowRetries,
+    maxAttempts: draft.maxAttempts,
+    timeLimitMinutes: draft.timeLimitMinutes,
     resetKey: "initial",
     active: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
+}
+
+function formatExpectedAnswer(problem) {
+  if (problem.answerMode === "pair") {
+    return `(${problem.answer.x}, ${problem.answer.y})`;
+  }
+
+  if (problem.answerMode === "slope") {
+    return problem.answer.kind === "undefined"
+      ? "undefined"
+      : formatFractionValue(problem.answer);
+  }
+
+  if (problem.answerMode === "slopeIntercept") {
+    return `m = ${formatFractionValue(problem.answer.m)}, b = ${formatFractionValue(
+      problem.answer.b,
+    )}`;
+  }
+
+  if (problem.answerMode === "inequality") {
+    return `x ${problem.answer.symbol} ${problem.answer.boundary}`;
+  }
+
+  if (problem.answerMode === "graphLine") {
+    if (problem.graphQuestion === "slope") {
+      return formatFractionValue(problem.answer.slope);
+    }
+    if (problem.graphQuestion === "intercept") {
+      return `b = ${formatFractionValue(problem.answer.b)}`;
+    }
+    if (problem.graphQuestion === "point") {
+      return `Any point on the line, such as (${problem.answer.point.x}, ${problem.answer.point.y})`;
+    }
+    return formatSlopeInterceptEquation(problem.answer.m, problem.answer.b);
+  }
+
+  return `x = ${problem.answer}`;
+}
+
+function answersToMap(savedAnswers) {
+  if (!savedAnswers || typeof savedAnswers !== "object") {
+    return new Map();
+  }
+  return new Map(Object.entries(savedAnswers));
+}
+
+function formatSubmittedAnswer(problem, answers = new Map()) {
+  const answer = answers.get(problem.id);
+  if (!answer || typeof answer !== "object") return "";
+
+  if (problem.answerMode === "pair") {
+    return answer.x || answer.y ? `(${answer.x || "blank"}, ${answer.y || "blank"})` : "";
+  }
+
+  if (problem.answerMode === "slope") {
+    if (answer.kind === "undefined") return "undefined";
+    return answer.numerator || answer.denominator
+      ? `${answer.numerator || "blank"}/${answer.denominator || "blank"}`
+      : "";
+  }
+
+  if (problem.answerMode === "slopeIntercept") {
+    return answer.m || answer.b ? `m = ${answer.m || "blank"}, b = ${answer.b || "blank"}` : "";
+  }
+
+  if (problem.answerMode === "inequality") {
+    return answer.symbol || answer.boundary
+      ? `x ${answer.symbol || "?"} ${answer.boundary || "blank"}`
+      : "";
+  }
+
+  if (problem.answerMode === "graphLine") {
+    if (problem.graphQuestion === "slope") {
+      return answer.numerator || answer.denominator
+        ? `${answer.numerator || "blank"}/${answer.denominator || "blank"}`
+        : "";
+    }
+    if (problem.graphQuestion === "intercept") {
+      return answer.b ? `b = ${answer.b}` : "";
+    }
+    if (problem.graphQuestion === "point") {
+      return answer.x || answer.y ? `(${answer.x || "blank"}, ${answer.y || "blank"})` : "";
+    }
+    return answer.m || answer.b ? `m = ${answer.m || "blank"}, b = ${answer.b || "blank"}` : "";
+  }
+
+  return answer.x || "";
+}
+
+function getReviewStatus(problem, answers) {
+  if (!hasAnswerForProblem(problem, answers)) {
+    return { label: "No answer", className: "is-pending" };
+  }
+
+  return getProblemResult(problem, answers) === "correct"
+    ? { label: "Correct", className: "is-correct" }
+    : { label: "Incorrect", className: "is-wrong" };
+}
+
+function renderReviewProblemCard(problem, answers = new Map(), options = {}) {
+  const isPreview = options.preview === true;
+  const assignmentTitle = options.assignmentTitle || getSelectedAssignment().title;
+  const status = isPreview ? { label: "Preview", className: "is-preview" } : getReviewStatus(problem, answers);
+  const submittedAnswer = isPreview ? "" : formatSubmittedAnswer(problem, answers);
+
+  return `
+    <article class="review-card ${status.className} ${
+      problem.answerMode === "graphLine" ? "is-graph-review" : ""
+    }">
+      <div class="review-card-header">
+        <span class="problem-number">${problem.number}</span>
+        <div>
+          <p class="problem-type">${escapeHtml(problem.type || assignmentTitle)}</p>
+          <div class="equation">${renderProblemPrompt(problem)}</div>
+        </div>
+        <span class="review-status">${status.label}</span>
+      </div>
+      <div class="review-answer-grid">
+        ${
+          isPreview
+            ? ""
+            : `<div>
+                <span>Student answer</span>
+                <strong>${escapeHtml(submittedAnswer || "Not answered")}</strong>
+              </div>`
+        }
+        <div>
+          <span>Answer key</span>
+          <strong>${escapeHtml(formatExpectedAnswer(problem))}</strong>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderAssignmentPreview() {
+  if (!elements.assignmentPreview || !elements.customAssignmentType) return;
+
+  const assignment = getCustomAssignmentDraft();
+  const previewStudent = { key: "preview-student", name: "Preview Student" };
+  const previewProblems = generateAssignment(previewStudent, assignment);
+
+  elements.assignmentPreview.innerHTML = `
+    <div class="preview-heading">
+      <div>
+        <p class="eyebrow">Preview</p>
+        <h3>${escapeHtml(assignment.title)}</h3>
+      </div>
+      <span>${assignment.problemCount} problems</span>
+    </div>
+    <div class="student-work-problems preview-problems">
+      ${previewProblems
+        .map((problem) =>
+          renderReviewProblemCard(problem, new Map(), {
+            assignmentTitle: assignment.title,
+            preview: true,
+          }),
+        )
+        .join("")}
+    </div>
+  `;
 }
 
 function renderCustomAssignmentList() {
@@ -1350,6 +1543,7 @@ function selectAssignment(assignmentId, options = {}) {
   }
 
   renderDashboard();
+  renderStudentWorkPanel(state.selectedWorkStudentKey);
 }
 
 async function loadSelectedStudent() {
@@ -2043,6 +2237,55 @@ function submitAssignment() {
   );
 }
 
+function renderStudentWorkPanel(studentKey = "") {
+  if (!elements.studentWorkPanel || !elements.studentWorkProblems) return;
+
+  const assignment = getSelectedAssignment();
+  const student = getVisibleRoster().find((item) => item.key === studentKey);
+  state.selectedWorkStudentKey = student?.key || "";
+
+  if (!student) {
+    setText(elements.studentWorkTitle, "Choose a student");
+    setText(
+      elements.studentWorkMeta,
+      "Use View Work in the roster to inspect generated problems, submitted answers, and the answer key.",
+    );
+    elements.studentWorkProblems.innerHTML = `<div class="empty-state compact-empty">No student selected.</div>`;
+    if (elements.closeWorkPanel) {
+      elements.closeWorkPanel.hidden = true;
+    }
+    elements.studentWorkPanel.classList.remove("is-attention");
+    return;
+  }
+
+  const submission = getSubmission(student, assignment);
+  const problems = generateAssignment(student, assignment);
+  const answers = answersToMap(submission?.answers);
+  const submittedAt = submission
+    ? new Intl.DateTimeFormat(undefined, {
+        dateStyle: "short",
+        timeStyle: "short",
+      }).format(new Date(submission.submittedAt))
+    : "";
+
+  setText(elements.studentWorkTitle, `${student.name} - ${assignment.title}`);
+  setText(
+    elements.studentWorkMeta,
+    submission
+      ? `Submitted ${submittedAt}. Score: ${submission.correct} / ${submission.total} (${submission.percent}%).`
+      : "No submitted answers yet. Showing the generated problem set and answer key.",
+  );
+  elements.studentWorkProblems.innerHTML = problems
+    .map((problem) => renderReviewProblemCard(problem, answers))
+    .join("");
+  if (elements.closeWorkPanel) {
+    elements.closeWorkPanel.hidden = false;
+  }
+  elements.studentWorkPanel.classList.add("is-attention");
+  elements.studentWorkPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  elements.studentWorkPanel.focus({ preventScroll: true });
+}
+
 function renderDashboard() {
   if (!elements.dashboardBody) return;
 
@@ -2059,7 +2302,7 @@ function renderDashboard() {
         }).format(new Date(submission.submittedAt))
       : "--";
     return `
-      <tr>
+      <tr class="${state.selectedWorkStudentKey === student.key ? "is-selected-work" : ""}">
         <td>${escapeHtml(student.name)}</td>
         <td>
           <span class="status-pill ${submission ? "is-submitted" : ""}">
@@ -2070,6 +2313,11 @@ function renderDashboard() {
         <td>${submission ? `${submission.percent}%` : "--"}</td>
         <td>${submission ? `${submission.answered} / ${submission.total}` : "--"}</td>
         <td>${submittedAt}</td>
+        <td>
+          <button class="secondary-button table-reset-button" type="button" data-view-work="${student.key}">
+            View Work
+          </button>
+        </td>
         <td>
           ${
             submission
@@ -2082,6 +2330,12 @@ function renderDashboard() {
   });
 
   elements.dashboardBody.innerHTML = rows.join("");
+  elements.dashboardBody.querySelectorAll("[data-view-work]").forEach((button) => {
+    button.addEventListener("click", () => {
+      renderStudentWorkPanel(button.dataset.viewWork);
+      renderDashboard();
+    });
+  });
   elements.dashboardBody.querySelectorAll("[data-reset-student]").forEach((button) => {
     button.addEventListener("click", () => resetStudentSubmission(button.dataset.resetStudent));
   });
@@ -2106,6 +2360,7 @@ function renderDashboard() {
 function refreshDashboard() {
   state.submissions = loadSubmissions();
   renderDashboard();
+  renderStudentWorkPanel(state.selectedWorkStudentKey);
 }
 
 function updateDashboardSyncStatus() {
@@ -2125,6 +2380,7 @@ function resetDashboard() {
   state.submissions[assignment.id] = {};
   saveSubmissions();
   renderDashboard();
+  renderStudentWorkPanel(state.selectedWorkStudentKey);
 }
 
 function resetStudentSubmission(studentKey) {
@@ -2138,6 +2394,7 @@ function resetStudentSubmission(studentKey) {
   delete getAssignmentSubmissions(assignment)[student.key];
   saveSubmissions();
   renderDashboard();
+  renderStudentWorkPanel(student.key);
 }
 
 function bindEvents() {
@@ -2186,6 +2443,13 @@ function bindEvents() {
   if (elements.resetDashboard) {
     elements.resetDashboard.addEventListener("click", resetDashboard);
   }
+  if (elements.closeWorkPanel) {
+    elements.closeWorkPanel.addEventListener("click", () => {
+      state.selectedWorkStudentKey = "";
+      renderStudentWorkPanel("");
+      renderDashboard();
+    });
+  }
   if (elements.saveAssignmentButton) {
     elements.saveAssignmentButton.addEventListener("click", saveCustomAssignment);
   }
@@ -2194,13 +2458,30 @@ function bindEvents() {
       if (elements.customProblemCountOther) {
         elements.customProblemCountOther.hidden = elements.customProblemCount.value !== "custom";
       }
+      renderAssignmentPreview();
     });
   }
   if (elements.customTimeEnabled) {
     elements.customTimeEnabled.addEventListener("change", () => {
       setDisabled(elements.customTimeLimit, !elements.customTimeEnabled.checked);
+      renderAssignmentPreview();
     });
   }
+  [
+    elements.customAssignmentTitle,
+    elements.customAssignmentType,
+    elements.customProblemCountOther,
+    elements.customDifficulty,
+    elements.customDueDate,
+    elements.customClassPeriod,
+    elements.customFeedbackMode,
+    elements.customAllowRetries,
+    elements.customMaxAttempts,
+    elements.customTimeLimit,
+  ].forEach((element) => {
+    if (!element) return;
+    element.addEventListener(element.type === "checkbox" || element.tagName === "SELECT" ? "change" : "input", renderAssignmentPreview);
+  });
 
   if (elements.dashboardBody) {
     window.addEventListener("storage", (event) => {
@@ -2228,6 +2509,8 @@ function init() {
   renderProblems();
   updateStudentScore();
   renderDashboard();
+  renderAssignmentPreview();
+  renderStudentWorkPanel();
   renderCustomAssignmentList();
   bindEvents();
 }
@@ -2250,6 +2533,7 @@ export function mountAssignmentDashboard(options = {}) {
     : null;
   state.customAssignments = [];
   state.account = options.account || null;
+  state.selectedWorkStudentKey = "";
   init();
   subscribeCustomAssignments();
 
