@@ -231,7 +231,7 @@ export default function AdminDashboard() {
     const uid = account.uid || account.id;
     if (!uid) return;
 
-    const confirmed = window.confirm(`Remove ${account.displayName || account.email} from app access?`);
+    const confirmed = window.confirm(`Remove ${account.displayName || account.email} from the app?`);
     if (!confirmed) return;
 
     try {
@@ -257,13 +257,7 @@ export default function AdminDashboard() {
     const studentKeys = classForm.studentKeys.filter(Boolean);
 
     if (!classId || !name || !classForm.teacherUid) {
-      setMessage("Enter a class ID, class name, and teacher.");
-      setMessageTone("warning");
-      return;
-    }
-
-    if (!studentKeys.length) {
-      setMessage("Assign at least one student to this class.");
+      setMessage("Enter a class code, class name, and teacher.");
       setMessageTone("warning");
       return;
     }
@@ -300,7 +294,7 @@ export default function AdminDashboard() {
         );
       }
 
-      setMessage(`${name} saved with ${studentKeys.length} students.`);
+      setMessage(`${name} saved.`);
       setMessageTone("success");
       clearClassForm();
       setShowClassForm(false);
@@ -326,18 +320,6 @@ export default function AdminDashboard() {
       setMessage(error.message || "Unable to delete class.");
       setMessageTone("danger");
     }
-  }
-
-  function toggleClassStudent(uid) {
-    setClassForm((current) => {
-      const studentKeys = new Set(current.studentKeys);
-      if (studentKeys.has(uid)) {
-        studentKeys.delete(uid);
-      } else {
-        studentKeys.add(uid);
-      }
-      return { ...current, studentKeys: [...studentKeys] };
-    });
   }
 
   const statusClasses = {
@@ -369,17 +351,13 @@ export default function AdminDashboard() {
         </div>
 
         <section className="grid gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/60">
-            <div>
-              <p className="eyebrow">App Access</p>
-              <h2 className="m-0 text-2xl font-black">Teacher and Student Access</h2>
-            </div>
+          <div className="flex justify-end">
             <button
               className="primary-button px-4"
               onClick={() => setShowAccessPanel(true)}
               type="button"
             >
-              Open App Access
+              Manage Accounts
             </button>
           </div>
 
@@ -395,7 +373,6 @@ export default function AdminDashboard() {
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="eyebrow">App Access</p>
                     <h2 className="m-0 text-2xl font-black">
                       {editingAccountUid ? "Edit Account" : "Add Teacher Or Student"}
                     </h2>
@@ -506,7 +483,7 @@ export default function AdminDashboard() {
 
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="grid gap-1.5">
-                  Class ID
+                  Class code
                   <input
                     autoComplete="off"
                     disabled={Boolean(editingClassId)}
@@ -550,45 +527,6 @@ export default function AdminDashboard() {
                     ))}
                   </select>
                 </label>
-              </div>
-
-              <div className="grid gap-2">
-                <div className="flex items-end justify-between gap-3">
-                  <div>
-                    <p className="eyebrow">Students</p>
-                    <h3 className="m-0 text-lg font-black">Assigned To Class</h3>
-                  </div>
-                  <span className="text-sm font-bold text-slate-500">
-                    {classForm.studentKeys.length} selected
-                  </span>
-                </div>
-                <div className="grid max-h-80 gap-2 overflow-auto pr-1 sm:grid-cols-2">
-                  {roster.length ? (
-                    roster.map((student) => {
-                      const uid = student.key;
-                      return (
-                        <label
-                          className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-md border border-slate-200 bg-slate-50 p-3"
-                          key={uid}
-                        >
-                          <input
-                            checked={classForm.studentKeys.includes(uid)}
-                            className="mt-1 h-4 min-h-0 w-4"
-                            onChange={() => toggleClassStudent(uid)}
-                            type="checkbox"
-                          />
-                          <span className="min-w-0">
-                            <strong className="block truncate">{student.name}</strong>
-                          </span>
-                        </label>
-                      );
-                    })
-                  ) : (
-                    <div className="rounded-md border border-dashed border-slate-300 p-4 text-center font-bold text-slate-500 sm:col-span-2">
-                      Add active student accounts before creating a class.
-                    </div>
-                  )}
-                </div>
               </div>
 
               <div className="flex flex-wrap gap-3">
