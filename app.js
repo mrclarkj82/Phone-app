@@ -131,6 +131,13 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     answerMode: "graphLine",
     directions: "Use the coordinate grid to answer",
   },
+  {
+    id: "quadratic-functions-graphing",
+    label: "Quadratic Functions with Graphing",
+    generator: makeQuadraticGraphProblem,
+    answerMode: "graphQuadratic",
+    directions: "Use the graph to answer each quadratic function question",
+  },
 ];
 
 export const roster = [
@@ -636,6 +643,13 @@ function formatSlopeInterceptEquation(slope, intercept) {
   })}`;
 }
 
+function formatQuadraticVertexEquation(a, h, k) {
+  const aText = a === 1 ? "" : a === -1 ? "-" : `${a}`;
+  const hText = h === 0 ? "x" : h > 0 ? `x - ${h}` : `x + ${Math.abs(h)}`;
+  const kText = k === 0 ? "" : k > 0 ? ` + ${k}` : ` - ${Math.abs(k)}`;
+  return `y = ${aText}(${hText})^2${kText}`;
+}
+
 function fractionToNumber(fraction) {
   if (!fraction || fraction.undefined) return NaN;
   return fraction.numerator / fraction.denominator;
@@ -963,6 +977,95 @@ function makeCoordinateGridLineProblem(random, problemNumber = 1) {
   };
 }
 
+function makeQuadraticGraphProblem(random, problemNumber = 1) {
+  const aOptions = problemNumber <= 10 ? [1, -1] : [1, -1, 2, -2];
+  const questionCycle = ["vertex", "axis", "yIntercept", "xIntercepts", "equation"];
+  const graphQuestion = questionCycle[(problemNumber - 1) % questionCycle.length];
+  let graph = null;
+  let attempts = 0;
+
+  while (!graph && attempts < 100) {
+    const a = aOptions[integerBetween(random, 0, aOptions.length - 1)];
+    const rootDistance = integerBetween(random, 1, 3);
+    const h = integerBetween(random, -5, 5);
+    const k = -a * rootDistance * rootDistance;
+    const leftRoot = h - rootDistance;
+    const rightRoot = h + rootDistance;
+    const yIntercept = a * h * h + k;
+
+    if (
+      leftRoot >= -10 &&
+      rightRoot <= 10 &&
+      Math.abs(k) <= 9 &&
+      Math.abs(yIntercept) <= 10
+    ) {
+      graph = {
+        kind: "quadratic",
+        a,
+        h,
+        k,
+        leftRoot,
+        rightRoot,
+        yIntercept,
+        points: [
+          { label: "A", x: leftRoot, y: 0 },
+          { label: "V", x: h, y: k },
+          { label: "B", x: rightRoot, y: 0 },
+        ],
+      };
+    }
+
+    attempts += 1;
+  }
+
+  if (!graph) {
+    graph = {
+      kind: "quadratic",
+      a: 1,
+      h: 0,
+      k: -4,
+      leftRoot: -2,
+      rightRoot: 2,
+      yIntercept: -4,
+      points: [
+        { label: "A", x: -2, y: 0 },
+        { label: "V", x: 0, y: -4 },
+        { label: "B", x: 2, y: 0 },
+      ],
+    };
+  }
+
+  const prompts = {
+    vertex: "Find the vertex of the quadratic function shown on the graph.",
+    axis: "Write the axis of symmetry for the parabola.",
+    yIntercept: "Find the y-intercept of the quadratic function.",
+    xIntercepts: "Find the x-intercepts of the quadratic function.",
+    equation: "Write the equation in vertex form: y = a(x - h)^2 + k.",
+  };
+  const typeLabels = {
+    vertex: "Vertex from graph",
+    axis: "Axis of symmetry",
+    yIntercept: "Y-intercept from graph",
+    xIntercepts: "X-intercepts from graph",
+    equation: "Equation from graph",
+  };
+  const answers = {
+    vertex: { vertex: { x: graph.h, y: graph.k } },
+    axis: { axis: graph.h },
+    yIntercept: { yIntercept: graph.yIntercept },
+    xIntercepts: { xIntercepts: [graph.leftRoot, graph.rightRoot] },
+    equation: { a: graph.a, h: graph.h, k: graph.k },
+  };
+
+  return {
+    type: typeLabels[graphQuestion],
+    equation: prompts[graphQuestion],
+    graphQuestion,
+    graph,
+    answer: answers[graphQuestion],
+  };
+}
+
 function makeProblem(assignment, student, problemNumber, attempt = 0) {
   const seedText = `${assignment.id}:${student.key}:${student.name}:${problemNumber}:${attempt}`;
   const random = mulberry32(hashString(seedText));
@@ -976,6 +1079,24 @@ function makeProblem(assignment, student, problemNumber, attempt = 0) {
 }
 
 function getProblemSignature(problem) {
+  if (problem.graph?.kind === "quadratic") {
+    return [
+      "quadratic",
+      problem.graphQuestion,
+      problem.graph.a,
+      problem.graph.h,
+      problem.graph.k,
+    ].join("|");
+  }
+
+  if (problem.graph?.points?.length) {
+    return [
+      problem.answerMode,
+      problem.graphQuestion,
+      ...problem.graph.points.map((point) => `${point.x},${point.y}`),
+    ].join("|");
+  }
+
   return problem.equations ? problem.equations.join("|") : problem.equation;
 }
 
@@ -1312,6 +1433,22 @@ function formatExpectedAnswer(problem) {
     return formatSlopeInterceptEquation(problem.answer.m, problem.answer.b);
   }
 
+  if (problem.answerMode === "graphQuadratic") {
+    if (problem.graphQuestion === "vertex") {
+      return `(${problem.answer.vertex.x}, ${problem.answer.vertex.y})`;
+    }
+    if (problem.graphQuestion === "axis") {
+      return `x = ${problem.answer.axis}`;
+    }
+    if (problem.graphQuestion === "yIntercept") {
+      return `(0, ${problem.answer.yIntercept})`;
+    }
+    if (problem.graphQuestion === "xIntercepts") {
+      return problem.answer.xIntercepts.map((x) => `(${x}, 0)`).join(" and ");
+    }
+    return formatQuadraticVertexEquation(problem.answer.a, problem.answer.h, problem.answer.k);
+  }
+
   return `x = ${problem.answer}`;
 }
 
@@ -1362,6 +1499,26 @@ function formatSubmittedAnswer(problem, answers = new Map()) {
     return answer.m || answer.b ? `m = ${answer.m || "blank"}, b = ${answer.b || "blank"}` : "";
   }
 
+  if (problem.answerMode === "graphQuadratic") {
+    if (problem.graphQuestion === "vertex") {
+      return answer.x || answer.y ? `(${answer.x || "blank"}, ${answer.y || "blank"})` : "";
+    }
+    if (problem.graphQuestion === "axis") {
+      return answer.axis ? `x = ${answer.axis}` : "";
+    }
+    if (problem.graphQuestion === "yIntercept") {
+      return answer.y ? `(0, ${answer.y})` : "";
+    }
+    if (problem.graphQuestion === "xIntercepts") {
+      return answer.x1 || answer.x2
+        ? `(${answer.x1 || "blank"}, 0), (${answer.x2 || "blank"}, 0)`
+        : "";
+    }
+    return answer.a || answer.h || answer.k
+      ? `a = ${answer.a || "blank"}, h = ${answer.h || "blank"}, k = ${answer.k || "blank"}`
+      : "";
+  }
+
   return answer.x || "";
 }
 
@@ -1383,7 +1540,7 @@ function renderReviewProblemCard(problem, answers = new Map(), options = {}) {
 
   return `
     <article class="review-card ${status.className} ${
-      problem.answerMode === "graphLine" ? "is-graph-review" : ""
+      ["graphLine", "graphQuadratic"].includes(problem.answerMode) ? "is-graph-review" : ""
     }">
       <div class="review-card-header">
         <span class="problem-number">${problem.number}</span>
@@ -1605,11 +1762,14 @@ function getAnswerRowClass(problem) {
   if (problem.answerMode === "slopeIntercept") return "is-slope-intercept";
   if (problem.answerMode === "inequality") return "is-inequality";
   if (problem.answerMode === "graphLine") return `is-graph-line is-graph-${problem.graphQuestion}`;
+  if (problem.answerMode === "graphQuadratic") {
+    return `is-graph-quadratic is-quadratic-${problem.graphQuestion.toLowerCase()}`;
+  }
   return "";
 }
 
 function renderProblemPrompt(problem) {
-  if (problem.answerMode === "graphLine") {
+  if (problem.answerMode === "graphLine" || problem.answerMode === "graphQuadratic") {
     return `
       <div class="graph-problem">
         ${renderCoordinateGrid(problem)}
@@ -1648,17 +1808,7 @@ function renderMathTable(table) {
   `;
 }
 
-function renderCoordinateGrid(problem) {
-  const size = 260;
-  const center = size / 2;
-  const unit = 11;
-  const toSvgX = (value) => center + value * unit;
-  const toSvgY = (value) => center - value * unit;
-  const slope = problem.graph.slope;
-  const intercept = problem.graph.intercept;
-  const start = { x: -10, y: fractionToNumber(slope) * -10 + fractionToNumber(intercept) };
-  const end = { x: 10, y: fractionToNumber(slope) * 10 + fractionToNumber(intercept) };
-  const clipId = `grid-clip-${problem.id.replace(/[^a-zA-Z0-9-]/g, "-")}`;
+function makeCoordinateGridParts(toSvgX, toSvgY) {
   const gridLines = [];
   const tickLabels = [];
 
@@ -1677,6 +1827,77 @@ function renderCoordinateGrid(problem) {
     }
   }
 
+  return { gridLines, tickLabels };
+}
+
+function renderAxisLabels(toSvgX, toSvgY, tickLabels) {
+  return `
+    <g class="axis-labels" aria-hidden="true">
+      <text x="${toSvgX(10) + 8}" y="${toSvgY(0) + 4}">x</text>
+      <text x="${toSvgX(0) + 5}" y="${toSvgY(10) - 6}">y</text>
+      ${tickLabels.join("")}
+    </g>
+  `;
+}
+
+function clampGraphLabel(value) {
+  return Math.max(8, Math.min(252, value));
+}
+
+function getQuadraticLabelPosition(point, graph, toSvgX, toSvgY) {
+  const baseX = toSvgX(point.x);
+  const baseY = toSvgY(point.y);
+
+  if (point.label === "V") {
+    return {
+      x: clampGraphLabel(baseX),
+      y: clampGraphLabel(baseY + (graph.a > 0 ? 18 : -18)),
+    };
+  }
+
+  const svgSlope = -2 * graph.a * (point.x - graph.h);
+  const length = Math.hypot(1, svgSlope) || 1;
+  const normal = { x: -svgSlope / length, y: 1 / length };
+  const preferredSign = point.x < graph.h ? -1 : 1;
+  const offsets = [
+    preferredSign * 18,
+    -preferredSign * 18,
+    preferredSign * 22,
+    -preferredSign * 22,
+  ];
+  const candidates = offsets.map((offset) => ({
+    x: baseX + normal.x * offset,
+    y: baseY + normal.y * offset,
+  }));
+  const chosen =
+    candidates.find(
+      (candidate) =>
+        candidate.x >= 8 && candidate.x <= 252 && candidate.y >= 8 && candidate.y <= 252,
+    ) || candidates[0];
+
+  return {
+    x: clampGraphLabel(chosen.x),
+    y: clampGraphLabel(chosen.y),
+  };
+}
+
+function renderCoordinateGrid(problem) {
+  if (problem.graph?.kind === "quadratic") {
+    return renderQuadraticCoordinateGrid(problem);
+  }
+
+  const size = 260;
+  const center = size / 2;
+  const unit = 11;
+  const toSvgX = (value) => center + value * unit;
+  const toSvgY = (value) => center - value * unit;
+  const slope = problem.graph.slope;
+  const intercept = problem.graph.intercept;
+  const start = { x: -10, y: fractionToNumber(slope) * -10 + fractionToNumber(intercept) };
+  const end = { x: 10, y: fractionToNumber(slope) * 10 + fractionToNumber(intercept) };
+  const clipId = `grid-clip-${problem.id.replace(/[^a-zA-Z0-9-]/g, "-")}`;
+  const { gridLines, tickLabels } = makeCoordinateGridParts(toSvgX, toSvgY);
+
   return `
     <figure class="coordinate-graph" aria-label="Coordinate grid from -10 to 10">
       <svg viewBox="0 0 ${size} ${size}" role="img" aria-label="Line through (${problem.graph.points[0].x}, ${problem.graph.points[0].y}) and (${problem.graph.points[1].x}, ${problem.graph.points[1].y})">
@@ -1687,11 +1908,6 @@ function renderCoordinateGrid(problem) {
         </defs>
         <rect class="grid-background" x="${toSvgX(-10)}" y="${toSvgY(10)}" width="${unit * 20}" height="${unit * 20}" />
         ${gridLines.join("")}
-        <g class="axis-labels" aria-hidden="true">
-          <text x="${toSvgX(10) + 8}" y="${toSvgY(0) + 4}">x</text>
-          <text x="${toSvgX(0) + 5}" y="${toSvgY(10) - 6}">y</text>
-          ${tickLabels.join("")}
-        </g>
         <g clip-path="url(#${clipId})">
           <line
             class="graph-line"
@@ -1701,6 +1917,7 @@ function renderCoordinateGrid(problem) {
             y2="${toSvgY(end.y)}"
           />
         </g>
+        ${renderAxisLabels(toSvgX, toSvgY, tickLabels)}
         ${problem.graph.points
           .map(
             (point, index) => `
@@ -1710,6 +1927,54 @@ function renderCoordinateGrid(problem) {
               </g>
             `,
           )
+          .join("")}
+      </svg>
+    </figure>
+  `;
+}
+
+function renderQuadraticCoordinateGrid(problem) {
+  const size = 260;
+  const center = size / 2;
+  const unit = 11;
+  const toSvgX = (value) => center + value * unit;
+  const toSvgY = (value) => center - value * unit;
+  const clipId = `grid-clip-${problem.id.replace(/[^a-zA-Z0-9-]/g, "-")}`;
+  const { gridLines, tickLabels } = makeCoordinateGridParts(toSvgX, toSvgY);
+  const graph = problem.graph;
+  const curvePath = [];
+
+  for (let x = -10; x <= 10.001; x += 0.25) {
+    const y = graph.a * (x - graph.h) ** 2 + graph.k;
+    curvePath.push(
+      `${curvePath.length ? "L" : "M"} ${toSvgX(x).toFixed(2)} ${toSvgY(y).toFixed(2)}`,
+    );
+  }
+
+  return `
+    <figure class="coordinate-graph" aria-label="Coordinate grid from -10 to 10">
+      <svg viewBox="0 0 ${size} ${size}" role="img" aria-label="Quadratic function with vertex (${graph.h}, ${graph.k})">
+        <defs>
+          <clipPath id="${clipId}">
+            <rect x="${toSvgX(-10)}" y="${toSvgY(10)}" width="${unit * 20}" height="${unit * 20}" />
+          </clipPath>
+        </defs>
+        <rect class="grid-background" x="${toSvgX(-10)}" y="${toSvgY(10)}" width="${unit * 20}" height="${unit * 20}" />
+        ${gridLines.join("")}
+        <g clip-path="url(#${clipId})">
+          <path class="graph-curve" d="${curvePath.join(" ")}" />
+        </g>
+        ${renderAxisLabels(toSvgX, toSvgY, tickLabels)}
+        ${graph.points
+          .map((point) => {
+            const labelPosition = getQuadraticLabelPosition(point, graph, toSvgX, toSvgY);
+            return `
+              <g class="graph-point">
+                <circle cx="${toSvgX(point.x)}" cy="${toSvgY(point.y)}" r="3.1" />
+                <text x="${labelPosition.x.toFixed(2)}" y="${labelPosition.y.toFixed(2)}">${point.label}</text>
+              </g>
+            `;
+          })
           .join("")}
       </svg>
     </figure>
@@ -1831,6 +2096,67 @@ function renderAnswerInputs(problem) {
     `;
   }
 
+  if (problem.answerMode === "graphQuadratic") {
+    if (problem.graphQuestion === "vertex") {
+      return `
+        <label class="answer-field">
+          <span>x</span>
+          <input type="text" inputmode="numeric" aria-label="Vertex x-coordinate for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="x" placeholder="x" ${lockedAttribute} />
+        </label>
+        <label class="answer-field">
+          <span>y</span>
+          <input type="text" inputmode="numeric" aria-label="Vertex y-coordinate for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="y" placeholder="y" ${lockedAttribute} />
+        </label>
+      `;
+    }
+
+    if (problem.graphQuestion === "axis") {
+      return `
+        <label class="answer-field">
+          <span>x =</span>
+          <input type="text" inputmode="numeric" aria-label="Axis of symmetry for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="axis" placeholder="number" ${lockedAttribute} />
+        </label>
+      `;
+    }
+
+    if (problem.graphQuestion === "yIntercept") {
+      return `
+        <label class="answer-field">
+          <span>y</span>
+          <input type="text" inputmode="numeric" aria-label="Y-intercept value for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="y" placeholder="y" ${lockedAttribute} />
+        </label>
+      `;
+    }
+
+    if (problem.graphQuestion === "xIntercepts") {
+      return `
+        <label class="answer-field">
+          <span>x1</span>
+          <input type="text" inputmode="numeric" aria-label="First x-intercept for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="x1" placeholder="x" ${lockedAttribute} />
+        </label>
+        <label class="answer-field">
+          <span>x2</span>
+          <input type="text" inputmode="numeric" aria-label="Second x-intercept for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="x2" placeholder="x" ${lockedAttribute} />
+        </label>
+      `;
+    }
+
+    return `
+      <label class="answer-field">
+        <span>a</span>
+        <input type="text" inputmode="numeric" aria-label="Quadratic coefficient a for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="a" placeholder="a" ${lockedAttribute} />
+      </label>
+      <label class="answer-field">
+        <span>h</span>
+        <input type="text" inputmode="numeric" aria-label="Vertex form h for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="h" placeholder="h" ${lockedAttribute} />
+      </label>
+      <label class="answer-field">
+        <span>k</span>
+        <input type="text" inputmode="numeric" aria-label="Vertex form k for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="k" placeholder="k" ${lockedAttribute} />
+      </label>
+    `;
+  }
+
   return `
     <input type="text" inputmode="decimal" aria-label="Answer for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="x" placeholder="${getSelectedAssignment().answerPlaceholder}" ${lockedAttribute} />
   `;
@@ -1939,12 +2265,39 @@ function hasAnswerForProblem(problem, answers = state.answers) {
     return !isBlank(response.m) || !isBlank(response.b);
   }
 
+  if (problem.answerMode === "graphQuadratic") {
+    const response = answer && typeof answer === "object" ? answer : {};
+    if (problem.graphQuestion === "vertex") {
+      return !isBlank(response.x) || !isBlank(response.y);
+    }
+    if (problem.graphQuestion === "axis") {
+      return !isBlank(response.axis);
+    }
+    if (problem.graphQuestion === "yIntercept") {
+      return !isBlank(response.y);
+    }
+    if (problem.graphQuestion === "xIntercepts") {
+      return !isBlank(response.x1) || !isBlank(response.x2);
+    }
+    return !isBlank(response.a) || !isBlank(response.h) || !isBlank(response.k);
+  }
+
   const rawAnswer = answer && typeof answer === "object" ? answer.x : answer;
   return !isBlank(rawAnswer);
 }
 
 function isCloseEnough(actual, expected) {
   return Math.abs(actual - expected) < ANSWER_TOLERANCE;
+}
+
+function parseGraphNumberInput(value) {
+  const normalized = `${value ?? ""}`
+    .trim()
+    .toLowerCase()
+    .replace(/\s/g, "")
+    .replace(/^[xy]=/, "");
+  const parsed = parseFractionInput(normalized);
+  return parsed ? fractionToNumber(parsed) : NaN;
 }
 
 function getProblemResult(problem, answers = state.answers) {
@@ -2100,6 +2453,78 @@ function getProblemResult(problem, answers = state.answers) {
     }
 
     return fractionsEqual(mAnswer, problem.answer.m) && fractionsEqual(bAnswer, problem.answer.b)
+      ? "correct"
+      : "wrong";
+  }
+
+  if (problem.answerMode === "graphQuadratic") {
+    const response = answer && typeof answer === "object" ? answer : {};
+
+    if (problem.graphQuestion === "vertex") {
+      if (isBlank(response.x) && isBlank(response.y)) return "blank";
+      const x = parseGraphNumberInput(response.x);
+      const y = parseGraphNumberInput(response.y);
+      if (isBlank(response.x) || isBlank(response.y) || !Number.isFinite(x) || !Number.isFinite(y)) {
+        return "wrong";
+      }
+      return isCloseEnough(x, problem.answer.vertex.x) && isCloseEnough(y, problem.answer.vertex.y)
+        ? "correct"
+        : "wrong";
+    }
+
+    if (problem.graphQuestion === "axis") {
+      if (isBlank(response.axis)) return "blank";
+      const axis = parseGraphNumberInput(response.axis);
+      return Number.isFinite(axis) && isCloseEnough(axis, problem.answer.axis)
+        ? "correct"
+        : "wrong";
+    }
+
+    if (problem.graphQuestion === "yIntercept") {
+      if (isBlank(response.y)) return "blank";
+      const y = parseGraphNumberInput(response.y);
+      return Number.isFinite(y) && isCloseEnough(y, problem.answer.yIntercept)
+        ? "correct"
+        : "wrong";
+    }
+
+    if (problem.graphQuestion === "xIntercepts") {
+      if (isBlank(response.x1) && isBlank(response.x2)) return "blank";
+      const submitted = [parseGraphNumberInput(response.x1), parseGraphNumberInput(response.x2)].sort(
+        (left, right) => left - right,
+      );
+      const expected = [...problem.answer.xIntercepts].sort((left, right) => left - right);
+      if (
+        isBlank(response.x1) ||
+        isBlank(response.x2) ||
+        !Number.isFinite(submitted[0]) ||
+        !Number.isFinite(submitted[1])
+      ) {
+        return "wrong";
+      }
+      return isCloseEnough(submitted[0], expected[0]) && isCloseEnough(submitted[1], expected[1])
+        ? "correct"
+        : "wrong";
+    }
+
+    if (isBlank(response.a) && isBlank(response.h) && isBlank(response.k)) return "blank";
+    const a = parseGraphNumberInput(response.a);
+    const h = parseGraphNumberInput(response.h);
+    const k = parseGraphNumberInput(response.k);
+    if (
+      isBlank(response.a) ||
+      isBlank(response.h) ||
+      isBlank(response.k) ||
+      !Number.isFinite(a) ||
+      !Number.isFinite(h) ||
+      !Number.isFinite(k)
+    ) {
+      return "wrong";
+    }
+
+    return isCloseEnough(a, problem.answer.a) &&
+      isCloseEnough(h, problem.answer.h) &&
+      isCloseEnough(k, problem.answer.k)
       ? "correct"
       : "wrong";
   }

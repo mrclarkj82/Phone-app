@@ -507,6 +507,14 @@ button:focus-visible {
   stroke-width: 3.5;
 }
 
+.graph-curve {
+  fill: none;
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3.5;
+}
+
 .graph-point circle {
   fill: #ffffff;
   stroke: var(--accent-dark);
@@ -602,12 +610,26 @@ button:focus-visible {
 }
 
 .answer-row.is-slope-intercept,
-.answer-row.is-graph-line {
+.answer-row.is-graph-line,
+.answer-row.is-graph-quadratic {
   grid-template-columns: minmax(90px, 1fr) minmax(90px, 1fr) minmax(110px, auto);
 }
 
 .answer-row.is-graph-intercept {
   grid-template-columns: minmax(120px, 180px) minmax(110px, auto);
+}
+
+.answer-row.is-quadratic-axis,
+.answer-row.is-quadratic-yintercept {
+  grid-template-columns: minmax(120px, 180px) minmax(110px, auto);
+}
+
+.answer-row.is-quadratic-equation {
+  grid-template-columns:
+    minmax(70px, 0.7fr)
+    minmax(70px, 0.7fr)
+    minmax(70px, 0.7fr)
+    minmax(110px, auto);
 }
 
 .answer-row.is-inequality {
