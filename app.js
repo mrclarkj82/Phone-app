@@ -21,6 +21,8 @@ const assignments = [
   {
     id: LINEAR_ASSIGNMENT_ID,
     title: "Linear Equations",
+    assignmentUnit: "linear-equations",
+    assignmentUnitLabel: "Linear Equations",
     directions: "Solve for x",
     problemCount: 30,
     answerMode: "single",
@@ -30,6 +32,8 @@ const assignments = [
   {
     id: "systems-equations-doral-v1",
     title: "Systems of Equations",
+    assignmentUnit: "systems-equations-inequalities",
+    assignmentUnitLabel: "Systems of Equations and Inequalities",
     directions: "Solve for x and y",
     problemCount: 15,
     answerMode: "pair",
@@ -39,6 +43,8 @@ const assignments = [
   {
     id: "slope-two-points-v1",
     title: "Slope from Two Points",
+    assignmentUnit: "intro-functions",
+    assignmentUnitLabel: "Introduction to Functions",
     directions: "Find the slope between the two points",
     problemCount: 30,
     answerMode: "slope",
@@ -48,6 +54,8 @@ const assignments = [
   {
     id: "slope-intercept-form-v1",
     title: "Slope-Intercept Form",
+    assignmentUnit: "linear-equations",
+    assignmentUnitLabel: "Linear Equations",
     directions: "Identify the slope m and y-intercept b",
     problemCount: 30,
     answerMode: "slopeIntercept",
@@ -57,6 +65,8 @@ const assignments = [
   {
     id: "linear-inequalities-html-v1",
     title: "Linear Inequalities",
+    assignmentUnit: "linear-inequalities",
+    assignmentUnitLabel: "Linear Inequalities",
     directions: "Solve each inequality for x",
     problemCount: 30,
     answerMode: "inequality",
@@ -66,6 +76,8 @@ const assignments = [
   {
     id: "coordinate-grid-lines-v1",
     title: "Coordinate Grid Lines",
+    assignmentUnit: "intro-functions",
+    assignmentUnitLabel: "Introduction to Functions",
     directions: "Use the graph to answer each question",
     problemCount: 30,
     answerMode: "graphLine",
@@ -74,10 +86,46 @@ const assignments = [
   },
 ];
 
+const CUSTOM_ASSIGNMENT_UNITS = [
+  {
+    id: "intro-expressions",
+    label: "Intro to Expressions",
+  },
+  {
+    id: "exponents-radicals",
+    label: "Exponents and Radicals",
+  },
+  {
+    id: "polynomials",
+    label: "Polynomials",
+  },
+  {
+    id: "linear-equations",
+    label: "Linear Equations",
+  },
+  {
+    id: "linear-inequalities",
+    label: "Linear Inequalities",
+  },
+  {
+    id: "systems-equations-inequalities",
+    label: "Systems of Equations and Inequalities",
+  },
+  {
+    id: "intro-functions",
+    label: "Introduction to Functions",
+  },
+  {
+    id: "quadratic-equations",
+    label: "Quadratic Equations",
+  },
+];
+
 const CUSTOM_ASSIGNMENT_TYPES = [
   {
     id: "linear-equations",
     label: "Linear Equations",
+    unitId: "linear-equations",
     generator: makeLinearProblem,
     answerMode: "single",
     directions: "Solve for x",
@@ -85,6 +133,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   {
     id: "systems-equations",
     label: "Systems of Equations",
+    unitId: "systems-equations-inequalities",
     generator: makeSystemProblem,
     answerMode: "pair",
     directions: "Solve for x and y",
@@ -92,6 +141,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   {
     id: "slope-two-points",
     label: "Slope from Two Points",
+    unitId: "intro-functions",
     generator: makeSlopeProblem,
     answerMode: "slope",
     directions: "Find the slope between the two points",
@@ -99,6 +149,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   {
     id: "graphing-linear-equations",
     label: "Graphing Linear Equations",
+    unitId: "intro-functions",
     generator: makeCoordinateGridLineProblem,
     answerMode: "graphLine",
     directions: "Use the graph to answer each question",
@@ -106,6 +157,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   {
     id: "writing-equations-from-graphs",
     label: "Writing Equations from Graphs",
+    unitId: "intro-functions",
     generator: makeCoordinateGridLineProblem,
     answerMode: "graphLine",
     directions: "Write equations from graphs",
@@ -113,6 +165,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   {
     id: "multi-step-equations",
     label: "Solving Multi-Step Equations",
+    unitId: "linear-equations",
     generator: makeLinearProblem,
     answerMode: "single",
     directions: "Solve each multi-step equation",
@@ -120,6 +173,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   {
     id: "inequalities",
     label: "Inequalities",
+    unitId: "linear-inequalities",
     generator: makeLinearInequalityProblem,
     answerMode: "inequality",
     directions: "Solve each inequality for x",
@@ -127,6 +181,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   {
     id: "coordinate-grid-problems",
     label: "Coordinate Grid Problems",
+    unitId: "intro-functions",
     generator: makeCoordinateGridLineProblem,
     answerMode: "graphLine",
     directions: "Use the coordinate grid to answer",
@@ -134,6 +189,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   {
     id: "quadratic-functions-graphing",
     label: "Quadratic Functions with Graphing",
+    unitId: "quadratic-equations",
     generator: makeQuadraticGraphProblem,
     answerMode: "graphQuadratic",
     directions: "Use the graph to answer each quadratic function question",
@@ -307,6 +363,7 @@ function collectElements() {
     headerStudentCount: document.querySelector("#header-student-count"),
     teacherNote: document.querySelector("#teacher-note"),
     customAssignmentTitle: document.querySelector("#custom-assignment-title"),
+    customAssignmentUnit: document.querySelector("#custom-assignment-unit"),
     customAssignmentType: document.querySelector("#custom-assignment-type"),
     customProblemCount: document.querySelector("#custom-problem-count"),
     customProblemCountOther: document.querySelector("#custom-problem-count-other"),
@@ -403,6 +460,23 @@ function getAllAssignments() {
 
 function getAssignmentById(assignmentId) {
   return getAllAssignments().find((assignment) => assignment.id === assignmentId) || assignments[0];
+}
+
+function getAssignmentUnitLabel(assignment = {}) {
+  if (assignment.assignmentUnitLabel) return assignment.assignmentUnitLabel;
+  if (assignment.assignmentUnit) return getAssignmentUnitConfig(assignment.assignmentUnit).label;
+  if (assignment.assignmentType) {
+    const typeConfig = getAssignmentTypeConfig(assignment.assignmentType);
+    return getAssignmentUnitConfig(typeConfig.unitId).label;
+  }
+  return "";
+}
+
+function getAssignmentOptionLabel(assignment = {}) {
+  const title = assignment.title || assignment.assignmentTypeLabel || "Assignment";
+  const unitLabel = getAssignmentUnitLabel(assignment);
+  const label = unitLabel ? `${unitLabel} - ${title}` : title;
+  return `${label} (${assignment.problemCount || 0})`;
 }
 
 function renderHeaderCounts() {
@@ -1228,7 +1302,7 @@ function renderAssignmentOptions() {
   const options = getAllAssignments()
     .map(
       (assignment) =>
-        `<option value="${assignment.id}">${assignment.title} (${assignment.problemCount})</option>`,
+        `<option value="${escapeHtml(assignment.id)}">${escapeHtml(getAssignmentOptionLabel(assignment))}</option>`,
     )
     .join("");
 
@@ -1247,6 +1321,32 @@ function getAssignmentTypeConfig(typeId) {
   return CUSTOM_ASSIGNMENT_TYPES.find((type) => type.id === typeId) || CUSTOM_ASSIGNMENT_TYPES[0];
 }
 
+function getAssignmentUnitConfig(unitId) {
+  return (
+    CUSTOM_ASSIGNMENT_UNITS.find((unit) => unit.id === unitId) ||
+    CUSTOM_ASSIGNMENT_UNITS.find((unit) => getTypesForUnit(unit.id).length) ||
+    CUSTOM_ASSIGNMENT_UNITS[0]
+  );
+}
+
+function getTypesForUnit(unitId) {
+  return CUSTOM_ASSIGNMENT_TYPES.filter((type) => type.unitId === unitId);
+}
+
+function getDefaultAssignmentUnitId() {
+  return (
+    CUSTOM_ASSIGNMENT_UNITS.find((unit) => getTypesForUnit(unit.id).length)?.id ||
+    CUSTOM_ASSIGNMENT_UNITS[0].id
+  );
+}
+
+function getBuilderTypeConfig() {
+  const unitId = elements.customAssignmentUnit?.value || getDefaultAssignmentUnitId();
+  const availableTypes = getTypesForUnit(unitId);
+  const selectedType = availableTypes.find((type) => type.id === elements.customAssignmentType?.value);
+  return selectedType || availableTypes[0] || null;
+}
+
 function normalizeProblemCount(value) {
   const count = Number(value);
   if (!Number.isInteger(count) || count < 1) return 10;
@@ -1255,6 +1355,7 @@ function normalizeProblemCount(value) {
 
 function normalizeCustomAssignment(data = {}, fallbackId = "") {
   const typeConfig = getAssignmentTypeConfig(data.assignmentType);
+  const unitConfig = getAssignmentUnitConfig(data.assignmentUnit || typeConfig.unitId);
   const problemCount = normalizeProblemCount(data.problemCount);
   return {
     id: data.assignmentId || fallbackId,
@@ -1265,6 +1366,8 @@ function normalizeCustomAssignment(data = {}, fallbackId = "") {
     answerPlaceholder: data.answerPlaceholder || "value",
     generator: typeConfig.generator,
     isTeacherCreated: true,
+    assignmentUnit: unitConfig.id,
+    assignmentUnitLabel: unitConfig.label,
     assignmentType: typeConfig.id,
     assignmentTypeLabel: typeConfig.label,
     difficulty: data.difficulty || "mixed",
@@ -1329,10 +1432,37 @@ function subscribeCustomAssignments() {
 }
 
 function renderAssignmentBuilderOptions() {
-  if (!elements.customAssignmentType) return;
-  elements.customAssignmentType.innerHTML = CUSTOM_ASSIGNMENT_TYPES.map(
+  if (!elements.customAssignmentUnit || !elements.customAssignmentType) return;
+
+  elements.customAssignmentUnit.innerHTML = CUSTOM_ASSIGNMENT_UNITS.map(
+    (unit) => `<option value="${unit.id}">${escapeHtml(unit.label)}</option>`,
+  ).join("");
+  elements.customAssignmentUnit.value = elements.customAssignmentUnit.value || getDefaultAssignmentUnitId();
+  renderAssignmentTypeOptions();
+}
+
+function renderAssignmentTypeOptions() {
+  if (!elements.customAssignmentUnit || !elements.customAssignmentType) return;
+
+  const unitId = elements.customAssignmentUnit.value || getDefaultAssignmentUnitId();
+  const availableTypes = getTypesForUnit(unitId);
+  const currentTypeId = elements.customAssignmentType.value;
+
+  if (!availableTypes.length) {
+    elements.customAssignmentType.innerHTML = `<option value="">No assignment types yet</option>`;
+    elements.customAssignmentType.disabled = true;
+    setDisabled(elements.saveAssignmentButton, true);
+    return;
+  }
+
+  elements.customAssignmentType.disabled = false;
+  setDisabled(elements.saveAssignmentButton, false);
+  elements.customAssignmentType.innerHTML = availableTypes.map(
     (type) => `<option value="${type.id}">${escapeHtml(type.label)}</option>`,
   ).join("");
+  elements.customAssignmentType.value = availableTypes.some((type) => type.id === currentTypeId)
+    ? currentTypeId
+    : availableTypes[0].id;
 }
 
 function getCustomProblemCountInput() {
@@ -1344,7 +1474,13 @@ function getCustomProblemCountInput() {
 }
 
 function getCustomAssignmentDraft() {
-  const typeConfig = getAssignmentTypeConfig(elements.customAssignmentType?.value);
+  const unitConfig = getAssignmentUnitConfig(elements.customAssignmentUnit?.value);
+  const typeConfig = getBuilderTypeConfig();
+
+  if (!typeConfig) {
+    return null;
+  }
+
   const title = elements.customAssignmentTitle?.value.trim() || typeConfig.label;
   const problemCount = getCustomProblemCountInput();
   const timeEnabled = elements.customTimeEnabled?.checked === true;
@@ -1353,6 +1489,8 @@ function getCustomAssignmentDraft() {
   return {
     id: `preview-${typeConfig.id}`,
     title,
+    assignmentUnit: unitConfig.id,
+    assignmentUnitLabel: unitConfig.label,
     assignmentType: typeConfig.id,
     assignmentTypeLabel: typeConfig.label,
     answerMode: typeConfig.answerMode,
@@ -1373,12 +1511,16 @@ function getCustomAssignmentDraft() {
 
 function getCustomAssignmentPayload() {
   const draft = getCustomAssignmentDraft();
+  if (!draft) return null;
+
   const assignmentId = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   return {
     assignmentId,
     isTeacherCreated: true,
     teacherUid: state.account?.uid || "",
     title: draft.title,
+    assignmentUnit: draft.assignmentUnit,
+    assignmentUnitLabel: draft.assignmentUnitLabel,
     assignmentType: draft.assignmentType,
     assignmentTypeLabel: draft.assignmentTypeLabel,
     answerMode: draft.answerMode,
@@ -1572,13 +1714,24 @@ function renderAssignmentPreview() {
   if (!elements.assignmentPreview || !elements.customAssignmentType) return;
 
   const assignment = getCustomAssignmentDraft();
+
+  if (!assignment) {
+    const unitConfig = getAssignmentUnitConfig(elements.customAssignmentUnit?.value);
+    elements.assignmentPreview.innerHTML = `
+      <div class="empty-state compact-empty">
+        No assignment types have been added to ${escapeHtml(unitConfig.label)} yet.
+      </div>
+    `;
+    return;
+  }
+
   const previewStudent = { key: "preview-student", name: "Preview Student" };
   const previewProblems = generateAssignment(previewStudent, assignment);
 
   elements.assignmentPreview.innerHTML = `
     <div class="preview-heading">
       <div>
-        <p class="eyebrow">Preview</p>
+        <p class="eyebrow">${escapeHtml(assignment.assignmentUnitLabel)}</p>
         <h3>${escapeHtml(assignment.title)}</h3>
       </div>
       <span>${assignment.problemCount} problems</span>
@@ -1608,9 +1761,13 @@ function renderCustomAssignmentList() {
       (assignment) => `
         <article class="assignment-card">
           <div>
-            <p class="eyebrow">${escapeHtml(assignment.assignmentTypeLabel || assignment.assignmentType)}</p>
+            <p class="eyebrow">${escapeHtml(
+              assignment.assignmentUnitLabel || assignment.assignmentTypeLabel || assignment.assignmentType,
+            )}</p>
             <h3>${escapeHtml(assignment.title)}</h3>
-            <p>${assignment.problemCount} problems - ${escapeHtml(assignment.difficulty)} - ${escapeHtml(
+            <p>${assignment.assignmentTypeLabel ? `${escapeHtml(assignment.assignmentTypeLabel)} - ` : ""}${
+              assignment.problemCount
+            } problems - ${escapeHtml(assignment.difficulty)} - ${escapeHtml(
               assignment.classPeriod || "Default class",
             )}</p>
           </div>
@@ -1629,6 +1786,11 @@ async function saveCustomAssignment() {
   }
 
   const payload = getCustomAssignmentPayload();
+  if (!payload) {
+    setBanner(elements.teacherNote, "Choose a unit with at least one assignment type.", "warning");
+    return;
+  }
+
   setDisabled(elements.saveAssignmentButton, true);
   setBanner(elements.teacherNote, "Creating assignment...", "neutral");
 
@@ -2889,6 +3051,12 @@ function bindEvents() {
   if (elements.customTimeEnabled) {
     elements.customTimeEnabled.addEventListener("change", () => {
       setDisabled(elements.customTimeLimit, !elements.customTimeEnabled.checked);
+      renderAssignmentPreview();
+    });
+  }
+  if (elements.customAssignmentUnit) {
+    elements.customAssignmentUnit.addEventListener("change", () => {
+      renderAssignmentTypeOptions();
       renderAssignmentPreview();
     });
   }

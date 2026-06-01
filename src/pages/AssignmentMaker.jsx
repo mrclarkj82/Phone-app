@@ -8,12 +8,16 @@ import { db } from "../lib/firebase";
 import LoadingScreen from "./LoadingScreen";
 
 const baseAssignments = [
-  { title: "Linear Equations", problemCount: 30 },
-  { title: "Systems of Equations", problemCount: 15 },
-  { title: "Slope from Two Points", problemCount: 30 },
-  { title: "Slope-Intercept Form", problemCount: 30 },
-  { title: "Linear Inequalities", problemCount: 30 },
-  { title: "Coordinate Grid Lines", problemCount: 30 },
+  { title: "Linear Equations", problemCount: 30, unit: "Linear Equations" },
+  {
+    title: "Systems of Equations",
+    problemCount: 15,
+    unit: "Systems of Equations and Inequalities",
+  },
+  { title: "Slope from Two Points", problemCount: 30, unit: "Introduction to Functions" },
+  { title: "Slope-Intercept Form", problemCount: 30, unit: "Linear Equations" },
+  { title: "Linear Inequalities", problemCount: 30, unit: "Linear Inequalities" },
+  { title: "Coordinate Grid Lines", problemCount: 30, unit: "Introduction to Functions" },
 ];
 
 export default function AssignmentMaker() {
@@ -207,6 +211,10 @@ function AssignmentMakerContent({
                     />
                   </label>
                   <label>
+                    <span>Unit</span>
+                    <select id="custom-assignment-unit" />
+                  </label>
+                  <label>
                     <span>Assignment type</span>
                     <select id="custom-assignment-type" />
                   </label>
@@ -340,7 +348,7 @@ function AssignmentLibrary({
       {baseAssignments.map((assignment) => (
         <article className="assignment-card" key={assignment.title}>
           <div>
-            <p className="eyebrow">Base Assignment</p>
+            <p className="eyebrow">{assignment.unit}</p>
             <h3>{assignment.title}</h3>
             <p>{assignment.problemCount} problems</p>
           </div>
@@ -365,10 +373,14 @@ function AssignmentLibrary({
             <article className="assignment-card" key={assignment.id}>
               <div>
                 <p className="eyebrow">
-                  {assignment.assignmentTypeLabel || assignment.assignmentType || "Teacher-Created"}
+                  {assignment.assignmentUnitLabel ||
+                    assignment.assignmentTypeLabel ||
+                    assignment.assignmentType ||
+                    "Teacher-Created"}
                 </p>
                 <h3>{assignment.title || "Untitled assignment"}</h3>
                 <p>
+                  {assignment.assignmentTypeLabel ? `${assignment.assignmentTypeLabel} - ` : ""}
                   {assignment.problemCount || 0} problems - {assignment.difficulty || "mixed"} -{" "}
                   {assignment.classPeriod || "Default class"}
                 </p>
