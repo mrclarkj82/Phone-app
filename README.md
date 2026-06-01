@@ -2,7 +2,7 @@
 
 React/Tailwind Algebra I assignment app with Firebase Google Sign-In and a Firestore assigned-account gate. The student and teacher worksheets still store worksheet submissions in the current browser for now, but no dashboard route mounts until Firebase Auth and Firestore account verification finish.
 
-Live GitHub Pages URL: `https://mrclarkj83.github.io/Phone-app/`
+Live GitHub Pages URL: `https://mrclarkj82.github.io/Phone-app/`
 
 ## Local setup
 
