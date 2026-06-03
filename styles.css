@@ -584,6 +584,30 @@ button:focus-visible {
   overflow-wrap: anywhere;
 }
 
+.expression-parts-prompt {
+  display: grid;
+  gap: 7px;
+}
+
+.expression-parts-prompt span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.expression-parts-prompt strong {
+  font-size: 1.3rem;
+}
+
+.expression-parts-prompt p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.96rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 .answer-row {
   grid-column: 1 / -1;
   display: grid;
@@ -634,6 +658,10 @@ button:focus-visible {
 
 .answer-row.is-inequality {
   grid-template-columns: minmax(90px, 0.75fr) minmax(140px, 1fr) minmax(110px, auto);
+}
+
+.answer-row.is-expression-parts {
+  grid-template-columns: minmax(180px, 1fr) minmax(110px, auto);
 }
 
 .answer-field {
@@ -1005,6 +1033,7 @@ tbody tr.is-selected-work {
   .answer-row.is-slope-intercept,
   .answer-row.is-graph-line,
   .answer-row.is-graph-intercept,
+  .answer-row.is-expression-parts,
   .answer-row.is-inequality {
     grid-template-columns: 1fr;
   }

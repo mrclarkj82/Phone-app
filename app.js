@@ -123,6 +123,14 @@ const CUSTOM_ASSIGNMENT_UNITS = [
 
 const CUSTOM_ASSIGNMENT_TYPES = [
   {
+    id: "parts-of-an-expression",
+    label: "Parts of an Expression",
+    unitId: "intro-expressions",
+    generator: makePartsOfExpressionProblem,
+    answerMode: "expressionParts",
+    directions: "Identify terms, coefficients, variables, constants, and other parts of expressions",
+  },
+  {
     id: "linear-equations",
     label: "Linear Equations",
     unitId: "linear-equations",
@@ -624,6 +632,157 @@ function makeLinearProblem(random) {
   ];
   const typeIndex = integerBetween(random, 0, problemTypes.length - 1);
   return problemTypes[typeIndex](random);
+}
+
+function formatExpressionTerm(term, isFirstTerm = false, options = {}) {
+  const coefficient = Number(term.coefficient);
+  const variable = term.variable || "";
+  const absoluteCoefficient = Math.abs(coefficient);
+  const body = variable
+    ? `${absoluteCoefficient === 1 ? "" : absoluteCoefficient}${variable}`
+    : `${absoluteCoefficient}`;
+
+  if (isFirstTerm) {
+    return coefficient < 0 ? `-${body}` : body;
+  }
+
+  if (options.omitSign) return body;
+  return `${coefficient < 0 ? "-" : "+"} ${body}`;
+}
+
+function formatExpression(terms) {
+  return terms.map((term, index) => formatExpressionTerm(term, index === 0)).join(" ");
+}
+
+function makeExpressionVariableTerm(random, variable, options = {}) {
+  const allowOne = options.allowOne !== false;
+  let coefficient = nonZeroBetween(random, -9, 9);
+  while (!allowOne && Math.abs(coefficient) === 1) {
+    coefficient = nonZeroBetween(random, -9, 9);
+  }
+  return { coefficient, variable };
+}
+
+function makePartsOfExpressionProblem(random, problemNumber = 1) {
+  const variables = ["x", "y", "n", "a", "b"];
+  const questionCycle = [
+    "termCount",
+    "coefficient",
+    "constant",
+    "variableInTerm",
+    "termWithVariable",
+    "operation",
+    "likeTerms",
+  ];
+  const questionKind = questionCycle[(problemNumber - 1) % questionCycle.length];
+  const variable = variables[integerBetween(random, 0, variables.length - 1)];
+  const secondVariable = variables.find((item) => item !== variable) || "y";
+  const thirdVariable = variables.find((item) => ![variable, secondVariable].includes(item)) || "n";
+  const constant = nonZeroBetween(random, -12, 12);
+  let terms = [];
+  let question = "";
+  let type = "";
+  let answer = null;
+
+  if (questionKind === "termCount") {
+    terms = [
+      makeExpressionVariableTerm(random, variable),
+      makeExpressionVariableTerm(random, secondVariable),
+      { coefficient: constant, variable: "" },
+    ];
+    if (problemNumber > 7) {
+      terms.push(makeExpressionVariableTerm(random, thirdVariable));
+    }
+    type = "Counting terms";
+    question = "How many terms are in this expression?";
+    answer = { kind: "number", value: terms.length, display: `${terms.length}` };
+  } else if (questionKind === "coefficient") {
+    const targetTerm = makeExpressionVariableTerm(random, variable, { allowOne: false });
+    terms = [
+      targetTerm,
+      makeExpressionVariableTerm(random, secondVariable),
+      { coefficient: constant, variable: "" },
+    ];
+    type = "Identifying coefficients";
+    question = `What is the coefficient of ${variable}?`;
+    answer = {
+      kind: "number",
+      value: targetTerm.coefficient,
+      display: `${targetTerm.coefficient}`,
+    };
+  } else if (questionKind === "constant") {
+    const constantTerm = { coefficient: constant, variable: "" };
+    terms = [
+      makeExpressionVariableTerm(random, variable),
+      makeExpressionVariableTerm(random, secondVariable),
+      constantTerm,
+    ];
+    type = "Identifying constants";
+    question = "What is the constant term?";
+    answer = { kind: "number", value: constantTerm.coefficient, display: `${constantTerm.coefficient}` };
+  } else if (questionKind === "variableInTerm") {
+    const targetTerm = makeExpressionVariableTerm(random, variable);
+    terms = [
+      targetTerm,
+      { coefficient: constant, variable: "" },
+      makeExpressionVariableTerm(random, secondVariable),
+    ];
+    type = "Variables in terms";
+    question = `What variable is in the term ${formatExpressionTerm(targetTerm, true)}?`;
+    answer = { kind: "variable", value: variable, display: variable };
+  } else if (questionKind === "termWithVariable") {
+    const targetTerm = makeExpressionVariableTerm(random, variable, { allowOne: false });
+    terms = [
+      makeExpressionVariableTerm(random, secondVariable),
+      targetTerm,
+      { coefficient: constant, variable: "" },
+    ];
+    type = "Identifying terms";
+    question = `Which term contains the variable ${variable}?`;
+    answer = {
+      kind: "term",
+      value: formatExpressionTerm(targetTerm, true),
+      display: formatExpressionTerm(targetTerm, true),
+    };
+  } else if (questionKind === "operation") {
+    const firstTerm = { coefficient: integerBetween(random, 2, 9), variable };
+    const secondTerm = {
+      coefficient: integerBetween(random, 2, 9) * (integerBetween(random, 0, 1) === 0 ? 1 : -1),
+      variable: "",
+    };
+    terms = [firstTerm, secondTerm];
+    const isAddition = secondTerm.coefficient > 0;
+    type = "Operations in expressions";
+    question = `What operation is between ${formatExpressionTerm(
+      firstTerm,
+      true,
+    )} and ${formatExpressionTerm(secondTerm, false, { omitSign: true })}?`;
+    answer = {
+      kind: "operation",
+      value: isAddition ? "addition" : "subtraction",
+      display: isAddition ? "+ or addition" : "- or subtraction",
+    };
+  } else {
+    const firstLikeTerm = makeExpressionVariableTerm(random, variable, { allowOne: false });
+    const secondLikeTerm = makeExpressionVariableTerm(random, variable, { allowOne: false });
+    terms = [
+      firstLikeTerm,
+      makeExpressionVariableTerm(random, secondVariable),
+      secondLikeTerm,
+      { coefficient: constant, variable: "" },
+    ];
+    type = "Like terms";
+    question = "Which variable has like terms in this expression?";
+    answer = { kind: "variable", value: variable, display: variable };
+  }
+
+  return {
+    type,
+    expression: formatExpression(terms),
+    equation: question,
+    expressionQuestion: questionKind,
+    answer,
+  };
 }
 
 function makeSystemProblem(random) {
@@ -1171,6 +1330,10 @@ function getProblemSignature(problem) {
     ].join("|");
   }
 
+  if (problem.answerMode === "expressionParts") {
+    return [problem.expression, problem.equation, problem.answer?.display].join("|");
+  }
+
   return problem.equations ? problem.equations.join("|") : problem.equation;
 }
 
@@ -1591,6 +1754,10 @@ function formatExpectedAnswer(problem) {
     return formatQuadraticVertexEquation(problem.answer.a, problem.answer.h, problem.answer.k);
   }
 
+  if (problem.answerMode === "expressionParts") {
+    return problem.answer.display || `${problem.answer.value}`;
+  }
+
   return `x = ${problem.answer}`;
 }
 
@@ -1659,6 +1826,10 @@ function formatSubmittedAnswer(problem, answers = new Map()) {
     return answer.a || answer.h || answer.k
       ? `a = ${answer.a || "blank"}, h = ${answer.h || "blank"}, k = ${answer.k || "blank"}`
       : "";
+  }
+
+  if (problem.answerMode === "expressionParts") {
+    return answer.value || "";
   }
 
   return answer.x || "";
@@ -1923,6 +2094,7 @@ function getAnswerRowClass(problem) {
   if (problem.answerMode === "slope") return "is-slope";
   if (problem.answerMode === "slopeIntercept") return "is-slope-intercept";
   if (problem.answerMode === "inequality") return "is-inequality";
+  if (problem.answerMode === "expressionParts") return "is-expression-parts";
   if (problem.answerMode === "graphLine") return `is-graph-line is-graph-${problem.graphQuestion}`;
   if (problem.answerMode === "graphQuadratic") {
     return `is-graph-quadratic is-quadratic-${problem.graphQuestion.toLowerCase()}`;
@@ -1931,6 +2103,16 @@ function getAnswerRowClass(problem) {
 }
 
 function renderProblemPrompt(problem) {
+  if (problem.answerMode === "expressionParts") {
+    return `
+      <div class="expression-parts-prompt">
+        <span>Expression</span>
+        <strong>${escapeHtml(problem.expression)}</strong>
+        <p>${escapeHtml(problem.equation)}</p>
+      </div>
+    `;
+  }
+
   if (problem.answerMode === "graphLine" || problem.answerMode === "graphQuadratic") {
     return `
       <div class="graph-problem">
@@ -2319,6 +2501,15 @@ function renderAnswerInputs(problem) {
     `;
   }
 
+  if (problem.answerMode === "expressionParts") {
+    return `
+      <label class="answer-field">
+        <span>Answer</span>
+        <input type="text" inputmode="text" aria-label="Answer for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="value" placeholder="answer" ${lockedAttribute} />
+      </label>
+    `;
+  }
+
   return `
     <input type="text" inputmode="decimal" aria-label="Answer for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="x" placeholder="${getSelectedAssignment().answerPlaceholder}" ${lockedAttribute} />
   `;
@@ -2444,6 +2635,11 @@ function hasAnswerForProblem(problem, answers = state.answers) {
     return !isBlank(response.a) || !isBlank(response.h) || !isBlank(response.k);
   }
 
+  if (problem.answerMode === "expressionParts") {
+    const response = answer && typeof answer === "object" ? answer : {};
+    return !isBlank(response.value);
+  }
+
   const rawAnswer = answer && typeof answer === "object" ? answer.x : answer;
   return !isBlank(rawAnswer);
 }
@@ -2460,6 +2656,56 @@ function parseGraphNumberInput(value) {
     .replace(/^[xy]=/, "");
   const parsed = parseFractionInput(normalized);
   return parsed ? fractionToNumber(parsed) : NaN;
+}
+
+function normalizeExpressionTextAnswer(value) {
+  return `${value ?? ""}`.trim().toLowerCase();
+}
+
+function normalizeExpressionTermAnswer(value) {
+  return normalizeExpressionTextAnswer(value)
+    .replace(/\s/g, "")
+    .replace(/\*/g, "")
+    .replace(/^\+/, "");
+}
+
+function isCorrectExpressionOperation(rawValue, expectedOperation) {
+  const normalized = normalizeExpressionTextAnswer(rawValue).replace(/\s/g, "");
+  const additionAnswers = ["+", "add", "addition", "plus"];
+  const subtractionAnswers = ["-", "subtract", "subtraction", "minus"];
+  return expectedOperation === "addition"
+    ? additionAnswers.includes(normalized)
+    : subtractionAnswers.includes(normalized);
+}
+
+function getExpressionPartsResult(problem, response = {}) {
+  const rawValue = response.value;
+  const expected = problem.answer;
+
+  if (isBlank(rawValue)) return "blank";
+
+  if (expected.kind === "number") {
+    const submittedValue = parseGraphNumberInput(rawValue);
+    return Number.isFinite(submittedValue) && isCloseEnough(submittedValue, expected.value)
+      ? "correct"
+      : "wrong";
+  }
+
+  if (expected.kind === "variable") {
+    return normalizeExpressionTextAnswer(rawValue) === expected.value ? "correct" : "wrong";
+  }
+
+  if (expected.kind === "term") {
+    return normalizeExpressionTermAnswer(rawValue) === normalizeExpressionTermAnswer(expected.value)
+      ? "correct"
+      : "wrong";
+  }
+
+  if (expected.kind === "operation") {
+    return isCorrectExpressionOperation(rawValue, expected.value) ? "correct" : "wrong";
+  }
+
+  return "wrong";
 }
 
 function getProblemResult(problem, answers = state.answers) {
@@ -2689,6 +2935,11 @@ function getProblemResult(problem, answers = state.answers) {
       isCloseEnough(k, problem.answer.k)
       ? "correct"
       : "wrong";
+  }
+
+  if (problem.answerMode === "expressionParts") {
+    const response = answer && typeof answer === "object" ? answer : {};
+    return getExpressionPartsResult(problem, response);
   }
 
   const rawAnswer = answer && typeof answer === "object" ? answer.x : answer;
