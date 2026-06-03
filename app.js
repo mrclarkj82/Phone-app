@@ -147,6 +147,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Simplify each expression, then evaluate using the given variable values",
   },
   {
+    id: "equivalent-expressions",
+    label: "Equivalent Expressions",
+    unitId: "intro-expressions",
+    generator: makeEquivalentExpressionsProblem,
+    answerMode: "combineLikeTerms",
+    directions: "Write an equivalent expression by using the distributive property and combining like terms",
+  },
+  {
     id: "linear-equations",
     label: "Linear Equations",
     unitId: "linear-equations",
@@ -814,6 +822,113 @@ function makeVariableValueTable(values) {
 
 function formatExpressionWithTrailingTerm(baseExpression, term) {
   return `${baseExpression} ${formatExpressionTerm(term, false)}`;
+}
+
+function formatExpressionMultiplier(multiplier) {
+  if (multiplier === 1) return "";
+  if (multiplier === -1) return "-";
+  return `${multiplier}`;
+}
+
+function formatDistributedExpression(multiplier, insideTerms) {
+  return `${formatExpressionMultiplier(multiplier)}(${formatExpression(insideTerms)})`;
+}
+
+function multiplyExpressionTerms(terms, multiplier) {
+  return terms.map((term) => ({
+    coefficient: term.coefficient * multiplier,
+    variable: term.variable,
+  }));
+}
+
+function makeEquivalentExpressionsProblem(random, problemNumber = 1) {
+  const variables = ["x", "y", "n", "a", "b"];
+  const firstVariable = variables[integerBetween(random, 0, variables.length - 1)];
+  const secondVariable = variables.find((variable) => variable !== firstVariable) || "y";
+  const problemKind = (problemNumber - 1) % 5;
+  let expression = "";
+  let equivalentTerms = [];
+  let type = "";
+
+  if (problemKind === 0) {
+    const multiplier = integerBetween(random, 2, 6);
+    const insideTerms = [
+      makeExpressionVariableTerm(random, firstVariable, { allowOne: false }),
+      { coefficient: nonZeroBetween(random, -9, 9), variable: "" },
+    ];
+    equivalentTerms = multiplyExpressionTerms(insideTerms, multiplier);
+    expression = formatDistributedExpression(multiplier, insideTerms);
+    type = "Distributive property";
+  } else if (problemKind === 1) {
+    const multiplier = -integerBetween(random, 2, 6);
+    const insideTerms = [
+      makeExpressionVariableTerm(random, firstVariable, { allowOne: false }),
+      { coefficient: nonZeroBetween(random, -9, 9), variable: "" },
+    ];
+    equivalentTerms = multiplyExpressionTerms(insideTerms, multiplier);
+    expression = formatDistributedExpression(multiplier, insideTerms);
+    type = "Negative distributive property";
+  } else if (problemKind === 2) {
+    const multiplier = nonZeroBetween(random, -5, 5);
+    const insideTerms = [
+      makeExpressionVariableTerm(random, firstVariable, { allowOne: false }),
+      { coefficient: nonZeroBetween(random, -8, 8), variable: "" },
+    ];
+    const outsideTerm = makeExpressionVariableTerm(random, firstVariable, { allowOne: false });
+    equivalentTerms = [...multiplyExpressionTerms(insideTerms, multiplier), outsideTerm];
+    expression = formatExpressionWithTrailingTerm(
+      formatDistributedExpression(multiplier, insideTerms),
+      outsideTerm,
+    );
+    type = "Distribute and combine";
+  } else if (problemKind === 3) {
+    const multiplier = integerBetween(random, 2, 5);
+    const insideTerms = [
+      makeExpressionVariableTerm(random, firstVariable, { allowOne: false }),
+      makeExpressionVariableTerm(random, secondVariable, { allowOne: false }),
+    ];
+    const outsideTerm = makeExpressionVariableTerm(random, secondVariable, { allowOne: false });
+    equivalentTerms = [...multiplyExpressionTerms(insideTerms, multiplier), outsideTerm];
+    expression = formatExpressionWithTrailingTerm(
+      formatDistributedExpression(multiplier, insideTerms),
+      outsideTerm,
+    );
+    type = "Two-variable equivalent expression";
+  } else {
+    const firstMultiplier = nonZeroBetween(random, -4, 4);
+    const secondMultiplier = nonZeroBetween(random, 2, 5);
+    const firstInsideTerms = [
+      makeExpressionVariableTerm(random, firstVariable, { allowOne: false }),
+      { coefficient: nonZeroBetween(random, -8, 8), variable: "" },
+    ];
+    const secondInsideTerms = [
+      makeExpressionVariableTerm(random, firstVariable, { allowOne: false }),
+      { coefficient: nonZeroBetween(random, -8, 8), variable: "" },
+    ];
+    equivalentTerms = [
+      ...multiplyExpressionTerms(firstInsideTerms, firstMultiplier),
+      ...multiplyExpressionTerms(secondInsideTerms, secondMultiplier),
+    ];
+    expression = `${formatDistributedExpression(firstMultiplier, firstInsideTerms)} ${formatExpressionTerm(
+      { coefficient: secondMultiplier, variable: "" },
+      false,
+    )}(${formatExpression(secondInsideTerms)})`;
+    type = "Equivalent expressions with two groups";
+  }
+
+  const simplifiedTerms = combineExpressionTerms(equivalentTerms);
+  const simplifiedExpression = formatSimplifiedExpression(simplifiedTerms);
+
+  return {
+    type,
+    expression,
+    equation: "Write an equivalent expression without parentheses.",
+    answer: {
+      terms: simplifiedTerms,
+      display: simplifiedExpression,
+      key: expressionTermsToKey(simplifiedTerms),
+    },
+  };
 }
 
 function makeSimplifyAndEvaluateExpressionProblem(random, problemNumber = 1) {
