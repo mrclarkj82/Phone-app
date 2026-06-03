@@ -1850,11 +1850,17 @@ function renderReviewProblemCard(problem, answers = new Map(), options = {}) {
   const assignmentTitle = options.assignmentTitle || getSelectedAssignment().title;
   const status = isPreview ? { label: "Preview", className: "is-preview" } : getReviewStatus(problem, answers);
   const submittedAnswer = isPreview ? "" : formatSubmittedAnswer(problem, answers);
+  const reviewClasses = [
+    "review-card",
+    status.className,
+    ["graphLine", "graphQuadratic"].includes(problem.answerMode) ? "is-graph-review" : "",
+    problem.answerMode === "expressionParts" ? "is-expression-review" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return `
-    <article class="review-card ${status.className} ${
-      ["graphLine", "graphQuadratic"].includes(problem.answerMode) ? "is-graph-review" : ""
-    }">
+    <article class="${reviewClasses}">
       <div class="review-card-header">
         <span class="problem-number">${problem.number}</span>
         <div>

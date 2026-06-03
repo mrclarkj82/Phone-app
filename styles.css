@@ -893,6 +893,10 @@ tbody tr.is-selected-work {
   border-color: rgba(21, 111, 117, 0.26);
 }
 
+.review-card.is-expression-review {
+  min-height: 214px;
+}
+
 .review-card-header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -950,11 +954,12 @@ tbody tr.is-selected-work {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  align-self: end;
 }
 
 .review-answer-grid div {
   min-width: 0;
-  padding: 10px;
+  padding: 10px 10px 12px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.72);
 }
