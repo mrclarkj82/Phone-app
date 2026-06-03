@@ -139,6 +139,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Simplify each expression by combining like terms",
   },
   {
+    id: "simplify-and-evaluate-expressions",
+    label: "Simplify and Evaluate Expressions",
+    unitId: "intro-expressions",
+    generator: makeSimplifyAndEvaluateExpressionProblem,
+    answerMode: "evaluateExpression",
+    directions: "Simplify each expression, then evaluate using the given variable values",
+  },
+  {
     id: "linear-equations",
     label: "Linear Equations",
     unitId: "linear-equations",
@@ -695,6 +703,13 @@ function formatSimplifiedExpression(terms) {
   return formatExpression(terms);
 }
 
+function evaluateExpressionTerms(terms, values = {}) {
+  return terms.reduce((total, term) => {
+    if (!term.variable) return total + term.coefficient;
+    return total + term.coefficient * Number(values[term.variable] || 0);
+  }, 0);
+}
+
 function expressionTermsToKey(terms) {
   return terms
     .map((term) => `${term.variable || "#"}:${term.coefficient}`)
@@ -785,6 +800,108 @@ function makeCombiningLikeTermsProblem(random, problemNumber = 1) {
       terms: simplifiedTerms,
       display: simplifiedExpression,
       key: expressionTermsToKey(simplifiedTerms),
+    },
+  };
+}
+
+function makeVariableValueTable(values) {
+  const entries = Object.entries(values);
+  return {
+    headers: entries.map(([variable]) => variable),
+    rows: [entries.map(([, value]) => value)],
+  };
+}
+
+function formatExpressionWithTrailingTerm(baseExpression, term) {
+  return `${baseExpression} ${formatExpressionTerm(term, false)}`;
+}
+
+function makeSimplifyAndEvaluateExpressionProblem(random, problemNumber = 1) {
+  const variables = ["x", "y", "n", "a", "b"];
+  const firstVariable = variables[integerBetween(random, 0, variables.length - 1)];
+  const secondVariable = variables.find((variable) => variable !== firstVariable) || "y";
+  const problemKind = (problemNumber - 1) % 5;
+  const values = {};
+  let terms = [];
+  let displayedExpression = "";
+  let type = "";
+
+  if (problemKind === 0) {
+    values[firstVariable] = nonZeroBetween(random, -5, 5);
+    terms = [
+      ...makeNonCancelingLikePair(random, firstVariable, { allowOne: false }),
+      { coefficient: nonZeroBetween(random, -10, 10), variable: "" },
+      { coefficient: nonZeroBetween(random, -10, 10), variable: "" },
+    ];
+    type = "One-variable evaluation";
+  } else if (problemKind === 1) {
+    values[firstVariable] = nonZeroBetween(random, -4, 4);
+    terms = [
+      { coefficient: -Math.abs(nonZeroBetween(random, 2, 9)), variable: firstVariable },
+      makeExpressionVariableTerm(random, firstVariable, { allowOne: false }),
+      { coefficient: nonZeroBetween(random, -12, 12), variable: "" },
+    ];
+    type = "Negative coefficients";
+  } else if (problemKind === 2) {
+    values[firstVariable] = nonZeroBetween(random, -4, 4);
+    values[secondVariable] = nonZeroBetween(random, -4, 4);
+    terms = [
+      ...makeNonCancelingLikePair(random, firstVariable, { allowOne: false }),
+      ...makeNonCancelingLikePair(random, secondVariable, { allowOne: false }),
+      { coefficient: nonZeroBetween(random, -8, 8), variable: "" },
+    ];
+    type = "Two-variable evaluation";
+  } else if (problemKind === 3) {
+    values[firstVariable] = nonZeroBetween(random, -4, 4);
+    const multiplier = nonZeroBetween(random, -5, 5);
+    const insideTerms = [
+      makeExpressionVariableTerm(random, firstVariable, { allowOne: false }),
+      { coefficient: nonZeroBetween(random, -8, 8), variable: "" },
+    ];
+    const outsideTerm = makeExpressionVariableTerm(random, firstVariable, { allowOne: false });
+    const distributedTerms = insideTerms.map((term) => ({
+      coefficient: term.coefficient * multiplier,
+      variable: term.variable,
+    }));
+    terms = [...distributedTerms, outsideTerm];
+    displayedExpression = formatExpressionWithTrailingTerm(
+      `${multiplier}(${formatExpression(insideTerms)})`,
+      outsideTerm,
+    );
+    type = "Distributive property";
+  } else {
+    values[firstVariable] = nonZeroBetween(random, -5, 5);
+    values[secondVariable] = nonZeroBetween(random, -5, 5);
+    terms = shuffleTerms(random, [
+      makeExpressionVariableTerm(random, firstVariable, { allowOne: false }),
+      makeExpressionVariableTerm(random, secondVariable, { allowOne: false }),
+      makeExpressionVariableTerm(random, firstVariable, { allowOne: false }),
+      { coefficient: nonZeroBetween(random, -10, 10), variable: "" },
+      { coefficient: nonZeroBetween(random, -10, 10), variable: "" },
+    ]);
+    type = "Mixed simplify and evaluate";
+  }
+
+  if (!displayedExpression) {
+    displayedExpression = formatExpression(shuffleTerms(random, terms));
+  }
+
+  const simplifiedTerms = combineExpressionTerms(terms);
+  const simplifiedExpression = formatSimplifiedExpression(simplifiedTerms);
+  const value = evaluateExpressionTerms(simplifiedTerms, values);
+  const valuesText = Object.entries(values)
+    .map(([variable, variableValue]) => `${variable} = ${variableValue}`)
+    .join(", ");
+
+  return {
+    type,
+    expression: displayedExpression,
+    equation: `Simplify, then evaluate when ${valuesText}.`,
+    table: makeVariableValueTable(values),
+    answer: {
+      value,
+      simplified: simplifiedExpression,
+      display: `Simplified: ${simplifiedExpression}; value = ${value}`,
     },
   };
 }
@@ -1464,6 +1581,10 @@ function getProblemSignature(problem) {
     return [problem.expression, problem.answer?.key].join("|");
   }
 
+  if (problem.answerMode === "evaluateExpression") {
+    return [problem.expression, problem.equation, problem.answer?.value].join("|");
+  }
+
   return problem.equations ? problem.equations.join("|") : problem.equation;
 }
 
@@ -1892,6 +2013,10 @@ function formatExpectedAnswer(problem) {
     return problem.answer.display;
   }
 
+  if (problem.answerMode === "evaluateExpression") {
+    return problem.answer.display;
+  }
+
   return `x = ${problem.answer}`;
 }
 
@@ -1970,6 +2095,10 @@ function formatSubmittedAnswer(problem, answers = new Map()) {
     return answer.expression || "";
   }
 
+  if (problem.answerMode === "evaluateExpression") {
+    return answer.value || "";
+  }
+
   return answer.x || "";
 }
 
@@ -1992,7 +2121,7 @@ function renderReviewProblemCard(problem, answers = new Map(), options = {}) {
     "review-card",
     status.className,
     ["graphLine", "graphQuadratic"].includes(problem.answerMode) ? "is-graph-review" : "",
-    ["expressionParts", "combineLikeTerms"].includes(problem.answerMode)
+    ["expressionParts", "combineLikeTerms", "evaluateExpression"].includes(problem.answerMode)
       ? "is-expression-review"
       : "",
   ]
@@ -2242,6 +2371,7 @@ function getAnswerRowClass(problem) {
   if (problem.answerMode === "inequality") return "is-inequality";
   if (problem.answerMode === "expressionParts") return "is-expression-parts";
   if (problem.answerMode === "combineLikeTerms") return "is-combine-like-terms";
+  if (problem.answerMode === "evaluateExpression") return "is-evaluate-expression";
   if (problem.answerMode === "graphLine") return `is-graph-line is-graph-${problem.graphQuestion}`;
   if (problem.answerMode === "graphQuadratic") {
     return `is-graph-quadratic is-quadratic-${problem.graphQuestion.toLowerCase()}`;
@@ -2250,12 +2380,17 @@ function getAnswerRowClass(problem) {
 }
 
 function renderProblemPrompt(problem) {
-  if (problem.answerMode === "expressionParts" || problem.answerMode === "combineLikeTerms") {
+  if (
+    problem.answerMode === "expressionParts" ||
+    problem.answerMode === "combineLikeTerms" ||
+    problem.answerMode === "evaluateExpression"
+  ) {
     return `
       <div class="expression-parts-prompt">
         <span>Expression</span>
         <strong>${escapeHtml(problem.expression)}</strong>
         <p>${escapeHtml(problem.equation)}</p>
+        ${renderMathTable(problem.table)}
       </div>
     `;
   }
@@ -2666,6 +2801,15 @@ function renderAnswerInputs(problem) {
     `;
   }
 
+  if (problem.answerMode === "evaluateExpression") {
+    return `
+      <label class="answer-field">
+        <span>Value</span>
+        <input type="text" inputmode="numeric" aria-label="Final evaluated value for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="value" placeholder="value" ${lockedAttribute} />
+      </label>
+    `;
+  }
+
   return `
     <input type="text" inputmode="decimal" aria-label="Answer for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="x" placeholder="${getSelectedAssignment().answerPlaceholder}" ${lockedAttribute} />
   `;
@@ -2801,6 +2945,11 @@ function hasAnswerForProblem(problem, answers = state.answers) {
     return !isBlank(response.expression);
   }
 
+  if (problem.answerMode === "evaluateExpression") {
+    const response = answer && typeof answer === "object" ? answer : {};
+    return !isBlank(response.value);
+  }
+
   const rawAnswer = answer && typeof answer === "object" ? answer.x : answer;
   return !isBlank(rawAnswer);
 }
@@ -2895,6 +3044,16 @@ function getCombineLikeTermsResult(problem, response = {}) {
   if (!submittedTerms) return "wrong";
 
   return expressionTermsToKey(submittedTerms) === problem.answer.key ? "correct" : "wrong";
+}
+
+function getEvaluateExpressionResult(problem, response = {}) {
+  const rawValue = response.value;
+  if (isBlank(rawValue)) return "blank";
+
+  const submittedValue = parseGraphNumberInput(rawValue);
+  return Number.isFinite(submittedValue) && isCloseEnough(submittedValue, problem.answer.value)
+    ? "correct"
+    : "wrong";
 }
 
 function getExpressionPartsResult(problem, response = {}) {
@@ -3164,6 +3323,11 @@ function getProblemResult(problem, answers = state.answers) {
   if (problem.answerMode === "combineLikeTerms") {
     const response = answer && typeof answer === "object" ? answer : {};
     return getCombineLikeTermsResult(problem, response);
+  }
+
+  if (problem.answerMode === "evaluateExpression") {
+    const response = answer && typeof answer === "object" ? answer : {};
+    return getEvaluateExpressionResult(problem, response);
   }
 
   const rawAnswer = answer && typeof answer === "object" ? answer.x : answer;
