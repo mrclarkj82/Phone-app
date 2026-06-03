@@ -131,6 +131,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Identify terms, coefficients, variables, constants, and other parts of expressions",
   },
   {
+    id: "combining-like-terms",
+    label: "Combining Like Terms",
+    unitId: "intro-expressions",
+    generator: makeCombiningLikeTermsProblem,
+    answerMode: "combineLikeTerms",
+    directions: "Simplify each expression by combining like terms",
+  },
+  {
     id: "linear-equations",
     label: "Linear Equations",
     unitId: "linear-equations",
@@ -661,6 +669,124 @@ function makeExpressionVariableTerm(random, variable, options = {}) {
     coefficient = nonZeroBetween(random, -9, 9);
   }
   return { coefficient, variable };
+}
+
+function combineExpressionTerms(terms) {
+  const combined = new Map();
+  const variableOrder = [];
+
+  terms.forEach((term) => {
+    const variable = term.variable || "";
+    if (!combined.has(variable)) {
+      combined.set(variable, 0);
+      if (variable) variableOrder.push(variable);
+    }
+    combined.set(variable, combined.get(variable) + term.coefficient);
+  });
+
+  return [...variableOrder, ""]
+    .filter((variable, index, list) => list.indexOf(variable) === index)
+    .map((variable) => ({ variable, coefficient: combined.get(variable) || 0 }))
+    .filter((term) => term.coefficient !== 0);
+}
+
+function formatSimplifiedExpression(terms) {
+  if (!terms.length) return "0";
+  return formatExpression(terms);
+}
+
+function expressionTermsToKey(terms) {
+  return terms
+    .map((term) => `${term.variable || "#"}:${term.coefficient}`)
+    .sort()
+    .join("|");
+}
+
+function makeNonCancelingLikePair(random, variable, options = {}) {
+  let first = makeExpressionVariableTerm(random, variable, options);
+  let second = makeExpressionVariableTerm(random, variable, options);
+
+  while (first.coefficient + second.coefficient === 0) {
+    second = makeExpressionVariableTerm(random, variable, options);
+  }
+
+  return [first, second];
+}
+
+function shuffleTerms(random, terms) {
+  const shuffled = [...terms];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = integerBetween(random, 0, index);
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled;
+}
+
+function makeCombiningLikeTermsProblem(random, problemNumber = 1) {
+  const variables = ["x", "y", "n", "a", "b"];
+  const firstVariable = variables[integerBetween(random, 0, variables.length - 1)];
+  const secondVariable = variables.find((variable) => variable !== firstVariable) || "y";
+  const problemKind = (problemNumber - 1) % 5;
+  let terms = [];
+  let type = "";
+
+  if (problemKind === 0) {
+    terms = [
+      ...makeNonCancelingLikePair(random, firstVariable, { allowOne: false }),
+      makeExpressionVariableTerm(random, secondVariable, { allowOne: false }),
+    ];
+    type = "Combine matching variable terms";
+  } else if (problemKind === 1) {
+    terms = [
+      ...makeNonCancelingLikePair(random, firstVariable, { allowOne: false }),
+      { coefficient: nonZeroBetween(random, -12, 12), variable: "" },
+      { coefficient: nonZeroBetween(random, -12, 12), variable: "" },
+    ];
+    type = "Combine variables and constants";
+  } else if (problemKind === 2) {
+    const likePair = makeNonCancelingLikePair(random, firstVariable, { allowOne: false }).map(
+      (term) => ({ ...term, coefficient: -Math.abs(term.coefficient) }),
+    );
+    if (likePair[0].coefficient + likePair[1].coefficient === 0) {
+      likePair[1].coefficient -= 1;
+    }
+    terms = [
+      ...likePair,
+      { coefficient: nonZeroBetween(random, -10, 10), variable: "" },
+      { coefficient: nonZeroBetween(random, -10, 10), variable: "" },
+    ];
+    type = "Negative coefficients";
+  } else if (problemKind === 3) {
+    terms = [
+      ...makeNonCancelingLikePair(random, firstVariable, { allowOne: false }),
+      ...makeNonCancelingLikePair(random, secondVariable, { allowOne: false }),
+    ];
+    type = "Two-variable like terms";
+  } else {
+    terms = [
+      makeExpressionVariableTerm(random, firstVariable, { allowOne: false }),
+      makeExpressionVariableTerm(random, secondVariable, { allowOne: false }),
+      makeExpressionVariableTerm(random, firstVariable, { allowOne: false }),
+      { coefficient: nonZeroBetween(random, -12, 12), variable: "" },
+      { coefficient: nonZeroBetween(random, -12, 12), variable: "" },
+    ];
+    type = "Mixed expression";
+  }
+
+  terms = shuffleTerms(random, terms);
+  const simplifiedTerms = combineExpressionTerms(terms);
+  const simplifiedExpression = formatSimplifiedExpression(simplifiedTerms);
+
+  return {
+    type,
+    expression: formatExpression(terms),
+    equation: "Simplify by combining like terms.",
+    answer: {
+      terms: simplifiedTerms,
+      display: simplifiedExpression,
+      key: expressionTermsToKey(simplifiedTerms),
+    },
+  };
 }
 
 function makePartsOfExpressionProblem(random, problemNumber = 1) {
@@ -1334,6 +1460,10 @@ function getProblemSignature(problem) {
     return [problem.expression, problem.equation, problem.answer?.display].join("|");
   }
 
+  if (problem.answerMode === "combineLikeTerms") {
+    return [problem.expression, problem.answer?.key].join("|");
+  }
+
   return problem.equations ? problem.equations.join("|") : problem.equation;
 }
 
@@ -1758,6 +1888,10 @@ function formatExpectedAnswer(problem) {
     return problem.answer.display || `${problem.answer.value}`;
   }
 
+  if (problem.answerMode === "combineLikeTerms") {
+    return problem.answer.display;
+  }
+
   return `x = ${problem.answer}`;
 }
 
@@ -1832,6 +1966,10 @@ function formatSubmittedAnswer(problem, answers = new Map()) {
     return answer.value || "";
   }
 
+  if (problem.answerMode === "combineLikeTerms") {
+    return answer.expression || "";
+  }
+
   return answer.x || "";
 }
 
@@ -1854,7 +1992,9 @@ function renderReviewProblemCard(problem, answers = new Map(), options = {}) {
     "review-card",
     status.className,
     ["graphLine", "graphQuadratic"].includes(problem.answerMode) ? "is-graph-review" : "",
-    problem.answerMode === "expressionParts" ? "is-expression-review" : "",
+    ["expressionParts", "combineLikeTerms"].includes(problem.answerMode)
+      ? "is-expression-review"
+      : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -2101,6 +2241,7 @@ function getAnswerRowClass(problem) {
   if (problem.answerMode === "slopeIntercept") return "is-slope-intercept";
   if (problem.answerMode === "inequality") return "is-inequality";
   if (problem.answerMode === "expressionParts") return "is-expression-parts";
+  if (problem.answerMode === "combineLikeTerms") return "is-combine-like-terms";
   if (problem.answerMode === "graphLine") return `is-graph-line is-graph-${problem.graphQuestion}`;
   if (problem.answerMode === "graphQuadratic") {
     return `is-graph-quadratic is-quadratic-${problem.graphQuestion.toLowerCase()}`;
@@ -2109,7 +2250,7 @@ function getAnswerRowClass(problem) {
 }
 
 function renderProblemPrompt(problem) {
-  if (problem.answerMode === "expressionParts") {
+  if (problem.answerMode === "expressionParts" || problem.answerMode === "combineLikeTerms") {
     return `
       <div class="expression-parts-prompt">
         <span>Expression</span>
@@ -2516,6 +2657,15 @@ function renderAnswerInputs(problem) {
     `;
   }
 
+  if (problem.answerMode === "combineLikeTerms") {
+    return `
+      <label class="answer-field">
+        <span>Simplified</span>
+        <input type="text" inputmode="text" aria-label="Simplified expression for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="expression" placeholder="simplified expression" ${lockedAttribute} />
+      </label>
+    `;
+  }
+
   return `
     <input type="text" inputmode="decimal" aria-label="Answer for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="x" placeholder="${getSelectedAssignment().answerPlaceholder}" ${lockedAttribute} />
   `;
@@ -2646,6 +2796,11 @@ function hasAnswerForProblem(problem, answers = state.answers) {
     return !isBlank(response.value);
   }
 
+  if (problem.answerMode === "combineLikeTerms") {
+    const response = answer && typeof answer === "object" ? answer : {};
+    return !isBlank(response.expression);
+  }
+
   const rawAnswer = answer && typeof answer === "object" ? answer.x : answer;
   return !isBlank(rawAnswer);
 }
@@ -2682,6 +2837,64 @@ function isCorrectExpressionOperation(rawValue, expectedOperation) {
   return expectedOperation === "addition"
     ? additionAnswers.includes(normalized)
     : subtractionAnswers.includes(normalized);
+}
+
+function parseCombinedExpressionAnswer(value) {
+  const normalized = `${value ?? ""}`
+    .trim()
+    .toLowerCase()
+    .replace(/[−–—]/g, "-")
+    .replace(/\s/g, "")
+    .replace(/\*/g, "");
+
+  if (!normalized) return null;
+  if (normalized === "0") return [];
+
+  const tokens = normalized
+    .replace(/-/g, "+-")
+    .split("+")
+    .filter(Boolean);
+  if (!tokens.length) return null;
+
+  const terms = [];
+  for (const token of tokens) {
+    const match = token.match(/^([+-]?\d*)([a-z])?$/);
+    if (!match) return null;
+
+    const coefficientText = match[1];
+    const variable = match[2] || "";
+    let coefficient = 0;
+
+    if (variable) {
+      if (coefficientText === "" || coefficientText === "+") {
+        coefficient = 1;
+      } else if (coefficientText === "-") {
+        coefficient = -1;
+      } else {
+        coefficient = Number(coefficientText);
+      }
+    } else {
+      if (coefficientText === "" || coefficientText === "+" || coefficientText === "-") {
+        return null;
+      }
+      coefficient = Number(coefficientText);
+    }
+
+    if (!Number.isInteger(coefficient)) return null;
+    terms.push({ coefficient, variable });
+  }
+
+  return combineExpressionTerms(terms);
+}
+
+function getCombineLikeTermsResult(problem, response = {}) {
+  const submittedExpression = response.expression;
+  if (isBlank(submittedExpression)) return "blank";
+
+  const submittedTerms = parseCombinedExpressionAnswer(submittedExpression);
+  if (!submittedTerms) return "wrong";
+
+  return expressionTermsToKey(submittedTerms) === problem.answer.key ? "correct" : "wrong";
 }
 
 function getExpressionPartsResult(problem, response = {}) {
@@ -2946,6 +3159,11 @@ function getProblemResult(problem, answers = state.answers) {
   if (problem.answerMode === "expressionParts") {
     const response = answer && typeof answer === "object" ? answer : {};
     return getExpressionPartsResult(problem, response);
+  }
+
+  if (problem.answerMode === "combineLikeTerms") {
+    const response = answer && typeof answer === "object" ? answer : {};
+    return getCombineLikeTermsResult(problem, response);
   }
 
   const rawAnswer = answer && typeof answer === "object" ? answer.x : answer;

@@ -660,7 +660,8 @@ button:focus-visible {
   grid-template-columns: minmax(90px, 0.75fr) minmax(140px, 1fr) minmax(110px, auto);
 }
 
-.answer-row.is-expression-parts {
+.answer-row.is-expression-parts,
+.answer-row.is-combine-like-terms {
   grid-template-columns: minmax(180px, 1fr) minmax(110px, auto);
 }
 
@@ -1039,6 +1040,7 @@ tbody tr.is-selected-work {
   .answer-row.is-graph-line,
   .answer-row.is-graph-intercept,
   .answer-row.is-expression-parts,
+  .answer-row.is-combine-like-terms,
   .answer-row.is-inequality {
     grid-template-columns: 1fr;
   }
