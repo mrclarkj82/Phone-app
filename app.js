@@ -235,6 +235,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Solve each one-step equation for x",
   },
   {
+    id: "two-step-equations",
+    label: "Two-Step Equations",
+    unitId: "linear-equations",
+    generator: makeTwoStepEquationProblem,
+    answerMode: "single",
+    directions: "Solve each two-step equation for x",
+  },
+  {
     id: "formulas",
     label: "Formulas",
     unitId: "linear-equations",
@@ -801,6 +809,66 @@ function makeOneStepEquationProblem(random, problemNumber = 1) {
   return {
     type: "Negative coefficient",
     equation: `${formatTerm(coefficient)} = ${coefficient * solution}`,
+    answer: solution,
+  };
+}
+
+function makeTwoStepEquationProblem(random, problemNumber = 1) {
+  const problemKind = (problemNumber - 1) % 5;
+
+  if (problemKind === 0) {
+    const solution = nonZeroBetween(random, -12, 12);
+    const coefficient = integerBetween(random, 2, 9);
+    const constant = integerBetween(random, 2, 18);
+    return {
+      type: "Positive constant",
+      equation: `${formatLinear(coefficient, constant)} = ${coefficient * solution + constant}`,
+      answer: solution,
+    };
+  }
+
+  if (problemKind === 1) {
+    const solution = nonZeroBetween(random, -12, 12);
+    const coefficient = integerBetween(random, 2, 9);
+    const constant = integerBetween(random, 2, 18);
+    return {
+      type: "Negative constant",
+      equation: `${formatLinear(coefficient, -constant)} = ${coefficient * solution - constant}`,
+      answer: solution,
+    };
+  }
+
+  if (problemKind === 2) {
+    const solution = nonZeroBetween(random, -12, 12);
+    const coefficient = -integerBetween(random, 2, 9);
+    const constant = integerBetween(random, 2, 18);
+    return {
+      type: "Negative coefficient",
+      equation: `${formatLinear(coefficient, constant)} = ${coefficient * solution + constant}`,
+      answer: solution,
+    };
+  }
+
+  if (problemKind === 3) {
+    const quotient = nonZeroBetween(random, -12, 12);
+    const divisor = integerBetween(random, 2, 12);
+    const constant = integerBetween(random, -12, 12);
+    const solution = divisor * quotient;
+    return {
+      type: "Division with a constant",
+      equation: `x / ${divisor} ${constant >= 0 ? "+" : "-"} ${Math.abs(constant)} = ${
+        quotient + constant
+      }`,
+      answer: solution,
+    };
+  }
+
+  const solution = nonZeroBetween(random, -12, 12);
+  const coefficient = -integerBetween(random, 2, 9);
+  const constant = -integerBetween(random, 2, 18);
+  return {
+    type: "Mixed signs",
+    equation: `${formatLinear(coefficient, constant)} = ${coefficient * solution + constant}`,
     answer: solution,
   };
 }
