@@ -1344,7 +1344,9 @@ function formatGroupedPower(base, exponent) {
 }
 
 function formatRadical(radicand, index = 2) {
-  return index === 2 ? `sqrt(${radicand})` : `root${index}(${radicand})`;
+  if (index === 2) return `√(${radicand})`;
+  if (index === 3) return `∛(${radicand})`;
+  return `${index}√(${radicand})`;
 }
 
 function formatRadicalTerm(coefficient, radicand, index = 2) {
@@ -1357,8 +1359,12 @@ function formatRadicalTerm(coefficient, radicand, index = 2) {
 
 function radicalAnswerVariants(display) {
   return [
-    display.replace(/sqrt\((\d+)\)/g, "sqrt$1"),
-    display.replace(/root3\((\d+)\)/g, "root3$1"),
+    display
+      .replace(/√\(([^)]+)\)/g, "sqrt($1)")
+      .replace(/∛\(([^)]+)\)/g, "root3($1)"),
+    display
+      .replace(/√\(([^)]+)\)/g, "sqrt$1")
+      .replace(/∛\(([^)]+)\)/g, "root3$1"),
   ];
 }
 
@@ -1544,12 +1550,12 @@ function makeRationalExponentsProblem(random, problemNumber = 1) {
     const numerator = integerBetween(random, 2, 5);
     type = "Rewrite as a radical";
     expression = `x^(${numerator}/2)`;
-    answerDisplay = `sqrt(x^${numerator})`;
+    answerDisplay = formatRadical(`x^${numerator}`);
     accepted = [`(sqrt(x))^${numerator}`];
   } else {
     const numerator = integerBetween(random, 2, 5);
     type = "Rewrite as a rational exponent";
-    expression = `root3(x^${numerator})`;
+    expression = formatRadical(`x^${numerator}`, 3);
     answerDisplay = `x^(${numerator}/3)`;
   }
 
@@ -3798,6 +3804,7 @@ function normalizeSymbolicAnswer(value) {
     .toLowerCase()
     .replace(/\u2212|\u2013|\u2014/g, "-")
     .replace(/\u221a/g, "sqrt")
+    .replace(/\u221b/g, "root3")
     .replace(/\s/g, "")
     .replace(/\*/g, "")
     .replace(/sqrt(\d+|[a-z])(?![\w(])/g, "sqrt($1)")
