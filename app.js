@@ -211,6 +211,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Add, subtract, and multiply polynomials",
   },
   {
+    id: "factor-polynomials",
+    label: "Factor Polynomials",
+    unitId: "polynomials",
+    generator: makeFactorPolynomialsProblem,
+    answerMode: "textValue",
+    directions: "Factor each polynomial completely",
+  },
+  {
     id: "linear-equations",
     label: "Linear Equations",
     unitId: "linear-equations",
@@ -1781,6 +1789,107 @@ function makePolynomialOperationsProblem(random, problemNumber = 1) {
     expression,
     equation: "Simplify the polynomial expression.",
     answer: makePolynomialAnswer(answerTerms),
+  };
+}
+
+function makeBinomialFactor(constant, leadingCoefficient = 1) {
+  return [makePolynomialTerm(leadingCoefficient, 1), makePolynomialTerm(constant, 0)];
+}
+
+function makeFactorTextAnswer(display, accepted = []) {
+  return makeTextAnswer(display, accepted);
+}
+
+function makeFactorProductAnswer(factors, options = {}) {
+  const coefficient = options.coefficient || "";
+  const display = `${coefficient}${factors.join("")}`;
+  const accepted = [];
+
+  if (factors.length === 2) {
+    accepted.push(`${coefficient}${factors[1]}${factors[0]}`);
+  }
+
+  if (options.squareFactor) {
+    accepted.push(`${coefficient}${options.squareFactor}${options.squareFactor}`);
+  }
+
+  return makeFactorTextAnswer(display, accepted);
+}
+
+function makeFactorPolynomialsProblem(random, problemNumber = 1) {
+  const problemKind = (problemNumber - 1) % 5;
+  let expression = "";
+  let type = "";
+  let answer = null;
+
+  if (problemKind === 0) {
+    const gcfCoefficient = integerBetween(random, 2, 8);
+    const gcfPower = integerBetween(random, 1, 2);
+    const innerBinomial = [
+      makePolynomialTerm(nonZeroBetween(random, -5, 5), 1),
+      makePolynomialTerm(nonZeroBetween(random, -9, 9), 0),
+    ];
+    const gcfTerm = [makePolynomialTerm(gcfCoefficient, gcfPower)];
+    const expanded = multiplyPolynomialTerms(gcfTerm, innerBinomial);
+    const gcfText = formatPolynomial(gcfTerm);
+    const factorText = formatPolynomialGroup(innerBinomial);
+    type = "Greatest common factor";
+    expression = formatPolynomial(expanded);
+    answer = makeFactorTextAnswer(`${gcfText}${factorText}`);
+  } else if (problemKind === 1) {
+    const firstConstant = nonZeroBetween(random, -8, 8);
+    const secondConstant = nonZeroBetween(random, -8, 8);
+    const firstFactor = makeBinomialFactor(firstConstant);
+    const secondFactor = makeBinomialFactor(secondConstant);
+    const expanded = multiplyPolynomialTerms(firstFactor, secondFactor);
+    type = "Factor a trinomial";
+    expression = formatPolynomial(expanded);
+    answer = makeFactorProductAnswer([
+      formatPolynomialGroup(firstFactor),
+      formatPolynomialGroup(secondFactor),
+    ]);
+  } else if (problemKind === 2) {
+    const constant = integerBetween(random, 2, 12);
+    const firstFactor = makeBinomialFactor(-constant);
+    const secondFactor = makeBinomialFactor(constant);
+    const expanded = multiplyPolynomialTerms(firstFactor, secondFactor);
+    type = "Difference of squares";
+    expression = formatPolynomial(expanded);
+    answer = makeFactorProductAnswer([
+      formatPolynomialGroup(firstFactor),
+      formatPolynomialGroup(secondFactor),
+    ]);
+  } else if (problemKind === 3) {
+    const constant = nonZeroBetween(random, -7, 7);
+    const factor = makeBinomialFactor(constant);
+    const expanded = multiplyPolynomialTerms(factor, factor);
+    const factorText = formatPolynomialGroup(factor);
+    type = "Perfect square trinomial";
+    expression = formatPolynomial(expanded);
+    answer = makeFactorProductAnswer([`${factorText}^2`], { squareFactor: factorText });
+  } else {
+    const firstConstant = nonZeroBetween(random, -6, 6);
+    const secondConstant = integerBetween(random, 2, 9);
+    const firstFactor = makeBinomialFactor(firstConstant);
+    const secondFactor = [
+      makePolynomialTerm(1, 2),
+      makePolynomialTerm(secondConstant, 0),
+    ];
+    const expanded = multiplyPolynomialTerms(firstFactor, secondFactor);
+    type = "Factor by grouping";
+    expression = formatPolynomial(expanded);
+    answer = makeFactorProductAnswer([
+      formatPolynomialGroup(firstFactor),
+      formatPolynomialGroup(secondFactor),
+    ]);
+  }
+
+  return {
+    type,
+    promptLabel: "Polynomial",
+    expression,
+    equation: "Factor the polynomial completely.",
+    answer,
   };
 }
 
