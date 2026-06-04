@@ -1003,11 +1003,16 @@ tbody tr.is-selected-work {
 }
 
 .review-card.is-preview.is-expression-review {
-  min-height: 224px;
+  min-height: 260px;
 }
 
 .review-card.is-preview.is-table-review {
-  min-height: 282px;
+  grid-template-rows: minmax(0, auto) auto;
+  min-height: 360px;
+}
+
+.review-card.is-preview.is-table-review .review-answer-grid {
+  margin-top: 4px;
 }
 
 .review-card.is-formula-review {
