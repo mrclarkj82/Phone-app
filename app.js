@@ -3663,6 +3663,10 @@ function renderReviewProblemCard(problem, answers = new Map(), options = {}) {
     problem.promptLabel === "Formula" ? "is-formula-review" : "",
     problem.table ? "is-table-review" : "",
     problem.answerMode === "single" ? "is-linear-review" : "",
+    ["pair", "slope", "slopeIntercept", "inequality"].includes(problem.answerMode)
+      ? "is-classic-algebra-review"
+      : "",
+    problem.answerMode === "slopeIntercept" ? "is-slope-intercept-review" : "",
     ["graphLine", "graphQuadratic", "coordinatePlane"].includes(problem.answerMode)
       ? "is-graph-review"
       : "",
@@ -3673,6 +3677,10 @@ function renderReviewProblemCard(problem, answers = new Map(), options = {}) {
       "fractionValue",
       "textValue",
       "polynomialExpression",
+      "pair",
+      "slope",
+      "slopeIntercept",
+      "inequality",
     ].includes(problem.answerMode)
       ? "is-expression-review"
       : "",
@@ -4035,15 +4043,52 @@ function renderProblemPrompt(problem) {
   }
 
   if (problem.equations) {
-    return `<div class="system-equations">${problem.equations
-      .map((equation) => `<span>${escapeHtml(equation)}</span>`)
-      .join("")}</div>${renderMathTable(problem.table)}`;
+    return `
+      <div class="expression-parts-prompt system-equation-prompt">
+        <span>System</span>
+        <div class="system-equations">${problem.equations
+          .map((equation) => `<span>${escapeHtml(equation)}</span>`)
+          .join("")}</div>
+        <p>Solve for x and y.</p>
+        ${renderMathTable(problem.table)}
+      </div>
+    `;
   }
 
   if (problem.answerMode === "single") {
     return `
       <div class="expression-parts-prompt linear-equation-prompt">
         <span>Equation</span>
+        <strong>${renderMathText(problem.equation)}</strong>
+        <p>Solve for x.</p>
+      </div>
+    `;
+  }
+
+  if (problem.answerMode === "slope") {
+    return `
+      <div class="expression-parts-prompt slope-prompt">
+        <span>Points</span>
+        <strong>${escapeHtml(problem.equation)}</strong>
+        <p>Find the slope.</p>
+      </div>
+    `;
+  }
+
+  if (problem.answerMode === "slopeIntercept") {
+    return `
+      <div class="expression-parts-prompt slope-intercept-prompt">
+        <span>Equation</span>
+        <strong>${renderMathText(problem.equation)}</strong>
+        <p>Identify the slope m and y-intercept b.</p>
+      </div>
+    `;
+  }
+
+  if (problem.answerMode === "inequality") {
+    return `
+      <div class="expression-parts-prompt inequality-prompt">
+        <span>Inequality</span>
         <strong>${renderMathText(problem.equation)}</strong>
         <p>Solve for x.</p>
       </div>

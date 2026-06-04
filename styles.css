@@ -479,6 +479,16 @@ button:focus-visible {
   line-height: 1.28;
 }
 
+.slope-prompt strong {
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.system-equation-prompt .system-equations {
+  font-size: 1.08rem;
+  font-weight: 900;
+}
+
 .coordinate-graph {
   margin: 0;
   width: min(100%, 340px);
@@ -1029,6 +1039,22 @@ tbody tr.is-selected-work {
 
 .review-card.is-preview.is-linear-review {
   min-height: 186px;
+}
+
+.review-card.is-classic-algebra-review {
+  min-height: 214px;
+}
+
+.review-card.is-preview.is-classic-algebra-review {
+  min-height: 260px;
+}
+
+.review-card.is-slope-intercept-review {
+  min-height: 214px;
+}
+
+.review-card.is-preview.is-slope-intercept-review {
+  min-height: 260px;
 }
 
 .review-card-header {
