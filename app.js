@@ -267,6 +267,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Understand slope as rise over run, rate of change, and direction",
   },
   {
+    id: "slope-intercept-form",
+    label: "Slope-Intercept Form",
+    unitId: "linear-equations",
+    generator: makeSlopeInterceptProblem,
+    answerMode: "slopeIntercept",
+    directions: "Identify the slope m and y-intercept b",
+  },
+  {
     id: "systems-equations",
     label: "Systems of Equations",
     unitId: "systems-equations-inequalities",
