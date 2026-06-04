@@ -203,6 +203,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Rewrite expressions so no radical remains in the denominator",
   },
   {
+    id: "polynomial-operations",
+    label: "Polynomial Operations",
+    unitId: "polynomials",
+    generator: makePolynomialOperationsProblem,
+    answerMode: "polynomialExpression",
+    directions: "Add, subtract, and multiply polynomials",
+  },
+  {
     id: "linear-equations",
     label: "Linear Equations",
     unitId: "linear-equations",
@@ -1615,6 +1623,160 @@ function makeRationalizeDenominatorsProblem(random, problemNumber = 1) {
   };
 }
 
+function combinePolynomialTerms(terms) {
+  const combined = new Map();
+  terms.forEach((term) => {
+    combined.set(term.power, (combined.get(term.power) || 0) + term.coefficient);
+  });
+
+  return [...combined.entries()]
+    .map(([power, coefficient]) => ({ power: Number(power), coefficient }))
+    .filter((term) => term.coefficient !== 0)
+    .sort((left, right) => right.power - left.power);
+}
+
+function formatPolynomialTerm(term, isFirstTerm = false) {
+  const coefficient = Number(term.coefficient);
+  const power = Number(term.power);
+  const absoluteCoefficient = Math.abs(coefficient);
+  let body = `${absoluteCoefficient}`;
+
+  if (power === 1) {
+    body = `${absoluteCoefficient === 1 ? "" : absoluteCoefficient}x`;
+  } else if (power > 1) {
+    body = `${absoluteCoefficient === 1 ? "" : absoluteCoefficient}x^${power}`;
+  }
+
+  if (isFirstTerm) {
+    return coefficient < 0 ? `-${body}` : body;
+  }
+
+  return `${coefficient < 0 ? "-" : "+"} ${body}`;
+}
+
+function formatPolynomial(terms) {
+  const simplifiedTerms = combinePolynomialTerms(terms);
+  if (!simplifiedTerms.length) return "0";
+  return simplifiedTerms
+    .map((term, index) => formatPolynomialTerm(term, index === 0))
+    .join(" ");
+}
+
+function polynomialTermsToKey(terms) {
+  return combinePolynomialTerms(terms)
+    .map((term) => `${term.power}:${term.coefficient}`)
+    .join("|");
+}
+
+function makePolynomialTerm(coefficient, power) {
+  return { coefficient, power };
+}
+
+function makeRandomPolynomial(random, degree, options = {}) {
+  const terms = [];
+  for (let power = degree; power >= 0; power -= 1) {
+    let coefficient = nonZeroBetween(random, -8, 8);
+    if (power === degree && options.monic === true) {
+      coefficient = 1;
+    }
+    if (power === 0 && options.positiveConstant === true) {
+      coefficient = integerBetween(random, 1, 9);
+    }
+    terms.push(makePolynomialTerm(coefficient, power));
+  }
+  return terms;
+}
+
+function negatePolynomialTerms(terms) {
+  return terms.map((term) => ({ ...term, coefficient: -term.coefficient }));
+}
+
+function multiplyPolynomialTerms(leftTerms, rightTerms) {
+  const productTerms = [];
+  leftTerms.forEach((leftTerm) => {
+    rightTerms.forEach((rightTerm) => {
+      productTerms.push(
+        makePolynomialTerm(
+          leftTerm.coefficient * rightTerm.coefficient,
+          leftTerm.power + rightTerm.power,
+        ),
+      );
+    });
+  });
+  return combinePolynomialTerms(productTerms);
+}
+
+function formatPolynomialGroup(terms) {
+  return `(${formatPolynomial(terms)})`;
+}
+
+function makePolynomialAnswer(terms) {
+  const display = formatPolynomial(terms);
+  return {
+    terms: combinePolynomialTerms(terms),
+    display,
+    key: polynomialTermsToKey(terms),
+  };
+}
+
+function makePolynomialOperationsProblem(random, problemNumber = 1) {
+  const problemKind = (problemNumber - 1) % 6;
+  let expression = "";
+  let type = "";
+  let answerTerms = [];
+
+  if (problemKind === 0) {
+    const firstPolynomial = makeRandomPolynomial(random, 2);
+    const secondPolynomial = makeRandomPolynomial(random, 2);
+    type = "Add polynomials";
+    expression = `${formatPolynomialGroup(firstPolynomial)} + ${formatPolynomialGroup(secondPolynomial)}`;
+    answerTerms = [...firstPolynomial, ...secondPolynomial];
+  } else if (problemKind === 1) {
+    const firstPolynomial = makeRandomPolynomial(random, 2);
+    const secondPolynomial = makeRandomPolynomial(random, 2);
+    type = "Subtract polynomials";
+    expression = `${formatPolynomialGroup(firstPolynomial)} - ${formatPolynomialGroup(secondPolynomial)}`;
+    answerTerms = [...firstPolynomial, ...negatePolynomialTerms(secondPolynomial)];
+  } else if (problemKind === 2) {
+    const monomial = [
+      makePolynomialTerm(nonZeroBetween(random, -5, 5), integerBetween(random, 1, 2)),
+    ];
+    const polynomial = makeRandomPolynomial(random, 2);
+    type = "Multiply by a monomial";
+    expression = `${formatPolynomial(monomial)}${formatPolynomialGroup(polynomial)}`;
+    answerTerms = multiplyPolynomialTerms(monomial, polynomial);
+  } else if (problemKind === 3) {
+    const firstConstant = nonZeroBetween(random, -8, 8);
+    const secondConstant = nonZeroBetween(random, -8, 8);
+    const firstBinomial = [makePolynomialTerm(1, 1), makePolynomialTerm(firstConstant, 0)];
+    const secondBinomial = [makePolynomialTerm(1, 1), makePolynomialTerm(secondConstant, 0)];
+    type = "Multiply binomials";
+    expression = `${formatPolynomialGroup(firstBinomial)}${formatPolynomialGroup(secondBinomial)}`;
+    answerTerms = multiplyPolynomialTerms(firstBinomial, secondBinomial);
+  } else if (problemKind === 4) {
+    const constant = nonZeroBetween(random, -7, 7);
+    const binomial = [makePolynomialTerm(1, 1), makePolynomialTerm(constant, 0)];
+    type = "Square a binomial";
+    expression = `${formatPolynomialGroup(binomial)}^2`;
+    answerTerms = multiplyPolynomialTerms(binomial, binomial);
+  } else {
+    const constant = integerBetween(random, 2, 9);
+    const firstBinomial = [makePolynomialTerm(1, 1), makePolynomialTerm(constant, 0)];
+    const secondBinomial = [makePolynomialTerm(1, 1), makePolynomialTerm(-constant, 0)];
+    type = "Difference of squares";
+    expression = `${formatPolynomialGroup(firstBinomial)}${formatPolynomialGroup(secondBinomial)}`;
+    answerTerms = multiplyPolynomialTerms(firstBinomial, secondBinomial);
+  }
+
+  return {
+    type,
+    promptLabel: "Expression",
+    expression,
+    equation: "Simplify the polynomial expression.",
+    answer: makePolynomialAnswer(answerTerms),
+  };
+}
+
 function formatFunctionRule(name, coefficient, constant) {
   return `${name}(x) = ${formatLinear(coefficient, constant)}`;
 }
@@ -2272,7 +2434,11 @@ function getProblemSignature(problem) {
     return [problem.expression, problem.equation, problem.answer?.value].join("|");
   }
 
-  if (problem.answerMode === "fractionValue" || problem.answerMode === "textValue") {
+  if (
+    problem.answerMode === "fractionValue" ||
+    problem.answerMode === "textValue" ||
+    problem.answerMode === "polynomialExpression"
+  ) {
     return [problem.expression, problem.equation, problem.answer?.display].join("|");
   }
 
@@ -2720,6 +2886,10 @@ function formatExpectedAnswer(problem) {
     return problem.answer.display;
   }
 
+  if (problem.answerMode === "polynomialExpression") {
+    return problem.answer.display;
+  }
+
   return `x = ${problem.answer}`;
 }
 
@@ -2814,6 +2984,10 @@ function formatSubmittedAnswer(problem, answers = new Map()) {
     return answer.value || "";
   }
 
+  if (problem.answerMode === "polynomialExpression") {
+    return answer.expression || "";
+  }
+
   return answer.x || "";
 }
 
@@ -2836,9 +3010,14 @@ function renderReviewProblemCard(problem, answers = new Map(), options = {}) {
     "review-card",
     status.className,
     ["graphLine", "graphQuadratic"].includes(problem.answerMode) ? "is-graph-review" : "",
-    ["expressionParts", "combineLikeTerms", "evaluateExpression", "fractionValue", "textValue"].includes(
-      problem.answerMode,
-    )
+    [
+      "expressionParts",
+      "combineLikeTerms",
+      "evaluateExpression",
+      "fractionValue",
+      "textValue",
+      "polynomialExpression",
+    ].includes(problem.answerMode)
       ? "is-expression-review"
       : "",
   ]
@@ -3092,6 +3271,7 @@ function getAnswerRowClass(problem) {
   if (problem.answerMode === "functionValue") return "is-function-value";
   if (problem.answerMode === "fractionValue") return "is-fraction-value";
   if (problem.answerMode === "textValue") return "is-text-value";
+  if (problem.answerMode === "polynomialExpression") return "is-polynomial-expression";
   if (problem.answerMode === "graphLine") return `is-graph-line is-graph-${problem.graphQuestion}`;
   if (problem.answerMode === "graphQuadratic") {
     return `is-graph-quadratic is-quadratic-${problem.graphQuestion.toLowerCase()}`;
@@ -3136,7 +3316,7 @@ function renderComplexFraction(problem) {
 }
 
 function renderProblemPrompt(problem) {
-  if (problem.answerMode === "textValue") {
+  if (problem.answerMode === "textValue" || problem.answerMode === "polynomialExpression") {
     return `
       <div class="expression-parts-prompt">
         <span>${escapeHtml(problem.promptLabel || "Expression")}</span>
@@ -3614,6 +3794,15 @@ function renderAnswerInputs(problem) {
     `;
   }
 
+  if (problem.answerMode === "polynomialExpression") {
+    return `
+      <label class="answer-field">
+        <span>Simplified</span>
+        <input type="text" inputmode="text" aria-label="Simplified polynomial for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="expression" placeholder="simplified polynomial" ${lockedAttribute} />
+      </label>
+    `;
+  }
+
   return `
     <input type="text" inputmode="decimal" aria-label="Answer for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="x" placeholder="${getSelectedAssignment().answerPlaceholder}" ${lockedAttribute} />
   `;
@@ -3769,6 +3958,11 @@ function hasAnswerForProblem(problem, answers = state.answers) {
     return !isBlank(response.value);
   }
 
+  if (problem.answerMode === "polynomialExpression") {
+    const response = answer && typeof answer === "object" ? answer : {};
+    return !isBlank(response.expression);
+  }
+
   const rawAnswer = answer && typeof answer === "object" ? answer.x : answer;
   return !isBlank(rawAnswer);
 }
@@ -3868,6 +4062,52 @@ function parseCombinedExpressionAnswer(value) {
   return combineExpressionTerms(terms);
 }
 
+function parsePolynomialExpressionAnswer(value) {
+  const normalized = `${value ?? ""}`
+    .trim()
+    .toLowerCase()
+    .replace(/\u2212|\u2013|\u2014/g, "-")
+    .replace(/\s/g, "")
+    .replace(/\*/g, "");
+
+  if (!normalized) return null;
+  if (normalized === "0") return [];
+
+  const tokens = normalized
+    .replace(/-/g, "+-")
+    .split("+")
+    .filter(Boolean);
+  if (!tokens.length) return null;
+
+  const terms = [];
+  for (const token of tokens) {
+    if (token.includes("x")) {
+      const match = token.match(/^([+-]?\d*)x(?:\^(\d+))?$/);
+      if (!match) return null;
+
+      const coefficientText = match[1];
+      let coefficient = 1;
+      if (coefficientText === "-") {
+        coefficient = -1;
+      } else if (coefficientText && coefficientText !== "+") {
+        coefficient = Number(coefficientText);
+      }
+
+      const power = match[2] === undefined ? 1 : Number(match[2]);
+      if (!Number.isInteger(coefficient) || !Number.isInteger(power) || power < 0) {
+        return null;
+      }
+      terms.push(makePolynomialTerm(coefficient, power));
+    } else {
+      const coefficient = Number(token);
+      if (!Number.isInteger(coefficient)) return null;
+      terms.push(makePolynomialTerm(coefficient, 0));
+    }
+  }
+
+  return combinePolynomialTerms(terms);
+}
+
 function getCombineLikeTermsResult(problem, response = {}) {
   const submittedExpression = response.expression;
   if (isBlank(submittedExpression)) return "blank";
@@ -3876,6 +4116,16 @@ function getCombineLikeTermsResult(problem, response = {}) {
   if (!submittedTerms) return "wrong";
 
   return expressionTermsToKey(submittedTerms) === problem.answer.key ? "correct" : "wrong";
+}
+
+function getPolynomialExpressionResult(problem, response = {}) {
+  const submittedExpression = response.expression;
+  if (isBlank(submittedExpression)) return "blank";
+
+  const submittedTerms = parsePolynomialExpressionAnswer(submittedExpression);
+  if (!submittedTerms) return "wrong";
+
+  return polynomialTermsToKey(submittedTerms) === problem.answer.key ? "correct" : "wrong";
 }
 
 function getEvaluateExpressionResult(problem, response = {}) {
@@ -4171,6 +4421,11 @@ function getProblemResult(problem, answers = state.answers) {
   if (problem.answerMode === "combineLikeTerms") {
     const response = answer && typeof answer === "object" ? answer : {};
     return getCombineLikeTermsResult(problem, response);
+  }
+
+  if (problem.answerMode === "polynomialExpression") {
+    const response = answer && typeof answer === "object" ? answer : {};
+    return getPolynomialExpressionResult(problem, response);
   }
 
   if (problem.answerMode === "evaluateExpression") {

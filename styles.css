@@ -716,7 +716,8 @@ button:focus-visible {
 .answer-row.is-evaluate-expression,
 .answer-row.is-function-value,
 .answer-row.is-fraction-value,
-.answer-row.is-text-value {
+.answer-row.is-text-value,
+.answer-row.is-polynomial-expression {
   grid-template-columns: minmax(180px, 1fr) minmax(110px, auto);
 }
 
@@ -1112,6 +1113,7 @@ tbody tr.is-selected-work {
   .answer-row.is-function-value,
   .answer-row.is-fraction-value,
   .answer-row.is-text-value,
+  .answer-row.is-polynomial-expression,
   .answer-row.is-inequality {
     grid-template-columns: 1fr;
   }
