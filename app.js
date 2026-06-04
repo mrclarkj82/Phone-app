@@ -155,6 +155,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Write an equivalent expression by using the distributive property and combining like terms",
   },
   {
+    id: "complex-fractions",
+    label: "Complex Fractions",
+    unitId: "intro-expressions",
+    generator: makeComplexFractionsProblem,
+    answerMode: "fractionValue",
+    directions: "Simplify each complex fraction",
+  },
+  {
     id: "linear-equations",
     label: "Linear Equations",
     unitId: "linear-equations",
@@ -1147,6 +1155,131 @@ function makePartsOfExpressionProblem(random, problemNumber = 1) {
     expression: formatExpression(terms),
     equation: question,
     expressionQuestion: questionKind,
+    answer,
+  };
+}
+
+function makeRandomFractionValue(random, options = {}) {
+  const numerator = options.positive
+    ? integerBetween(random, 1, 12)
+    : nonZeroBetween(random, -12, 12);
+  const denominator = integerBetween(random, 2, 12);
+  return reduceFraction(numerator, denominator);
+}
+
+function addFractionValues(left, right) {
+  return reduceFraction(
+    left.numerator * right.denominator + right.numerator * left.denominator,
+    left.denominator * right.denominator,
+  );
+}
+
+function subtractFractionValues(left, right) {
+  return reduceFraction(
+    left.numerator * right.denominator - right.numerator * left.denominator,
+    left.denominator * right.denominator,
+  );
+}
+
+function divideFractionValues(left, right) {
+  return reduceFraction(left.numerator * right.denominator, left.denominator * right.numerator);
+}
+
+function fractionToken(fraction) {
+  if (fraction.denominator === 1) {
+    return { kind: "text", value: `${fraction.numerator}` };
+  }
+  return {
+    kind: "fraction",
+    numerator: `${fraction.numerator}`,
+    denominator: `${fraction.denominator}`,
+  };
+}
+
+function operatorToken(value) {
+  return { kind: "operator", value };
+}
+
+function wholeNumberToken(value) {
+  return { kind: "text", value: `${value}` };
+}
+
+function fractionExpressionToText(tokens) {
+  return tokens
+    .map((token) => {
+      if (token.kind === "fraction") return `${token.numerator}/${token.denominator}`;
+      return token.value;
+    })
+    .join(" ");
+}
+
+function makeComplexFractionsProblem(random, problemNumber = 1) {
+  const problemKind = (problemNumber - 1) % 6;
+  const firstFraction = makeRandomFractionValue(random);
+  const secondFraction = makeRandomFractionValue(random);
+  const thirdFraction = makeRandomFractionValue(random, { positive: true });
+  let numeratorTokens = [];
+  let denominatorTokens = [];
+  let numeratorValue = firstFraction;
+  let denominatorValue = secondFraction;
+  let type = "";
+
+  if (problemKind === 0) {
+    type = "Fraction divided by fraction";
+    numeratorTokens = [fractionToken(firstFraction)];
+    denominatorTokens = [fractionToken(secondFraction)];
+  } else if (problemKind === 1) {
+    const wholeNumber = nonZeroBetween(random, -9, 9);
+    numeratorValue = reduceFraction(wholeNumber, 1);
+    type = "Whole number over a fraction";
+    numeratorTokens = [wholeNumberToken(wholeNumber)];
+    denominatorTokens = [fractionToken(secondFraction)];
+  } else if (problemKind === 2) {
+    const wholeNumber = nonZeroBetween(random, -9, 9);
+    denominatorValue = reduceFraction(wholeNumber, 1);
+    type = "Fraction over a whole number";
+    numeratorTokens = [fractionToken(firstFraction)];
+    denominatorTokens = [wholeNumberToken(wholeNumber)];
+  } else if (problemKind === 3) {
+    numeratorValue = addFractionValues(firstFraction, secondFraction);
+    denominatorValue = thirdFraction;
+    type = "Sum in the numerator";
+    numeratorTokens = [fractionToken(firstFraction), operatorToken("+"), fractionToken(secondFraction)];
+    denominatorTokens = [fractionToken(thirdFraction)];
+  } else if (problemKind === 4) {
+    let bottomLeft = makeRandomFractionValue(random);
+    let bottomRight = makeRandomFractionValue(random);
+    denominatorValue = subtractFractionValues(bottomLeft, bottomRight);
+    while (denominatorValue.numerator === 0) {
+      bottomLeft = makeRandomFractionValue(random);
+      bottomRight = makeRandomFractionValue(random);
+      denominatorValue = subtractFractionValues(bottomLeft, bottomRight);
+    }
+    type = "Difference in the denominator";
+    numeratorTokens = [fractionToken(firstFraction)];
+    denominatorTokens = [fractionToken(bottomLeft), operatorToken("-"), fractionToken(bottomRight)];
+  } else {
+    const wholeNumber = integerBetween(random, 1, 6);
+    const addedFraction = makeRandomFractionValue(random, { positive: true });
+    numeratorValue = addFractionValues(reduceFraction(wholeNumber, 1), addedFraction);
+    denominatorValue = thirdFraction;
+    type = "Mixed numerator";
+    numeratorTokens = [wholeNumberToken(wholeNumber), operatorToken("+"), fractionToken(addedFraction)];
+    denominatorTokens = [fractionToken(thirdFraction)];
+  }
+
+  const answer = divideFractionValues(numeratorValue, denominatorValue);
+
+  return {
+    type,
+    expression: `(${fractionExpressionToText(numeratorTokens)}) / (${fractionExpressionToText(
+      denominatorTokens,
+    )})`,
+    equation: "Simplify the complex fraction.",
+    complexFraction: {
+      numerator: numeratorTokens,
+      denominator: denominatorTokens,
+    },
     answer,
   };
 }
@@ -2244,6 +2377,10 @@ function formatExpectedAnswer(problem) {
     return `${problem.answer}`;
   }
 
+  if (problem.answerMode === "fractionValue") {
+    return formatFractionValue(problem.answer);
+  }
+
   return `x = ${problem.answer}`;
 }
 
@@ -2327,6 +2464,10 @@ function formatSubmittedAnswer(problem, answers = new Map()) {
   }
 
   if (problem.answerMode === "functionValue") {
+    return answer.value || "";
+  }
+
+  if (problem.answerMode === "fractionValue") {
     return answer.value || "";
   }
 
@@ -2604,6 +2745,7 @@ function getAnswerRowClass(problem) {
   if (problem.answerMode === "combineLikeTerms") return "is-combine-like-terms";
   if (problem.answerMode === "evaluateExpression") return "is-evaluate-expression";
   if (problem.answerMode === "functionValue") return "is-function-value";
+  if (problem.answerMode === "fractionValue") return "is-fraction-value";
   if (problem.answerMode === "graphLine") return `is-graph-line is-graph-${problem.graphQuestion}`;
   if (problem.answerMode === "graphQuadratic") {
     return `is-graph-quadratic is-quadratic-${problem.graphQuestion.toLowerCase()}`;
@@ -2611,7 +2753,53 @@ function getAnswerRowClass(problem) {
   return "";
 }
 
+function renderFractionExpression(tokens = []) {
+  return tokens
+    .map((token) => {
+      if (token.kind === "fraction") {
+        return `
+          <span class="inline-fraction">
+            <span>${escapeHtml(token.numerator)}</span>
+            <span>${escapeHtml(token.denominator)}</span>
+          </span>
+        `;
+      }
+
+      if (token.kind === "operator") {
+        return `<span class="complex-fraction-operator">${escapeHtml(token.value)}</span>`;
+      }
+
+      return `<span class="complex-fraction-text">${escapeHtml(token.value)}</span>`;
+    })
+    .join("");
+}
+
+function renderComplexFraction(problem) {
+  if (!problem.complexFraction) return `<strong>${escapeHtml(problem.expression)}</strong>`;
+  return `
+    <div class="complex-fraction" aria-label="${escapeHtml(problem.expression)}">
+      <div class="complex-fraction-section">${renderFractionExpression(
+        problem.complexFraction.numerator,
+      )}</div>
+      <div class="complex-fraction-bar" aria-hidden="true"></div>
+      <div class="complex-fraction-section">${renderFractionExpression(
+        problem.complexFraction.denominator,
+      )}</div>
+    </div>
+  `;
+}
+
 function renderProblemPrompt(problem) {
+  if (problem.answerMode === "fractionValue") {
+    return `
+      <div class="expression-parts-prompt">
+        <span>Complex Fraction</span>
+        ${renderComplexFraction(problem)}
+        <p>${escapeHtml(problem.equation)}</p>
+      </div>
+    `;
+  }
+
   if (
     problem.answerMode === "expressionParts" ||
     problem.answerMode === "combineLikeTerms" ||
@@ -3051,6 +3239,15 @@ function renderAnswerInputs(problem) {
     `;
   }
 
+  if (problem.answerMode === "fractionValue") {
+    return `
+      <label class="answer-field">
+        <span>Simplified</span>
+        <input type="text" inputmode="text" aria-label="Simplified fraction for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="value" placeholder="fraction or decimal" ${lockedAttribute} />
+      </label>
+    `;
+  }
+
   return `
     <input type="text" inputmode="decimal" aria-label="Answer for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="x" placeholder="${getSelectedAssignment().answerPlaceholder}" ${lockedAttribute} />
   `;
@@ -3192,6 +3389,11 @@ function hasAnswerForProblem(problem, answers = state.answers) {
   }
 
   if (problem.answerMode === "functionValue") {
+    const response = answer && typeof answer === "object" ? answer : {};
+    return !isBlank(response.value);
+  }
+
+  if (problem.answerMode === "fractionValue") {
     const response = answer && typeof answer === "object" ? answer : {};
     return !isBlank(response.value);
   }
@@ -3581,6 +3783,15 @@ function getProblemResult(problem, answers = state.answers) {
     if (isBlank(response.value)) return "blank";
     const submittedValue = parseGraphNumberInput(response.value);
     return Number.isFinite(submittedValue) && isCloseEnough(submittedValue, problem.answer)
+      ? "correct"
+      : "wrong";
+  }
+
+  if (problem.answerMode === "fractionValue") {
+    const response = answer && typeof answer === "object" ? answer : {};
+    if (isBlank(response.value)) return "blank";
+    const submittedFraction = parseFractionInput(response.value);
+    return submittedFraction && fractionsEqual(submittedFraction, problem.answer)
       ? "correct"
       : "wrong";
   }
