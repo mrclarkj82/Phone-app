@@ -227,6 +227,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Solve for x",
   },
   {
+    id: "formulas",
+    label: "Formulas",
+    unitId: "linear-equations",
+    generator: makeFormulasProblem,
+    answerMode: "textValue",
+    directions: "Use formulas to find missing values",
+  },
+  {
     id: "systems-equations",
     label: "Systems of Equations",
     unitId: "systems-equations-inequalities",
@@ -735,6 +743,133 @@ function makeLinearProblem(random) {
   ];
   const typeIndex = integerBetween(random, 0, problemTypes.length - 1);
   return problemTypes[typeIndex](random);
+}
+
+function makeFormulaTable(entries) {
+  return {
+    headers: ["Variable", "Value"],
+    rows: entries.map(([variable, value]) => [variable, value === null ? "?" : `${value}`]),
+  };
+}
+
+function makeFormulaNumericAnswer(variable, value) {
+  return makeTextAnswer(`${value}`, [
+    `${variable} = ${value}`,
+    `${variable}=${value}`,
+    `${value}.0`,
+    `${variable} = ${value}.0`,
+    `${variable}=${value}.0`,
+  ]);
+}
+
+function makeFormulaProblemCard(type, formula, entries, missingVariable, answerValue) {
+  return {
+    type,
+    promptLabel: "Formula",
+    expression: formula,
+    table: makeFormulaTable(entries),
+    equation: `Use the formula to find ${missingVariable}. Answer with the number only.`,
+    answer: makeFormulaNumericAnswer(missingVariable, answerValue),
+  };
+}
+
+function makeFormulasProblem(random, problemNumber = 1) {
+  const problemKind = (problemNumber - 1) % 5;
+
+  if (problemKind === 0) {
+    const rate = integerBetween(random, 4, 16);
+    const time = integerBetween(random, 2, 9);
+    const distance = rate * time;
+    const missingOptions = ["d", "r", "t"];
+    const missing = missingOptions[integerBetween(random, 0, missingOptions.length - 1)];
+    const answer = { d: distance, r: rate, t: time }[missing];
+    return makeFormulaProblemCard(
+      "Distance formula",
+      "d = rt",
+      [
+        ["d", missing === "d" ? null : distance],
+        ["r", missing === "r" ? null : rate],
+        ["t", missing === "t" ? null : time],
+      ],
+      missing,
+      answer,
+    );
+  }
+
+  if (problemKind === 1) {
+    const length = integerBetween(random, 5, 18);
+    const width = integerBetween(random, 3, 14);
+    const perimeter = 2 * length + 2 * width;
+    const missingOptions = ["P", "L", "W"];
+    const missing = missingOptions[integerBetween(random, 0, missingOptions.length - 1)];
+    const answer = { P: perimeter, L: length, W: width }[missing];
+    return makeFormulaProblemCard(
+      "Rectangle perimeter formula",
+      "P = 2L + 2W",
+      [
+        ["P", missing === "P" ? null : perimeter],
+        ["L", missing === "L" ? null : length],
+        ["W", missing === "W" ? null : width],
+      ],
+      missing,
+      answer,
+    );
+  }
+
+  if (problemKind === 2) {
+    const length = integerBetween(random, 4, 16);
+    const width = integerBetween(random, 3, 13);
+    const area = length * width;
+    const missingOptions = ["A", "L", "W"];
+    const missing = missingOptions[integerBetween(random, 0, missingOptions.length - 1)];
+    const answer = { A: area, L: length, W: width }[missing];
+    return makeFormulaProblemCard(
+      "Rectangle area formula",
+      "A = LW",
+      [
+        ["A", missing === "A" ? null : area],
+        ["L", missing === "L" ? null : length],
+        ["W", missing === "W" ? null : width],
+      ],
+      missing,
+      answer,
+    );
+  }
+
+  if (problemKind === 3) {
+    const base = integerBetween(random, 3, 13) * 2;
+    const height = integerBetween(random, 3, 14);
+    const area = (base * height) / 2;
+    const missingOptions = ["A", "b", "h"];
+    const missing = missingOptions[integerBetween(random, 0, missingOptions.length - 1)];
+    const answer = { A: area, b: base, h: height }[missing];
+    return makeFormulaProblemCard(
+      "Triangle area formula",
+      "A = bh / 2",
+      [
+        ["A", missing === "A" ? null : area],
+        ["b", missing === "b" ? null : base],
+        ["h", missing === "h" ? null : height],
+      ],
+      missing,
+      answer,
+    );
+  }
+
+  const celsius = integerBetween(random, -2, 10) * 5;
+  const fahrenheit = (9 / 5) * celsius + 32;
+  const missing = integerBetween(random, 0, 1) === 0 ? "F" : "C";
+  const answer = missing === "F" ? fahrenheit : celsius;
+  return makeFormulaProblemCard(
+    "Temperature formula",
+    "F = (9 / 5)C + 32",
+    [
+      ["F", missing === "F" ? null : fahrenheit],
+      ["C", missing === "C" ? null : celsius],
+    ],
+    missing,
+    answer,
+  );
 }
 
 function formatExpressionTerm(term, isFirstTerm = false, options = {}) {
