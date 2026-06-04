@@ -259,6 +259,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Use the coordinate plane to answer each question",
   },
   {
+    id: "understanding-slope",
+    label: "Understanding Slope",
+    unitId: "linear-equations",
+    generator: makeUnderstandingSlopeProblem,
+    answerMode: "textValue",
+    directions: "Understand slope as rise over run, rate of change, and direction",
+  },
+  {
     id: "systems-equations",
     label: "Systems of Equations",
     unitId: "systems-equations-inequalities",
@@ -1108,6 +1116,125 @@ function makeCoordinatePlaneProblem(random, problemNumber = 1) {
       points: [point],
     },
     answer: answers[graphQuestion],
+  };
+}
+
+function makeSlopeTextAnswer(slope, accepted = []) {
+  const display = formatFractionValue(slope);
+  if (display === "undefined") {
+    return makeTextAnswer(display, ["no slope", "undefined slope", ...accepted]);
+  }
+
+  const variants = [`m = ${display}`, `slope = ${display}`, ...accepted];
+  if (slope.denominator === 1) {
+    variants.push(`${slope.numerator}/1`);
+  }
+  return makeTextAnswer(display, variants);
+}
+
+function makeSlopeDirectionAnswer(direction) {
+  const accepted = {
+    positive: ["positive slope", "increasing", "goes up", "up"],
+    negative: ["negative slope", "decreasing", "goes down", "down"],
+    zero: ["zero slope", "horizontal", "flat", "0"],
+    undefined: ["undefined slope", "vertical", "no slope"],
+  };
+  return makeTextAnswer(direction, accepted[direction] || []);
+}
+
+function makeUnderstandingSlopeProblem(random, problemNumber = 1) {
+  const problemKind = (problemNumber - 1) % 5;
+
+  if (problemKind === 0) {
+    const rise = nonZeroBetween(random, -9, 9);
+    const run = integerBetween(random, 2, 10);
+    const slope = reduceFraction(rise, run);
+    return {
+      type: "Rise over run",
+      promptLabel: "Slope idea",
+      expression: "slope = rise / run",
+      equation: "Find the slope from the rise and run.",
+      table: {
+        headers: ["Rise", "Run"],
+        rows: [[rise, run]],
+      },
+      answer: makeSlopeTextAnswer(slope),
+    };
+  }
+
+  if (problemKind === 1) {
+    const x1 = integerBetween(random, -8, 4);
+    const y1 = integerBetween(random, -8, 8);
+    const run = integerBetween(random, 2, 6);
+    const rise = nonZeroBetween(random, -8, 8);
+    const x2 = x1 + run;
+    const y2 = y1 + rise;
+    const slope = reduceFraction(rise, run);
+    return {
+      type: "Slope from two points",
+      promptLabel: "Points",
+      expression: `(${x1}, ${y1}) and (${x2}, ${y2})`,
+      equation: "Find the slope between the two points.",
+      answer: makeSlopeTextAnswer(slope),
+    };
+  }
+
+  if (problemKind === 2) {
+    const startX = integerBetween(random, -6, 1);
+    const startY = integerBetween(random, -8, 8);
+    const run = integerBetween(random, 1, 4);
+    const rise = nonZeroBetween(random, -6, 6);
+    const slope = reduceFraction(rise, run);
+    const rows = [0, 1, 2].map((step) => [startX + run * step, startY + rise * step]);
+    return {
+      type: "Slope from a table",
+      promptLabel: "Table",
+      expression: "constant rate of change",
+      equation: "Find the slope shown in the table.",
+      table: {
+        headers: ["x", "y"],
+        rows,
+      },
+      answer: makeSlopeTextAnswer(slope),
+    };
+  }
+
+  if (problemKind === 3) {
+    const directionOptions = [
+      { direction: "positive", points: [[-4, -3], [2, 5]] },
+      { direction: "negative", points: [[-4, 5], [2, -3]] },
+      { direction: "zero", points: [[-4, 3], [3, 3]] },
+      { direction: "undefined", points: [[2, -4], [2, 5]] },
+    ];
+    const selected = directionOptions[integerBetween(random, 0, directionOptions.length - 1)];
+    return {
+      type: "Slope direction",
+      promptLabel: "Points",
+      expression: selected.points.map((point) => `(${point[0]}, ${point[1]})`).join(" and "),
+      equation: "Is the slope positive, negative, zero, or undefined?",
+      answer: makeSlopeDirectionAnswer(selected.direction),
+    };
+  }
+
+  const startTime = integerBetween(random, 0, 4);
+  const timeChange = integerBetween(random, 2, 6);
+  const startDistance = integerBetween(random, 5, 30);
+  const rate = integerBetween(random, 2, 12);
+  const endTime = startTime + timeChange;
+  const endDistance = startDistance + rate * timeChange;
+  return {
+    type: "Rate of change",
+    promptLabel: "Situation",
+    expression: "distance over time",
+    equation: "Find the rate of change in miles per hour.",
+    table: {
+      headers: ["Time", "Distance"],
+      rows: [
+        [startTime, startDistance],
+        [endTime, endDistance],
+      ],
+    },
+    answer: makeTextAnswer(`${rate}`, [`${rate} mph`, `${rate} miles per hour`, `m = ${rate}`]),
   };
 }
 
@@ -3526,6 +3653,7 @@ function renderReviewProblemCard(problem, answers = new Map(), options = {}) {
     "review-card",
     status.className,
     problem.promptLabel === "Formula" ? "is-formula-review" : "",
+    problem.table ? "is-table-review" : "",
     problem.answerMode === "single" ? "is-linear-review" : "",
     ["graphLine", "graphQuadratic", "coordinatePlane"].includes(problem.answerMode)
       ? "is-graph-review"

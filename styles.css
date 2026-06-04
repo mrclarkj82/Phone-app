@@ -1006,6 +1006,10 @@ tbody tr.is-selected-work {
   min-height: 224px;
 }
 
+.review-card.is-preview.is-table-review {
+  min-height: 282px;
+}
+
 .review-card.is-formula-review {
   min-height: 360px;
 }
