@@ -22,7 +22,7 @@ const assignments = [
     id: LINEAR_ASSIGNMENT_ID,
     title: "Linear Equations",
     assignmentUnit: "linear-equations",
-    assignmentUnitLabel: "Linear Equations",
+    assignmentUnitLabel: "2. Linear Equations",
     directions: "Solve for x",
     problemCount: 30,
     answerMode: "single",
@@ -33,7 +33,7 @@ const assignments = [
     id: "systems-equations-doral-v1",
     title: "Systems of Equations",
     assignmentUnit: "systems-equations-inequalities",
-    assignmentUnitLabel: "Systems of Equations and Inequalities",
+    assignmentUnitLabel: "5. Systems of Equations and Inequalities",
     directions: "Solve for x and y",
     problemCount: 15,
     answerMode: "pair",
@@ -44,7 +44,7 @@ const assignments = [
     id: "slope-two-points-v1",
     title: "Slope from Two Points",
     assignmentUnit: "intro-functions",
-    assignmentUnitLabel: "Introduction to Functions",
+    assignmentUnitLabel: "4. Introduction to Functions",
     directions: "Find the slope between the two points",
     problemCount: 30,
     answerMode: "slope",
@@ -55,7 +55,7 @@ const assignments = [
     id: "slope-intercept-form-v1",
     title: "Slope-Intercept Form",
     assignmentUnit: "linear-equations",
-    assignmentUnitLabel: "Linear Equations",
+    assignmentUnitLabel: "2. Linear Equations",
     directions: "Identify the slope m and y-intercept b",
     problemCount: 30,
     answerMode: "slopeIntercept",
@@ -66,7 +66,7 @@ const assignments = [
     id: "linear-inequalities-html-v1",
     title: "Linear Inequalities",
     assignmentUnit: "linear-inequalities",
-    assignmentUnitLabel: "Linear Inequalities",
+    assignmentUnitLabel: "3. Linear Inequalities",
     directions: "Solve each inequality for x",
     problemCount: 30,
     answerMode: "inequality",
@@ -77,7 +77,7 @@ const assignments = [
     id: "coordinate-grid-lines-v1",
     title: "Coordinate Grid Lines",
     assignmentUnit: "intro-functions",
-    assignmentUnitLabel: "Introduction to Functions",
+    assignmentUnitLabel: "4. Introduction to Functions",
     directions: "Use the graph to answer each question",
     problemCount: 30,
     answerMode: "graphLine",
@@ -89,35 +89,35 @@ const assignments = [
 const CUSTOM_ASSIGNMENT_UNITS = [
   {
     id: "intro-expressions",
-    label: "Intro to Expressions",
-  },
-  {
-    id: "exponents-radicals",
-    label: "Exponents and Radicals",
-  },
-  {
-    id: "polynomials",
-    label: "Polynomials",
+    label: "1. Intro to Expressions",
   },
   {
     id: "linear-equations",
-    label: "Linear Equations",
+    label: "2. Linear Equations",
   },
   {
     id: "linear-inequalities",
-    label: "Linear Inequalities",
-  },
-  {
-    id: "systems-equations-inequalities",
-    label: "Systems of Equations and Inequalities",
+    label: "3. Linear Inequalities",
   },
   {
     id: "intro-functions",
-    label: "Introduction to Functions",
+    label: "4. Introduction to Functions",
+  },
+  {
+    id: "systems-equations-inequalities",
+    label: "5. Systems of Equations and Inequalities",
+  },
+  {
+    id: "exponents-radicals",
+    label: "6. Exponents and Radicals",
+  },
+  {
+    id: "polynomials",
+    label: "7. Polynomials",
   },
   {
     id: "quadratic-equations",
-    label: "Quadratic Equations",
+    label: "8. Quadratic Equations",
   },
 ];
 
