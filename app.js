@@ -227,6 +227,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Solve for x",
   },
   {
+    id: "one-step-equations",
+    label: "One-Step Equations",
+    unitId: "linear-equations",
+    generator: makeOneStepEquationProblem,
+    answerMode: "single",
+    directions: "Solve each one-step equation for x",
+  },
+  {
     id: "formulas",
     label: "Formulas",
     unitId: "linear-equations",
@@ -743,6 +751,58 @@ function makeLinearProblem(random) {
   ];
   const typeIndex = integerBetween(random, 0, problemTypes.length - 1);
   return problemTypes[typeIndex](random);
+}
+
+function makeOneStepEquationProblem(random, problemNumber = 1) {
+  const problemKind = (problemNumber - 1) % 5;
+
+  if (problemKind === 0) {
+    const solution = integerBetween(random, -15, 15);
+    const constant = integerBetween(random, 2, 18);
+    return {
+      type: "Addition equation",
+      equation: `${formatLinear(1, constant)} = ${solution + constant}`,
+      answer: solution,
+    };
+  }
+
+  if (problemKind === 1) {
+    const solution = integerBetween(random, -15, 15);
+    const constant = integerBetween(random, 2, 18);
+    return {
+      type: "Subtraction equation",
+      equation: `${formatLinear(1, -constant)} = ${solution - constant}`,
+      answer: solution,
+    };
+  }
+
+  if (problemKind === 2) {
+    const solution = nonZeroBetween(random, -12, 12);
+    const coefficient = integerBetween(random, 2, 12);
+    return {
+      type: "Multiplication equation",
+      equation: `${formatTerm(coefficient)} = ${coefficient * solution}`,
+      answer: solution,
+    };
+  }
+
+  if (problemKind === 3) {
+    const quotient = nonZeroBetween(random, -12, 12);
+    const divisor = integerBetween(random, 2, 12);
+    return {
+      type: "Division equation",
+      equation: `x / ${divisor} = ${quotient}`,
+      answer: quotient * divisor,
+    };
+  }
+
+  const solution = nonZeroBetween(random, -12, 12);
+  const coefficient = -integerBetween(random, 2, 12);
+  return {
+    type: "Negative coefficient",
+    equation: `${formatTerm(coefficient)} = ${coefficient * solution}`,
+    answer: solution,
+  };
 }
 
 function makeFormulaTable(entries) {
