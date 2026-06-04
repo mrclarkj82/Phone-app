@@ -958,7 +958,7 @@ tbody tr.is-selected-work {
 }
 
 .review-card.is-preview.is-expression-review {
-  min-height: 0;
+  min-height: 224px;
 }
 
 .review-card-header {
