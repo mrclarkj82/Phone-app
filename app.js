@@ -292,9 +292,9 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "multi-step-equations",
-    label: "Solving Multi-Step Equations",
+    label: "Multi-Step Equations",
     unitId: "linear-equations",
-    generator: makeLinearProblem,
+    generator: makeMultiStepEquationProblem,
     answerMode: "single",
     directions: "Solve each multi-step equation",
   },
@@ -869,6 +869,60 @@ function makeTwoStepEquationProblem(random, problemNumber = 1) {
   return {
     type: "Mixed signs",
     equation: `${formatLinear(coefficient, constant)} = ${coefficient * solution + constant}`,
+    answer: solution,
+  };
+}
+
+function makeMultiStepEquationProblem(random, problemNumber = 1) {
+  const problemKind = (problemNumber - 1) % 5;
+
+  if (problemKind === 0) {
+    return {
+      type: "Variables on both sides",
+      ...makeVariablesBothSides(random),
+    };
+  }
+
+  if (problemKind === 1) {
+    return {
+      type: "Parentheses",
+      ...makeParentheses(random),
+    };
+  }
+
+  if (problemKind === 2) {
+    return {
+      type: "Distributive property",
+      ...makeDistributed(random),
+    };
+  }
+
+  if (problemKind === 3) {
+    return {
+      type: "Fraction with a constant",
+      ...makeFraction(random),
+    };
+  }
+
+  const solution = nonZeroBetween(random, -9, 9);
+  const leftCoefficient = nonZeroBetween(random, -6, 6);
+  const inside = integerBetween(random, -8, 8);
+  const outside = integerBetween(random, -12, 12);
+  let rightCoefficient = nonZeroBetween(random, -6, 6);
+  while (rightCoefficient === leftCoefficient) {
+    rightCoefficient = nonZeroBetween(random, -6, 6);
+  }
+  const rightConstant =
+    leftCoefficient * (solution + inside) + outside - rightCoefficient * solution;
+
+  return {
+    type: "Distribute and move variables",
+    equation: `${leftCoefficient}(${
+      inside === 0 ? "x" : `x ${inside > 0 ? "+" : "-"} ${Math.abs(inside)}`
+    }) ${outside >= 0 ? "+" : "-"} ${Math.abs(outside)} = ${formatLinear(
+      rightCoefficient,
+      rightConstant,
+    )}`,
     answer: solution,
   };
 }
