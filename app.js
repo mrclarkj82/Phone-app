@@ -800,16 +800,16 @@ function makeFormulasProblem(random, problemNumber = 1) {
     const length = integerBetween(random, 5, 18);
     const width = integerBetween(random, 3, 14);
     const perimeter = 2 * length + 2 * width;
-    const missingOptions = ["P", "L", "W"];
+    const missingOptions = ["p", "l", "w"];
     const missing = missingOptions[integerBetween(random, 0, missingOptions.length - 1)];
-    const answer = { P: perimeter, L: length, W: width }[missing];
+    const answer = { p: perimeter, l: length, w: width }[missing];
     return makeFormulaProblemCard(
       "Rectangle perimeter formula",
-      "P = 2L + 2W",
+      "p = 2l + 2w",
       [
-        ["P", missing === "P" ? null : perimeter],
-        ["L", missing === "L" ? null : length],
-        ["W", missing === "W" ? null : width],
+        ["p", missing === "p" ? null : perimeter],
+        ["l", missing === "l" ? null : length],
+        ["w", missing === "w" ? null : width],
       ],
       missing,
       answer,
@@ -820,16 +820,16 @@ function makeFormulasProblem(random, problemNumber = 1) {
     const length = integerBetween(random, 4, 16);
     const width = integerBetween(random, 3, 13);
     const area = length * width;
-    const missingOptions = ["A", "L", "W"];
+    const missingOptions = ["a", "l", "w"];
     const missing = missingOptions[integerBetween(random, 0, missingOptions.length - 1)];
-    const answer = { A: area, L: length, W: width }[missing];
+    const answer = { a: area, l: length, w: width }[missing];
     return makeFormulaProblemCard(
       "Rectangle area formula",
-      "A = LW",
+      "a = lw",
       [
-        ["A", missing === "A" ? null : area],
-        ["L", missing === "L" ? null : length],
-        ["W", missing === "W" ? null : width],
+        ["a", missing === "a" ? null : area],
+        ["l", missing === "l" ? null : length],
+        ["w", missing === "w" ? null : width],
       ],
       missing,
       answer,
@@ -840,14 +840,14 @@ function makeFormulasProblem(random, problemNumber = 1) {
     const base = integerBetween(random, 3, 13) * 2;
     const height = integerBetween(random, 3, 14);
     const area = (base * height) / 2;
-    const missingOptions = ["A", "b", "h"];
+    const missingOptions = ["a", "b", "h"];
     const missing = missingOptions[integerBetween(random, 0, missingOptions.length - 1)];
-    const answer = { A: area, b: base, h: height }[missing];
+    const answer = { a: area, b: base, h: height }[missing];
     return makeFormulaProblemCard(
       "Triangle area formula",
-      "A = bh / 2",
+      "a = bh / 2",
       [
-        ["A", missing === "A" ? null : area],
+        ["a", missing === "a" ? null : area],
         ["b", missing === "b" ? null : base],
         ["h", missing === "h" ? null : height],
       ],
@@ -858,14 +858,14 @@ function makeFormulasProblem(random, problemNumber = 1) {
 
   const celsius = integerBetween(random, -2, 10) * 5;
   const fahrenheit = (9 / 5) * celsius + 32;
-  const missing = integerBetween(random, 0, 1) === 0 ? "F" : "C";
-  const answer = missing === "F" ? fahrenheit : celsius;
+  const missing = integerBetween(random, 0, 1) === 0 ? "f" : "c";
+  const answer = missing === "f" ? fahrenheit : celsius;
   return makeFormulaProblemCard(
     "Temperature formula",
-    "F = (9 / 5)C + 32",
+    "f = (9 / 5)c + 32",
     [
-      ["F", missing === "F" ? null : fahrenheit],
-      ["C", missing === "C" ? null : celsius],
+      ["f", missing === "f" ? null : fahrenheit],
+      ["c", missing === "c" ? null : celsius],
     ],
     missing,
     answer,
