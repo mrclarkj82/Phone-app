@@ -721,7 +721,8 @@ button:focus-visible {
 
 .answer-row.is-slope-intercept,
 .answer-row.is-graph-line,
-.answer-row.is-graph-quadratic {
+.answer-row.is-graph-quadratic,
+.answer-row.is-coordinate-plane {
   grid-template-columns: minmax(90px, 1fr) minmax(90px, 1fr) minmax(110px, auto);
 }
 
@@ -730,7 +731,10 @@ button:focus-visible {
 }
 
 .answer-row.is-quadratic-axis,
-.answer-row.is-quadratic-yintercept {
+.answer-row.is-quadratic-yintercept,
+.answer-row.is-coordinate-xcoordinate,
+.answer-row.is-coordinate-ycoordinate,
+.answer-row.is-coordinate-quadrant {
   grid-template-columns: minmax(120px, 180px) minmax(110px, auto);
 }
 
@@ -1158,6 +1162,10 @@ tbody tr.is-selected-work {
   .answer-row.is-slope-intercept,
   .answer-row.is-graph-line,
   .answer-row.is-graph-intercept,
+  .answer-row.is-coordinate-plane,
+  .answer-row.is-coordinate-xcoordinate,
+  .answer-row.is-coordinate-ycoordinate,
+  .answer-row.is-coordinate-quadrant,
   .answer-row.is-expression-parts,
   .answer-row.is-combine-like-terms,
   .answer-row.is-evaluate-expression,

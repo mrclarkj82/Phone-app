@@ -251,6 +251,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Use formulas to find missing values",
   },
   {
+    id: "coordinate-plane",
+    label: "Coordinate Plane",
+    unitId: "linear-equations",
+    generator: makeCoordinatePlaneProblem,
+    answerMode: "coordinatePlane",
+    directions: "Use the coordinate plane to answer each question",
+  },
+  {
     id: "systems-equations",
     label: "Systems of Equations",
     unitId: "systems-equations-inequalities",
@@ -1052,6 +1060,55 @@ function makeFormulasProblem(random, problemNumber = 1) {
     missing,
     answer,
   );
+}
+
+function getPointQuadrant(point) {
+  if (point.x > 0 && point.y > 0) return "I";
+  if (point.x < 0 && point.y > 0) return "II";
+  if (point.x < 0 && point.y < 0) return "III";
+  return "IV";
+}
+
+function makeCoordinatePlaneProblem(random, problemNumber = 1) {
+  const questionCycle = ["orderedPair", "xCoordinate", "yCoordinate", "quadrant", "reflectX"];
+  const graphQuestion = questionCycle[(problemNumber - 1) % questionCycle.length];
+  const point = {
+    label: "p",
+    x: nonZeroBetween(random, -8, 8),
+    y: nonZeroBetween(random, -8, 8),
+  };
+  const prompts = {
+    orderedPair: "Write the ordered pair for point p.",
+    xCoordinate: "Find the x-coordinate of point p.",
+    yCoordinate: "Find the y-coordinate of point p.",
+    quadrant: "Identify the quadrant that contains point p.",
+    reflectX: "Reflect point p over the x-axis. Write the new ordered pair.",
+  };
+  const typeLabels = {
+    orderedPair: "Ordered pair",
+    xCoordinate: "X-coordinate",
+    yCoordinate: "Y-coordinate",
+    quadrant: "Quadrant",
+    reflectX: "Reflect over x-axis",
+  };
+  const answers = {
+    orderedPair: { x: point.x, y: point.y },
+    xCoordinate: { value: point.x },
+    yCoordinate: { value: point.y },
+    quadrant: { quadrant: getPointQuadrant(point) },
+    reflectX: { x: point.x, y: -point.y },
+  };
+
+  return {
+    type: typeLabels[graphQuestion],
+    equation: prompts[graphQuestion],
+    graphQuestion,
+    graph: {
+      kind: "points",
+      points: [point],
+    },
+    answer: answers[graphQuestion],
+  };
 }
 
 function formatExpressionTerm(term, isFirstTerm = false, options = {}) {
@@ -3295,6 +3352,19 @@ function formatExpectedAnswer(problem) {
     return formatQuadraticVertexEquation(problem.answer.a, problem.answer.h, problem.answer.k);
   }
 
+  if (problem.answerMode === "coordinatePlane") {
+    if (problem.graphQuestion === "xCoordinate") {
+      return `x = ${problem.answer.value}`;
+    }
+    if (problem.graphQuestion === "yCoordinate") {
+      return `y = ${problem.answer.value}`;
+    }
+    if (problem.graphQuestion === "quadrant") {
+      return `Quadrant ${problem.answer.quadrant}`;
+    }
+    return `(${problem.answer.x}, ${problem.answer.y})`;
+  }
+
   if (problem.answerMode === "expressionParts") {
     return problem.answer.display || `${problem.answer.value}`;
   }
@@ -3393,6 +3463,19 @@ function formatSubmittedAnswer(problem, answers = new Map()) {
       : "";
   }
 
+  if (problem.answerMode === "coordinatePlane") {
+    if (problem.graphQuestion === "quadrant") {
+      return answer.quadrant ? `Quadrant ${answer.quadrant}` : "";
+    }
+    if (problem.graphQuestion === "xCoordinate") {
+      return answer.value ? `x = ${answer.value}` : "";
+    }
+    if (problem.graphQuestion === "yCoordinate") {
+      return answer.value ? `y = ${answer.value}` : "";
+    }
+    return answer.x || answer.y ? `(${answer.x || "blank"}, ${answer.y || "blank"})` : "";
+  }
+
   if (problem.answerMode === "expressionParts") {
     return answer.value || "";
   }
@@ -3444,7 +3527,9 @@ function renderReviewProblemCard(problem, answers = new Map(), options = {}) {
     status.className,
     problem.promptLabel === "Formula" ? "is-formula-review" : "",
     problem.answerMode === "single" ? "is-linear-review" : "",
-    ["graphLine", "graphQuadratic"].includes(problem.answerMode) ? "is-graph-review" : "",
+    ["graphLine", "graphQuadratic", "coordinatePlane"].includes(problem.answerMode)
+      ? "is-graph-review"
+      : "",
     [
       "expressionParts",
       "combineLikeTerms",
@@ -3711,6 +3796,9 @@ function getAnswerRowClass(problem) {
   if (problem.answerMode === "graphQuadratic") {
     return `is-graph-quadratic is-quadratic-${problem.graphQuestion.toLowerCase()}`;
   }
+  if (problem.answerMode === "coordinatePlane") {
+    return `is-coordinate-plane is-coordinate-${problem.graphQuestion.toLowerCase()}`;
+  }
   return "";
 }
 
@@ -3794,7 +3882,11 @@ function renderProblemPrompt(problem) {
     `;
   }
 
-  if (problem.answerMode === "graphLine" || problem.answerMode === "graphQuadratic") {
+  if (
+    problem.answerMode === "graphLine" ||
+    problem.answerMode === "graphQuadratic" ||
+    problem.answerMode === "coordinatePlane"
+  ) {
     return `
       <div class="graph-problem">
         ${renderCoordinateGrid(problem)}
@@ -3921,6 +4013,10 @@ function renderCoordinateGrid(problem) {
     return renderQuadraticCoordinateGrid(problem);
   }
 
+  if (problem.graph?.kind === "points") {
+    return renderPointCoordinateGrid(problem);
+  }
+
   const size = 260;
   const center = size / 2;
   const unit = 11;
@@ -3962,6 +4058,40 @@ function renderCoordinateGrid(problem) {
               </g>
             `,
           )
+          .join("")}
+      </svg>
+    </figure>
+  `;
+}
+
+function renderPointCoordinateGrid(problem) {
+  const size = 260;
+  const center = size / 2;
+  const unit = 11;
+  const toSvgX = (value) => center + value * unit;
+  const toSvgY = (value) => center - value * unit;
+  const { gridLines, tickLabels } = makeCoordinateGridParts(toSvgX, toSvgY);
+  const pointLabels = problem.graph.points
+    .map((point) => `${point.label} (${point.x}, ${point.y})`)
+    .join(", ");
+
+  return `
+    <figure class="coordinate-graph" aria-label="Coordinate grid from -10 to 10">
+      <svg viewBox="0 0 ${size} ${size}" role="img" aria-label="Coordinate plane with point ${escapeHtml(pointLabels)}">
+        <rect class="grid-background" x="${toSvgX(-10)}" y="${toSvgY(10)}" width="${unit * 20}" height="${unit * 20}" />
+        ${gridLines.join("")}
+        ${renderAxisLabels(toSvgX, toSvgY, tickLabels)}
+        ${problem.graph.points
+          .map((point) => {
+            const labelX = clampGraphLabel(toSvgX(point.x) + 8);
+            const labelY = clampGraphLabel(toSvgY(point.y) - 8);
+            return `
+              <g class="graph-point">
+                <circle cx="${toSvgX(point.x)}" cy="${toSvgY(point.y)}" r="3.6" />
+                <text x="${labelX}" y="${labelY}">${escapeHtml(point.label)}</text>
+              </g>
+            `;
+          })
           .join("")}
       </svg>
     </figure>
@@ -4192,6 +4322,44 @@ function renderAnswerInputs(problem) {
     `;
   }
 
+  if (problem.answerMode === "coordinatePlane") {
+    if (problem.graphQuestion === "quadrant") {
+      return `
+        <label class="answer-field">
+          <span>Quadrant</span>
+          <select aria-label="Quadrant for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="quadrant" ${lockedAttribute}>
+            <option value="">Choose</option>
+            <option value="I">I</option>
+            <option value="II">II</option>
+            <option value="III">III</option>
+            <option value="IV">IV</option>
+          </select>
+        </label>
+      `;
+    }
+
+    if (problem.graphQuestion === "xCoordinate" || problem.graphQuestion === "yCoordinate") {
+      const coordinate = problem.graphQuestion === "xCoordinate" ? "x" : "y";
+      return `
+        <label class="answer-field">
+          <span>${coordinate}</span>
+          <input type="text" inputmode="numeric" aria-label="${coordinate}-coordinate for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="value" placeholder="${coordinate}" ${lockedAttribute} />
+        </label>
+      `;
+    }
+
+    return `
+      <label class="answer-field">
+        <span>x</span>
+        <input type="text" inputmode="numeric" aria-label="x-coordinate for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="x" placeholder="x" ${lockedAttribute} />
+      </label>
+      <label class="answer-field">
+        <span>y</span>
+        <input type="text" inputmode="numeric" aria-label="y-coordinate for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="y" placeholder="y" ${lockedAttribute} />
+      </label>
+    `;
+  }
+
   if (problem.answerMode === "expressionParts") {
     return `
       <label class="answer-field">
@@ -4297,7 +4465,9 @@ function renderProblems() {
       input.tagName === "SELECT" && !savedValue
         ? answerKey === "kind"
           ? "number"
-          : "<"
+          : answerKey === "quadrant"
+            ? ""
+            : "<"
         : savedValue;
     input.addEventListener(input.tagName === "SELECT" ? "change" : "input", handleAnswerInput);
   });
@@ -4380,6 +4550,17 @@ function hasAnswerForProblem(problem, answers = state.answers) {
     return !isBlank(response.a) || !isBlank(response.h) || !isBlank(response.k);
   }
 
+  if (problem.answerMode === "coordinatePlane") {
+    const response = answer && typeof answer === "object" ? answer : {};
+    if (problem.graphQuestion === "quadrant") {
+      return !isBlank(response.quadrant);
+    }
+    if (problem.graphQuestion === "xCoordinate" || problem.graphQuestion === "yCoordinate") {
+      return !isBlank(response.value);
+    }
+    return !isBlank(response.x) || !isBlank(response.y);
+  }
+
   if (problem.answerMode === "expressionParts") {
     const response = answer && typeof answer === "object" ? answer : {};
     return !isBlank(response.value);
@@ -4431,6 +4612,29 @@ function parseGraphNumberInput(value) {
     .replace(/^[xy]=/, "");
   const parsed = parseFractionInput(normalized);
   return parsed ? fractionToNumber(parsed) : NaN;
+}
+
+function normalizeQuadrantInput(value) {
+  const normalized = `${value ?? ""}`.trim().toUpperCase().replace(/\s/g, "");
+  const quadrantMap = {
+    "1": "I",
+    I: "I",
+    QI: "I",
+    QUADRANTI: "I",
+    "2": "II",
+    II: "II",
+    QII: "II",
+    QUADRANTII: "II",
+    "3": "III",
+    III: "III",
+    QIII: "III",
+    QUADRANTIII: "III",
+    "4": "IV",
+    IV: "IV",
+    QIV: "IV",
+    QUADRANTIV: "IV",
+  };
+  return quadrantMap[normalized] || normalized;
 }
 
 function normalizeExpressionTextAnswer(value) {
@@ -4861,6 +5065,35 @@ function getProblemResult(problem, answers = state.answers) {
     return isCloseEnough(a, problem.answer.a) &&
       isCloseEnough(h, problem.answer.h) &&
       isCloseEnough(k, problem.answer.k)
+      ? "correct"
+      : "wrong";
+  }
+
+  if (problem.answerMode === "coordinatePlane") {
+    const response = answer && typeof answer === "object" ? answer : {};
+
+    if (problem.graphQuestion === "quadrant") {
+      if (isBlank(response.quadrant)) return "blank";
+      return normalizeQuadrantInput(response.quadrant) === problem.answer.quadrant
+        ? "correct"
+        : "wrong";
+    }
+
+    if (problem.graphQuestion === "xCoordinate" || problem.graphQuestion === "yCoordinate") {
+      if (isBlank(response.value)) return "blank";
+      const submittedValue = parseGraphNumberInput(response.value);
+      return Number.isFinite(submittedValue) && isCloseEnough(submittedValue, problem.answer.value)
+        ? "correct"
+        : "wrong";
+    }
+
+    if (isBlank(response.x) && isBlank(response.y)) return "blank";
+    const x = parseGraphNumberInput(response.x);
+    const y = parseGraphNumberInput(response.y);
+    if (isBlank(response.x) || isBlank(response.y) || !Number.isFinite(x) || !Number.isFinite(y)) {
+      return "wrong";
+    }
+    return isCloseEnough(x, problem.answer.x) && isCloseEnough(y, problem.answer.y)
       ? "correct"
       : "wrong";
   }
