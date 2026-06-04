@@ -515,6 +515,13 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function renderMathText(value) {
+  return escapeHtml(value).replace(/\^\(([^)]+)\)|\^([A-Za-z0-9+-]+)/g, (_match, grouped, simple) => {
+    const exponent = grouped || simple;
+    return `<sup>${exponent}</sup>`;
+  });
+}
+
 function normalizeStudentId(value) {
   return value.replace(/\D/g, "").slice(0, 9);
 }
@@ -3045,7 +3052,7 @@ function renderReviewProblemCard(problem, answers = new Map(), options = {}) {
         }
         <div>
           <span>Answer key</span>
-          <strong>${escapeHtml(formatExpectedAnswer(problem))}</strong>
+          <strong>${renderMathText(formatExpectedAnswer(problem))}</strong>
         </div>
       </div>
     </article>
@@ -3320,7 +3327,7 @@ function renderProblemPrompt(problem) {
     return `
       <div class="expression-parts-prompt">
         <span>${escapeHtml(problem.promptLabel || "Expression")}</span>
-        ${problem.expression ? `<strong>${escapeHtml(problem.expression)}</strong>` : ""}
+        ${problem.expression ? `<strong>${renderMathText(problem.expression)}</strong>` : ""}
         <p>${escapeHtml(problem.equation)}</p>
         ${renderMathTable(problem.table)}
       </div>
@@ -3345,7 +3352,7 @@ function renderProblemPrompt(problem) {
     return `
       <div class="expression-parts-prompt">
         <span>Expression</span>
-        <strong>${escapeHtml(problem.expression)}</strong>
+        <strong>${renderMathText(problem.expression)}</strong>
         <p>${escapeHtml(problem.equation)}</p>
         ${renderMathTable(problem.table)}
       </div>

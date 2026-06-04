@@ -600,6 +600,13 @@ button:focus-visible {
   font-size: 1.3rem;
 }
 
+.equation sup,
+.review-answer-grid strong sup {
+  font-size: 0.68em;
+  line-height: 0;
+  vertical-align: super;
+}
+
 .expression-parts-prompt p {
   margin: 0;
   color: var(--ink);
