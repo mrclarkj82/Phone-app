@@ -993,6 +993,11 @@ tbody tr.is-selected-work {
   overflow: visible;
 }
 
+.review-card.is-preview.is-graph-review {
+  min-height: 460px;
+  overflow: hidden;
+}
+
 .review-card.is-expression-review {
   min-height: 214px;
 }
@@ -1030,10 +1035,19 @@ tbody tr.is-selected-work {
   gap: 12px;
 }
 
+.review-card.is-preview.is-graph-review .graph-problem {
+  align-items: start;
+}
+
 .review-card.is-graph-review .coordinate-graph {
   justify-self: center;
-  width: min(100%, 440px);
-  max-width: 440px;
+  width: min(100%, 360px);
+  max-width: 360px;
+}
+
+.review-card.is-preview.is-graph-review .coordinate-graph {
+  width: min(100%, 300px);
+  max-width: 300px;
 }
 
 .review-card.is-graph-review .equation {
