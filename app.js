@@ -163,6 +163,46 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Simplify each complex fraction",
   },
   {
+    id: "exponent-laws-notation",
+    label: "Exponent Laws and Notation",
+    unitId: "exponents-radicals",
+    generator: makeExponentLawsNotationProblem,
+    answerMode: "textValue",
+    directions: "Simplify expressions using exponent laws and notation",
+  },
+  {
+    id: "simplify-roots",
+    label: "Simplify Roots",
+    unitId: "exponents-radicals",
+    generator: makeSimplifyRootsProblem,
+    answerMode: "textValue",
+    directions: "Simplify square roots and cube roots",
+  },
+  {
+    id: "radical-laws-notation",
+    label: "Radical Laws and Notation",
+    unitId: "exponents-radicals",
+    generator: makeRadicalLawsNotationProblem,
+    answerMode: "textValue",
+    directions: "Use radical laws and notation to simplify expressions",
+  },
+  {
+    id: "rational-exponents",
+    label: "Rational Exponents",
+    unitId: "exponents-radicals",
+    generator: makeRationalExponentsProblem,
+    answerMode: "textValue",
+    directions: "Evaluate and rewrite expressions with rational exponents",
+  },
+  {
+    id: "rationalize-denominators",
+    label: "Rationalize Denominators",
+    unitId: "exponents-radicals",
+    generator: makeRationalizeDenominatorsProblem,
+    answerMode: "textValue",
+    directions: "Rewrite expressions so no radical remains in the denominator",
+  },
+  {
     id: "linear-equations",
     label: "Linear Equations",
     unitId: "linear-equations",
@@ -1284,6 +1324,291 @@ function makeComplexFractionsProblem(random, problemNumber = 1) {
   };
 }
 
+function uniqueAnswerList(values) {
+  return [...new Set(values.filter((value) => value !== undefined && value !== null && value !== ""))];
+}
+
+function makeTextAnswer(display, accepted = []) {
+  return {
+    display,
+    accepted: uniqueAnswerList([display, ...accepted]),
+  };
+}
+
+function formatPower(base, exponent) {
+  return `${base}^${exponent}`;
+}
+
+function formatGroupedPower(base, exponent) {
+  return `(${base})^${exponent}`;
+}
+
+function formatRadical(radicand, index = 2) {
+  return index === 2 ? `sqrt(${radicand})` : `root${index}(${radicand})`;
+}
+
+function formatRadicalTerm(coefficient, radicand, index = 2) {
+  if (radicand === 1) return `${coefficient}`;
+  const radical = formatRadical(radicand, index);
+  if (coefficient === 1) return radical;
+  if (coefficient === -1) return `-${radical}`;
+  return `${coefficient}${radical}`;
+}
+
+function radicalAnswerVariants(display) {
+  return [
+    display.replace(/sqrt\((\d+)\)/g, "sqrt$1"),
+    display.replace(/root3\((\d+)\)/g, "root3$1"),
+  ];
+}
+
+function makeRadicalTextAnswer(display, accepted = []) {
+  return makeTextAnswer(display, [...radicalAnswerVariants(display), ...accepted]);
+}
+
+function makeExponentLawsNotationProblem(random, problemNumber = 1) {
+  const variables = ["x", "y", "a", "b", "m"];
+  const variable = variables[integerBetween(random, 0, variables.length - 1)];
+  const problemKind = (problemNumber - 1) % 5;
+  let expression = "";
+  let type = "";
+  let answerDisplay = "";
+
+  if (problemKind === 0) {
+    const firstExponent = integerBetween(random, 2, 7);
+    const secondExponent = integerBetween(random, 2, 7);
+    type = "Product rule";
+    expression = `${formatPower(variable, firstExponent)} * ${formatPower(variable, secondExponent)}`;
+    answerDisplay = formatPower(variable, firstExponent + secondExponent);
+  } else if (problemKind === 1) {
+    const finalExponent = integerBetween(random, 2, 7);
+    const denominatorExponent = integerBetween(random, 2, 5);
+    type = "Quotient rule";
+    expression = `${formatPower(variable, finalExponent + denominatorExponent)} / ${formatPower(
+      variable,
+      denominatorExponent,
+    )}`;
+    answerDisplay = formatPower(variable, finalExponent);
+  } else if (problemKind === 2) {
+    const innerExponent = integerBetween(random, 2, 5);
+    const outerExponent = integerBetween(random, 2, 4);
+    type = "Power of a power";
+    expression = `${formatGroupedPower(formatPower(variable, innerExponent), outerExponent)}`;
+    answerDisplay = formatPower(variable, innerExponent * outerExponent);
+  } else if (problemKind === 3) {
+    const exponent = integerBetween(random, 2, 5);
+    const firstVariable = variable;
+    const secondVariable = variables.find((item) => item !== variable) || "n";
+    type = "Power of a product";
+    expression = formatGroupedPower(`${firstVariable}${secondVariable}`, exponent);
+    answerDisplay = `${formatPower(firstVariable, exponent)}${formatPower(secondVariable, exponent)}`;
+  } else {
+    const base = integerBetween(random, 2, 5);
+    const exponent = integerBetween(random, 2, 4);
+    type = "Evaluate exponent notation";
+    expression = formatPower(base, exponent);
+    answerDisplay = `${base ** exponent}`;
+  }
+
+  return {
+    type,
+    promptLabel: "Expression",
+    expression,
+    equation: "Simplify using exponent laws.",
+    answer: makeTextAnswer(answerDisplay),
+  };
+}
+
+function makeSimplifyRootsProblem(random, problemNumber = 1) {
+  const squareFreeValues = [2, 3, 5, 6, 7, 10, 11, 13];
+  const problemKind = (problemNumber - 1) % 5;
+  let expression = "";
+  let type = "";
+  let answerDisplay = "";
+
+  if (problemKind === 0) {
+    const root = integerBetween(random, 4, 13);
+    type = "Perfect square root";
+    expression = formatRadical(root * root);
+    answerDisplay = `${root}`;
+  } else if (problemKind === 1) {
+    const outside = integerBetween(random, 2, 8);
+    const inside = squareFreeValues[integerBetween(random, 0, squareFreeValues.length - 1)];
+    type = "Simplify square root";
+    expression = formatRadical(outside * outside * inside);
+    answerDisplay = formatRadicalTerm(outside, inside);
+  } else if (problemKind === 2) {
+    const root = integerBetween(random, 2, 7);
+    type = "Perfect cube root";
+    expression = formatRadical(root * root * root, 3);
+    answerDisplay = `${root}`;
+  } else if (problemKind === 3) {
+    const outside = integerBetween(random, 2, 5);
+    const inside = squareFreeValues[integerBetween(random, 0, squareFreeValues.length - 1)];
+    type = "Simplify cube root";
+    expression = formatRadical(outside * outside * outside * inside, 3);
+    answerDisplay = formatRadicalTerm(outside, inside, 3);
+  } else {
+    const multiplier = integerBetween(random, 2, 5);
+    const outside = integerBetween(random, 2, 7);
+    const inside = squareFreeValues[integerBetween(random, 0, squareFreeValues.length - 1)];
+    type = "Coefficient with a root";
+    expression = `${multiplier}${formatRadical(outside * outside * inside)}`;
+    answerDisplay = formatRadicalTerm(multiplier * outside, inside);
+  }
+
+  return {
+    type,
+    promptLabel: "Expression",
+    expression,
+    equation: "Simplify the root.",
+    answer: makeRadicalTextAnswer(answerDisplay),
+  };
+}
+
+function makeRadicalLawsNotationProblem(random, problemNumber = 1) {
+  const squareFreeValues = [2, 3, 5, 6, 7, 10, 11];
+  const radicand = squareFreeValues[integerBetween(random, 0, squareFreeValues.length - 1)];
+  const problemKind = (problemNumber - 1) % 5;
+  let expression = "";
+  let type = "";
+  let answerDisplay = "";
+
+  if (problemKind === 0) {
+    const factor = integerBetween(random, 2, 6);
+    type = "Product property";
+    expression = `${formatRadical(radicand)} * ${formatRadical(radicand * factor * factor)}`;
+    answerDisplay = `${radicand * factor}`;
+  } else if (problemKind === 1) {
+    const quotient = integerBetween(random, 2, 8);
+    type = "Quotient property";
+    expression = `${formatRadical(radicand * quotient * quotient)} / ${formatRadical(radicand)}`;
+    answerDisplay = `${quotient}`;
+  } else if (problemKind === 2) {
+    const firstCoefficient = integerBetween(random, 2, 8);
+    const secondCoefficient = integerBetween(random, 2, 8);
+    type = "Adding like radicals";
+    expression = `${firstCoefficient}${formatRadical(radicand)} + ${secondCoefficient}${formatRadical(
+      radicand,
+    )}`;
+    answerDisplay = formatRadicalTerm(firstCoefficient + secondCoefficient, radicand);
+  } else if (problemKind === 3) {
+    const firstCoefficient = integerBetween(random, 2, 5);
+    const secondCoefficient = integerBetween(random, 2, 5);
+    type = "Multiplying like radicals";
+    expression = `${firstCoefficient}${formatRadical(radicand)} * ${secondCoefficient}${formatRadical(
+      radicand,
+    )}`;
+    answerDisplay = `${firstCoefficient * secondCoefficient * radicand}`;
+  } else {
+    const exponent = integerBetween(random, 2, 5);
+    type = "Radical notation";
+    expression = formatRadical(`x^${exponent * 2}`);
+    answerDisplay = formatPower("x", exponent);
+  }
+
+  return {
+    type,
+    promptLabel: "Expression",
+    expression,
+    equation: "Simplify using radical laws.",
+    answer: makeRadicalTextAnswer(answerDisplay),
+  };
+}
+
+function makeRationalExponentsProblem(random, problemNumber = 1) {
+  const problemKind = (problemNumber - 1) % 5;
+  let expression = "";
+  let type = "";
+  let answerDisplay = "";
+  let accepted = [];
+
+  if (problemKind === 0) {
+    const root = integerBetween(random, 3, 12);
+    type = "Square-root exponent";
+    expression = `${root * root}^(1/2)`;
+    answerDisplay = `${root}`;
+  } else if (problemKind === 1) {
+    const root = integerBetween(random, 2, 6);
+    type = "Cube-root exponent";
+    expression = `${root * root * root}^(1/3)`;
+    answerDisplay = `${root}`;
+  } else if (problemKind === 2) {
+    const root = integerBetween(random, 2, 5);
+    const numerator = integerBetween(random, 2, 4);
+    const denominator = integerBetween(random, 2, 3);
+    type = "Power with rational exponent";
+    expression = `${root ** denominator}^(${numerator}/${denominator})`;
+    answerDisplay = `${root ** numerator}`;
+  } else if (problemKind === 3) {
+    const numerator = integerBetween(random, 2, 5);
+    type = "Rewrite as a radical";
+    expression = `x^(${numerator}/2)`;
+    answerDisplay = `sqrt(x^${numerator})`;
+    accepted = [`(sqrt(x))^${numerator}`];
+  } else {
+    const numerator = integerBetween(random, 2, 5);
+    type = "Rewrite as a rational exponent";
+    expression = `root3(x^${numerator})`;
+    answerDisplay = `x^(${numerator}/3)`;
+  }
+
+  return {
+    type,
+    promptLabel: "Expression",
+    expression,
+    equation: "Evaluate or rewrite the expression.",
+    answer: makeRadicalTextAnswer(answerDisplay, accepted),
+  };
+}
+
+function makeRationalizeDenominatorsProblem(random, problemNumber = 1) {
+  const squareFreeValues = [2, 3, 5, 7, 11];
+  const firstRadicand = squareFreeValues[integerBetween(random, 0, squareFreeValues.length - 1)];
+  const remainingRadicands = squareFreeValues.filter((value) => value !== firstRadicand);
+  const secondRadicand = remainingRadicands[integerBetween(random, 0, remainingRadicands.length - 1)];
+  const problemKind = (problemNumber - 1) % 5;
+  let expression = "";
+  let type = "";
+  let answerDisplay = "";
+
+  if (problemKind === 0) {
+    type = "Unit fraction denominator";
+    expression = `1 / ${formatRadical(firstRadicand)}`;
+    answerDisplay = `${formatRadical(firstRadicand)} / ${firstRadicand}`;
+  } else if (problemKind === 1) {
+    let numerator = integerBetween(random, 2, 8);
+    while (greatestCommonDivisor(numerator, firstRadicand) > 1) {
+      numerator = integerBetween(random, 2, 8);
+    }
+    type = "Coefficient over radical";
+    expression = `${numerator} / ${formatRadical(firstRadicand)}`;
+    answerDisplay = `${numerator}${formatRadical(firstRadicand)} / ${firstRadicand}`;
+  } else if (problemKind === 2) {
+    const coefficient = integerBetween(random, 2, 5);
+    type = "Coefficient with radical denominator";
+    expression = `1 / (${coefficient}${formatRadical(firstRadicand)})`;
+    answerDisplay = `${formatRadical(firstRadicand)} / ${coefficient * firstRadicand}`;
+  } else if (problemKind === 3) {
+    type = "Radical over radical";
+    expression = `${formatRadical(firstRadicand)} / ${formatRadical(secondRadicand)}`;
+    answerDisplay = `${formatRadical(firstRadicand * secondRadicand)} / ${secondRadicand}`;
+  } else {
+    const coefficient = integerBetween(random, 2, 5);
+    type = "Coefficient and radical numerator";
+    expression = `${coefficient}${formatRadical(firstRadicand)} / ${formatRadical(secondRadicand)}`;
+    answerDisplay = `${coefficient}${formatRadical(firstRadicand * secondRadicand)} / ${secondRadicand}`;
+  }
+
+  return {
+    type,
+    promptLabel: "Expression",
+    expression,
+    equation: "Rationalize the denominator.",
+    answer: makeRadicalTextAnswer(answerDisplay),
+  };
+}
+
 function formatFunctionRule(name, coefficient, constant) {
   return `${name}(x) = ${formatLinear(coefficient, constant)}`;
 }
@@ -1941,6 +2266,10 @@ function getProblemSignature(problem) {
     return [problem.expression, problem.equation, problem.answer?.value].join("|");
   }
 
+  if (problem.answerMode === "fractionValue" || problem.answerMode === "textValue") {
+    return [problem.expression, problem.equation, problem.answer?.display].join("|");
+  }
+
   return problem.equations ? problem.equations.join("|") : problem.equation;
 }
 
@@ -2381,6 +2710,10 @@ function formatExpectedAnswer(problem) {
     return formatFractionValue(problem.answer);
   }
 
+  if (problem.answerMode === "textValue") {
+    return problem.answer.display;
+  }
+
   return `x = ${problem.answer}`;
 }
 
@@ -2471,6 +2804,10 @@ function formatSubmittedAnswer(problem, answers = new Map()) {
     return answer.value || "";
   }
 
+  if (problem.answerMode === "textValue") {
+    return answer.value || "";
+  }
+
   return answer.x || "";
 }
 
@@ -2493,7 +2830,9 @@ function renderReviewProblemCard(problem, answers = new Map(), options = {}) {
     "review-card",
     status.className,
     ["graphLine", "graphQuadratic"].includes(problem.answerMode) ? "is-graph-review" : "",
-    ["expressionParts", "combineLikeTerms", "evaluateExpression"].includes(problem.answerMode)
+    ["expressionParts", "combineLikeTerms", "evaluateExpression", "fractionValue", "textValue"].includes(
+      problem.answerMode,
+    )
       ? "is-expression-review"
       : "",
   ]
@@ -2746,6 +3085,7 @@ function getAnswerRowClass(problem) {
   if (problem.answerMode === "evaluateExpression") return "is-evaluate-expression";
   if (problem.answerMode === "functionValue") return "is-function-value";
   if (problem.answerMode === "fractionValue") return "is-fraction-value";
+  if (problem.answerMode === "textValue") return "is-text-value";
   if (problem.answerMode === "graphLine") return `is-graph-line is-graph-${problem.graphQuestion}`;
   if (problem.answerMode === "graphQuadratic") {
     return `is-graph-quadratic is-quadratic-${problem.graphQuestion.toLowerCase()}`;
@@ -2790,6 +3130,17 @@ function renderComplexFraction(problem) {
 }
 
 function renderProblemPrompt(problem) {
+  if (problem.answerMode === "textValue") {
+    return `
+      <div class="expression-parts-prompt">
+        <span>${escapeHtml(problem.promptLabel || "Expression")}</span>
+        ${problem.expression ? `<strong>${escapeHtml(problem.expression)}</strong>` : ""}
+        <p>${escapeHtml(problem.equation)}</p>
+        ${renderMathTable(problem.table)}
+      </div>
+    `;
+  }
+
   if (problem.answerMode === "fractionValue") {
     return `
       <div class="expression-parts-prompt">
@@ -3248,6 +3599,15 @@ function renderAnswerInputs(problem) {
     `;
   }
 
+  if (problem.answerMode === "textValue") {
+    return `
+      <label class="answer-field">
+        <span>Answer</span>
+        <input type="text" inputmode="text" aria-label="Answer for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="value" placeholder="answer" ${lockedAttribute} />
+      </label>
+    `;
+  }
+
   return `
     <input type="text" inputmode="decimal" aria-label="Answer for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="x" placeholder="${getSelectedAssignment().answerPlaceholder}" ${lockedAttribute} />
   `;
@@ -3398,6 +3758,11 @@ function hasAnswerForProblem(problem, answers = state.answers) {
     return !isBlank(response.value);
   }
 
+  if (problem.answerMode === "textValue") {
+    const response = answer && typeof answer === "object" ? answer : {};
+    return !isBlank(response.value);
+  }
+
   const rawAnswer = answer && typeof answer === "object" ? answer.x : answer;
   return !isBlank(rawAnswer);
 }
@@ -3425,6 +3790,18 @@ function normalizeExpressionTermAnswer(value) {
     .replace(/\s/g, "")
     .replace(/\*/g, "")
     .replace(/^\+/, "");
+}
+
+function normalizeSymbolicAnswer(value) {
+  return `${value ?? ""}`
+    .trim()
+    .toLowerCase()
+    .replace(/\u2212|\u2013|\u2014/g, "-")
+    .replace(/\u221a/g, "sqrt")
+    .replace(/\s/g, "")
+    .replace(/\*/g, "")
+    .replace(/sqrt(\d+|[a-z])(?![\w(])/g, "sqrt($1)")
+    .replace(/root3(\d+|[a-z])(?![\w(])/g, "root3($1)");
 }
 
 function isCorrectExpressionOperation(rawValue, expectedOperation) {
@@ -3532,6 +3909,22 @@ function getExpressionPartsResult(problem, response = {}) {
   }
 
   return "wrong";
+}
+
+function getTextValueResult(problem, response = {}) {
+  const rawValue = response.value;
+  if (isBlank(rawValue)) return "blank";
+
+  const normalizedSubmitted = normalizeSymbolicAnswer(rawValue);
+  const acceptedAnswers = problem.answer?.accepted?.length
+    ? problem.answer.accepted
+    : [problem.answer?.display];
+
+  return acceptedAnswers.some(
+    (acceptedAnswer) => normalizeSymbolicAnswer(acceptedAnswer) === normalizedSubmitted,
+  )
+    ? "correct"
+    : "wrong";
 }
 
 function getProblemResult(problem, answers = state.answers) {
@@ -3794,6 +4187,11 @@ function getProblemResult(problem, answers = state.answers) {
     return submittedFraction && fractionsEqual(submittedFraction, problem.answer)
       ? "correct"
       : "wrong";
+  }
+
+  if (problem.answerMode === "textValue") {
+    const response = answer && typeof answer === "object" ? answer : {};
+    return getTextValueResult(problem, response);
   }
 
   const rawAnswer = answer && typeof answer === "object" ? answer.x : answer;
