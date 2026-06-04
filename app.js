@@ -171,6 +171,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Solve for x and y",
   },
   {
+    id: "algebraic-functions",
+    label: "Algebraic Functions",
+    unitId: "intro-functions",
+    generator: makeAlgebraicFunctionProblem,
+    answerMode: "functionValue",
+    directions: "Evaluate algebraic functions and use function notation",
+  },
+  {
     id: "slope-two-points",
     label: "Slope from Two Points",
     unitId: "intro-functions",
@@ -1139,6 +1147,106 @@ function makePartsOfExpressionProblem(random, problemNumber = 1) {
     expression: formatExpression(terms),
     equation: question,
     expressionQuestion: questionKind,
+    answer,
+  };
+}
+
+function formatFunctionRule(name, coefficient, constant) {
+  return `${name}(x) = ${formatLinear(coefficient, constant)}`;
+}
+
+function evaluateLinearFunction(coefficient, constant, input) {
+  return coefficient * input + constant;
+}
+
+function makeFunctionTable(headers, rows) {
+  return { headers, rows };
+}
+
+function makeAlgebraicFunctionProblem(random, problemNumber = 1) {
+  const functionNames = ["f", "g", "h"];
+  const functionName = functionNames[(problemNumber - 1) % functionNames.length];
+  const coefficient = nonZeroBetween(random, -7, 7);
+  const constant = integerBetween(random, -12, 12);
+  const input = integerBetween(random, -6, 6);
+  const problemKind = (problemNumber - 1) % 6;
+  let equation = "";
+  let type = "";
+  let table = null;
+  let answer = evaluateLinearFunction(coefficient, constant, input);
+
+  if (problemKind === 0) {
+    type = "Evaluate function notation";
+    equation = `Given ${formatFunctionRule(functionName, coefficient, constant)}, find ${functionName}(${input}).`;
+  } else if (problemKind === 1) {
+    const targetInput = nonZeroBetween(random, -6, 6);
+    answer = targetInput;
+    type = "Find the input";
+    equation = `Given ${formatFunctionRule(
+      functionName,
+      coefficient,
+      constant,
+    )}, find x when ${functionName}(x) = ${evaluateLinearFunction(
+      coefficient,
+      constant,
+      targetInput,
+    )}.`;
+  } else if (problemKind === 2) {
+    const secondCoefficient = nonZeroBetween(random, -6, 6);
+    const secondConstant = integerBetween(random, -10, 10);
+    const fValue = evaluateLinearFunction(coefficient, constant, input);
+    const gValue = evaluateLinearFunction(secondCoefficient, secondConstant, input);
+    answer = fValue + gValue;
+    type = "Use two functions";
+    equation = `Given f(x) = ${formatLinear(coefficient, constant)} and g(x) = ${formatLinear(
+      secondCoefficient,
+      secondConstant,
+    )}, find f(${input}) + g(${input}).`;
+  } else if (problemKind === 3) {
+    const innerCoefficient = nonZeroBetween(random, -5, 5);
+    const innerConstant = integerBetween(random, -8, 8);
+    const innerValue = evaluateLinearFunction(innerCoefficient, innerConstant, input);
+    answer = evaluateLinearFunction(coefficient, constant, innerValue);
+    type = "Function composition";
+    equation = `Given f(x) = ${formatLinear(coefficient, constant)} and g(x) = ${formatLinear(
+      innerCoefficient,
+      innerConstant,
+    )}, find f(g(${input})).`;
+  } else if (problemKind === 4) {
+    const rows = [-2, 0, 2].map((xValue) => [
+      xValue,
+      evaluateLinearFunction(coefficient, constant, xValue),
+    ]);
+    const targetIndex = integerBetween(random, 0, rows.length - 1);
+    answer = rows[targetIndex][1];
+    type = "Function table";
+    equation = `The table follows ${formatFunctionRule(
+      functionName,
+      coefficient,
+      constant,
+    )}. Find the missing output.`;
+    table = makeFunctionTable(
+      ["x", `${functionName}(x)`],
+      rows.map((row, rowIndex) => (rowIndex === targetIndex ? [row[0], "?"] : row)),
+    );
+  } else {
+    const firstInput = integerBetween(random, -5, 0);
+    const secondInput = integerBetween(random, 1, 6);
+    const firstValue = evaluateLinearFunction(coefficient, constant, firstInput);
+    const secondValue = evaluateLinearFunction(coefficient, constant, secondInput);
+    answer = secondValue - firstValue;
+    type = "Compare outputs";
+    equation = `Given ${formatFunctionRule(
+      functionName,
+      coefficient,
+      constant,
+    )}, find ${functionName}(${secondInput}) - ${functionName}(${firstInput}).`;
+  }
+
+  return {
+    type,
+    equation,
+    table,
     answer,
   };
 }
@@ -2132,6 +2240,10 @@ function formatExpectedAnswer(problem) {
     return problem.answer.display;
   }
 
+  if (problem.answerMode === "functionValue") {
+    return `${problem.answer}`;
+  }
+
   return `x = ${problem.answer}`;
 }
 
@@ -2211,6 +2323,10 @@ function formatSubmittedAnswer(problem, answers = new Map()) {
   }
 
   if (problem.answerMode === "evaluateExpression") {
+    return answer.value || "";
+  }
+
+  if (problem.answerMode === "functionValue") {
     return answer.value || "";
   }
 
@@ -2487,6 +2603,7 @@ function getAnswerRowClass(problem) {
   if (problem.answerMode === "expressionParts") return "is-expression-parts";
   if (problem.answerMode === "combineLikeTerms") return "is-combine-like-terms";
   if (problem.answerMode === "evaluateExpression") return "is-evaluate-expression";
+  if (problem.answerMode === "functionValue") return "is-function-value";
   if (problem.answerMode === "graphLine") return `is-graph-line is-graph-${problem.graphQuestion}`;
   if (problem.answerMode === "graphQuadratic") {
     return `is-graph-quadratic is-quadratic-${problem.graphQuestion.toLowerCase()}`;
@@ -2925,6 +3042,15 @@ function renderAnswerInputs(problem) {
     `;
   }
 
+  if (problem.answerMode === "functionValue") {
+    return `
+      <label class="answer-field">
+        <span>Answer</span>
+        <input type="text" inputmode="numeric" aria-label="Answer for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="value" placeholder="value" ${lockedAttribute} />
+      </label>
+    `;
+  }
+
   return `
     <input type="text" inputmode="decimal" aria-label="Answer for problem ${problem.number}" data-answer-input="${problem.id}" data-answer-key="x" placeholder="${getSelectedAssignment().answerPlaceholder}" ${lockedAttribute} />
   `;
@@ -3061,6 +3187,11 @@ function hasAnswerForProblem(problem, answers = state.answers) {
   }
 
   if (problem.answerMode === "evaluateExpression") {
+    const response = answer && typeof answer === "object" ? answer : {};
+    return !isBlank(response.value);
+  }
+
+  if (problem.answerMode === "functionValue") {
     const response = answer && typeof answer === "object" ? answer : {};
     return !isBlank(response.value);
   }
@@ -3443,6 +3574,15 @@ function getProblemResult(problem, answers = state.answers) {
   if (problem.answerMode === "evaluateExpression") {
     const response = answer && typeof answer === "object" ? answer : {};
     return getEvaluateExpressionResult(problem, response);
+  }
+
+  if (problem.answerMode === "functionValue") {
+    const response = answer && typeof answer === "object" ? answer : {};
+    if (isBlank(response.value)) return "blank";
+    const submittedValue = parseGraphNumberInput(response.value);
+    return Number.isFinite(submittedValue) && isCloseEnough(submittedValue, problem.answer)
+      ? "correct"
+      : "wrong";
   }
 
   const rawAnswer = answer && typeof answer === "object" ? answer.x : answer;

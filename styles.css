@@ -662,7 +662,8 @@ button:focus-visible {
 
 .answer-row.is-expression-parts,
 .answer-row.is-combine-like-terms,
-.answer-row.is-evaluate-expression {
+.answer-row.is-evaluate-expression,
+.answer-row.is-function-value {
   grid-template-columns: minmax(180px, 1fr) minmax(110px, auto);
 }
 
@@ -1043,6 +1044,7 @@ tbody tr.is-selected-work {
   .answer-row.is-expression-parts,
   .answer-row.is-combine-like-terms,
   .answer-row.is-evaluate-expression,
+  .answer-row.is-function-value,
   .answer-row.is-inequality {
     grid-template-columns: 1fr;
   }
