@@ -451,6 +451,34 @@ button:focus-visible {
   text-transform: uppercase;
 }
 
+.formula-prompt {
+  align-content: start;
+  gap: 9px;
+}
+
+.formula-prompt .math-table-wrap {
+  overflow-x: visible;
+}
+
+.formula-prompt .math-table {
+  min-width: 190px;
+  max-width: min(100%, 260px);
+  table-layout: fixed;
+}
+
+.formula-prompt .math-table th,
+.formula-prompt .math-table td {
+  padding: 8px 10px;
+}
+
+.linear-equation-prompt {
+  gap: 6px;
+}
+
+.linear-equation-prompt strong {
+  line-height: 1.28;
+}
+
 .coordinate-graph {
   margin: 0;
   width: min(100%, 340px);
@@ -967,6 +995,22 @@ tbody tr.is-selected-work {
 
 .review-card.is-preview.is-expression-review {
   min-height: 224px;
+}
+
+.review-card.is-formula-review {
+  min-height: 360px;
+}
+
+.review-card.is-preview.is-formula-review {
+  min-height: 380px;
+}
+
+.review-card.is-linear-review {
+  min-height: 178px;
+}
+
+.review-card.is-preview.is-linear-review {
+  min-height: 186px;
 }
 
 .review-card-header {

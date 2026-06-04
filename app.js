@@ -3260,6 +3260,8 @@ function renderReviewProblemCard(problem, answers = new Map(), options = {}) {
   const reviewClasses = [
     "review-card",
     status.className,
+    problem.promptLabel === "Formula" ? "is-formula-review" : "",
+    problem.answerMode === "single" ? "is-linear-review" : "",
     ["graphLine", "graphQuadratic"].includes(problem.answerMode) ? "is-graph-review" : "",
     [
       "expressionParts",
@@ -3568,8 +3570,15 @@ function renderComplexFraction(problem) {
 
 function renderProblemPrompt(problem) {
   if (problem.answerMode === "textValue" || problem.answerMode === "polynomialExpression") {
+    const promptClasses = [
+      "expression-parts-prompt",
+      problem.promptLabel === "Formula" ? "formula-prompt" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
     return `
-      <div class="expression-parts-prompt">
+      <div class="${promptClasses}">
         <span>${escapeHtml(problem.promptLabel || "Expression")}</span>
         ${problem.expression ? `<strong>${renderMathText(problem.expression)}</strong>` : ""}
         <p>${escapeHtml(problem.equation)}</p>
@@ -3619,6 +3628,16 @@ function renderProblemPrompt(problem) {
     return `<div class="system-equations">${problem.equations
       .map((equation) => `<span>${escapeHtml(equation)}</span>`)
       .join("")}</div>${renderMathTable(problem.table)}`;
+  }
+
+  if (problem.answerMode === "single") {
+    return `
+      <div class="expression-parts-prompt linear-equation-prompt">
+        <span>Equation</span>
+        <strong>${renderMathText(problem.equation)}</strong>
+        <p>Solve for x.</p>
+      </div>
+    `;
   }
 
   return `${escapeHtml(problem.equation)}${renderMathTable(problem.table)}`;
