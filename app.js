@@ -283,6 +283,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Write linear equations in point-slope form",
   },
   {
+    id: "standard-form",
+    label: "Standard Form",
+    unitId: "linear-equations",
+    generator: makeStandardFormProblem,
+    answerMode: "textValue",
+    directions: "Write linear equations in standard form",
+  },
+  {
     id: "systems-equations",
     label: "Systems of Equations",
     unitId: "systems-equations-inequalities",
@@ -2637,6 +2645,52 @@ function makePointSlopeAnswer(slope, point, extraAccepted = []) {
   return makeTextAnswer(display, accepted);
 }
 
+function normalizeStandardFormCoefficients(aCoefficient, bCoefficient, constant) {
+  const divisor = greatestCommonDivisor(
+    greatestCommonDivisor(aCoefficient, bCoefficient),
+    constant,
+  );
+  let a = aCoefficient / divisor;
+  let b = bCoefficient / divisor;
+  let c = constant / divisor;
+
+  if (a < 0 || (a === 0 && b < 0)) {
+    a *= -1;
+    b *= -1;
+    c *= -1;
+  }
+
+  return { a, b, c };
+}
+
+function formatStandardTerm(coefficient, variable, isFirstTerm, showOne = false) {
+  const absolute = Math.abs(coefficient);
+  const term = absolute === 1 && !showOne ? variable : `${absolute}${variable}`;
+
+  if (isFirstTerm) {
+    return coefficient < 0 ? `-${term}` : term;
+  }
+
+  return `${coefficient < 0 ? "-" : "+"} ${term}`;
+}
+
+function formatStandardFormEquation(aCoefficient, bCoefficient, constant, options = {}) {
+  return `${formatStandardTerm(
+    aCoefficient,
+    "x",
+    true,
+    options.showOnes,
+  )} ${formatStandardTerm(bCoefficient, "y", false, options.showOnes)} = ${constant}`;
+}
+
+function makeStandardFormAnswer(aCoefficient, bCoefficient, constant, extraAccepted = []) {
+  const { a, b, c } = normalizeStandardFormCoefficients(aCoefficient, bCoefficient, constant);
+  return makeTextAnswer(formatStandardFormEquation(a, b, c), [
+    formatStandardFormEquation(a, b, c, { showOnes: true }),
+    ...extraAccepted,
+  ]);
+}
+
 function formatQuadraticVertexEquation(a, h, k) {
   const aText = a === 1 ? "" : a === -1 ? "-" : `${a}`;
   const hText = h === 0 ? "x" : h > 0 ? `x - ${h}` : `x + ${Math.abs(h)}`;
@@ -2939,6 +2993,109 @@ function makePointSlopeFormProblem(random, problemNumber = 1) {
     expression: `m = ${formatFractionValue(slope)}, point (${point.x}, ${point.y})`,
     equation: "Write the equation in point-slope form.",
     answer: makePointSlopeAnswer(slope, point),
+  };
+}
+
+function makeStandardFormProblem(random, problemNumber = 1) {
+  const problemKind = (problemNumber - 1) % 5;
+  const makeSafePoint = () => ({
+    x: nonZeroBetween(random, -6, 6),
+    y: nonZeroBetween(random, -6, 6),
+  });
+
+  if (problemKind === 0) {
+    const slope = reduceFraction(nonZeroBetween(random, -6, 6), 1);
+    const intercept = reduceFraction(integerBetween(random, -9, 9), 1);
+    return {
+      type: "Slope-intercept to standard",
+      promptLabel: "Standard form",
+      expression: formatSlopeInterceptEquation(slope, intercept),
+      equation: "Rewrite the equation in standard form.",
+      answer: makeStandardFormAnswer(slope.numerator, -slope.denominator, -intercept.numerator),
+    };
+  }
+
+  if (problemKind === 1) {
+    let denominator = integerBetween(random, 2, 5);
+    let numerator = nonZeroBetween(random, -6, 6);
+    let slope = reduceFraction(numerator, denominator);
+    while (slope.denominator === 1) {
+      denominator = integerBetween(random, 2, 5);
+      numerator = nonZeroBetween(random, -6, 6);
+      slope = reduceFraction(numerator, denominator);
+    }
+    const intercept = reduceFraction(integerBetween(random, -8, 8), 1);
+    return {
+      type: "Fractional slope",
+      promptLabel: "Standard form",
+      expression: formatSlopeInterceptEquation(slope, intercept),
+      equation: "Rewrite the equation in standard form with integer coefficients.",
+      answer: makeStandardFormAnswer(
+        slope.numerator,
+        -slope.denominator,
+        -intercept.numerator * slope.denominator,
+      ),
+    };
+  }
+
+  if (problemKind === 2) {
+    const point = makeSafePoint();
+    const slope = reduceFraction(nonZeroBetween(random, -5, 5), 1);
+    return {
+      type: "Slope and point",
+      promptLabel: "Standard form",
+      expression: `m = ${formatFractionValue(slope)}, point (${point.x}, ${point.y})`,
+      equation: "Write the equation in standard form.",
+      answer: makeStandardFormAnswer(
+        slope.numerator,
+        -slope.denominator,
+        slope.numerator * point.x - slope.denominator * point.y,
+      ),
+    };
+  }
+
+  if (problemKind === 3) {
+    const firstPoint = makeSafePoint();
+    const run = integerBetween(random, 2, 5);
+    const rise = nonZeroBetween(random, -6, 6);
+    const secondPoint = {
+      x: firstPoint.x + run,
+      y: firstPoint.y + rise,
+    };
+    const aCoefficient = secondPoint.y - firstPoint.y;
+    const bCoefficient = firstPoint.x - secondPoint.x;
+    const constant = aCoefficient * firstPoint.x + bCoefficient * firstPoint.y;
+    return {
+      type: "Two points",
+      promptLabel: "Standard form",
+      expression: `points (${firstPoint.x}, ${firstPoint.y}) and (${secondPoint.x}, ${secondPoint.y})`,
+      equation: "Write the equation in standard form.",
+      answer: makeStandardFormAnswer(aCoefficient, bCoefficient, constant),
+    };
+  }
+
+  const firstPoint = makeSafePoint();
+  const run = integerBetween(random, 2, 5);
+  const rise = nonZeroBetween(random, -5, 5);
+  const rows = [0, 1, 2].map((step) => {
+    const x = firstPoint.x + run * step;
+    const y = firstPoint.y + rise * step;
+    return [x, y];
+  });
+  const secondPoint = { x: rows[1][0], y: rows[1][1] };
+  const aCoefficient = secondPoint.y - firstPoint.y;
+  const bCoefficient = firstPoint.x - secondPoint.x;
+  const constant = aCoefficient * firstPoint.x + bCoefficient * firstPoint.y;
+  return {
+    type: "Table to standard",
+    promptLabel: "Standard form",
+    expression: "Use the first two points shown in the table.",
+    equation: "Write the equation in standard form.",
+    table: {
+      headers: ["x", "y"],
+      rows,
+    },
+    answer: makeStandardFormAnswer(aCoefficient, bCoefficient, constant),
   };
 }
 
