@@ -379,6 +379,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Solve each two-step inequality for x",
   },
   {
+    id: "multi-step-inequalities",
+    label: "Multi-Step Inequalities",
+    unitId: "linear-inequalities",
+    generator: makeMultiStepInequalityProblem,
+    answerMode: "inequality",
+    directions: "Solve each multi-step inequality for x",
+  },
+  {
     id: "inequalities",
     label: "Inequalities",
     unitId: "linear-inequalities",
@@ -2948,6 +2956,127 @@ function makeTwoStepInequalityProblem(random, problemNumber = 1) {
     type: "Mixed signs",
     equation: `${formatLinear(coefficient, constant)} ${baseSymbol} ${rightValue}`,
     answer: makeInequalityAnswer(coefficient, baseSymbol, rightValue - constant),
+  };
+}
+
+function makeMultiStepInequalityProblem(random, problemNumber = 1) {
+  const problemKind = (problemNumber - 1) % 5;
+  const symbolOptions = ["<", ">", "<=", ">="];
+  const baseSymbol = symbolOptions[integerBetween(random, 0, symbolOptions.length - 1)];
+  const boundary = integerBetween(random, -12, 12);
+
+  if (problemKind === 0) {
+    let leftCoefficient = nonZeroBetween(random, -8, 8);
+    let rightCoefficient = nonZeroBetween(random, -8, 8);
+    while (leftCoefficient === rightCoefficient) {
+      rightCoefficient = nonZeroBetween(random, -8, 8);
+    }
+
+    const coefficientDifference = leftCoefficient - rightCoefficient;
+    const leftConstant = nonZeroBetween(random, -12, 12);
+    const rightConstant = coefficientDifference * boundary + leftConstant;
+    return {
+      type: "Variables on both sides",
+      equation: `${formatLinear(leftCoefficient, leftConstant)} ${baseSymbol} ${formatLinear(
+        rightCoefficient,
+        rightConstant,
+      )}`,
+      answer: makeInequalityAnswer(coefficientDifference, baseSymbol, rightConstant - leftConstant),
+    };
+  }
+
+  if (problemKind === 1) {
+    const coefficient =
+      random() < 0.5 ? -integerBetween(random, 2, 7) : integerBetween(random, 2, 7);
+    const inside = nonZeroBetween(random, -9, 9);
+    const outside = nonZeroBetween(random, -14, 14);
+    const rightValue = coefficient * (boundary + inside) + outside;
+    return {
+      type: "Parentheses",
+      equation: `${coefficient}(x ${inside > 0 ? "+" : "-"} ${Math.abs(
+        inside,
+      )}) ${outside > 0 ? "+" : "-"} ${Math.abs(outside)} ${baseSymbol} ${rightValue}`,
+      answer: makeInequalityAnswer(
+        coefficient,
+        baseSymbol,
+        rightValue - outside - coefficient * inside,
+      ),
+    };
+  }
+
+  if (problemKind === 2) {
+    const firstCoefficient = nonZeroBetween(random, -8, 8);
+    let secondCoefficient = nonZeroBetween(random, -8, 8);
+    while (firstCoefficient + secondCoefficient === 0) {
+      secondCoefficient = nonZeroBetween(random, -8, 8);
+    }
+
+    const coefficientSum = firstCoefficient + secondCoefficient;
+    const constant = nonZeroBetween(random, -12, 12);
+    const rightValue = coefficientSum * boundary + constant;
+    return {
+      type: "Combine like terms",
+      equation: `${formatLinear(firstCoefficient, constant)} ${formatVariableTerm(
+        secondCoefficient,
+        "x",
+        false,
+      )} ${baseSymbol} ${rightValue}`,
+      answer: makeInequalityAnswer(coefficientSum, baseSymbol, rightValue - constant),
+    };
+  }
+
+  if (problemKind === 3) {
+    const coefficient =
+      random() < 0.5 ? -integerBetween(random, 2, 7) : integerBetween(random, 2, 7);
+    const inside = nonZeroBetween(random, -9, 9);
+    const outside = nonZeroBetween(random, -14, 14);
+    let rightCoefficient = nonZeroBetween(random, -7, 7);
+    while (rightCoefficient === coefficient) {
+      rightCoefficient = nonZeroBetween(random, -7, 7);
+    }
+
+    const coefficientDifference = coefficient - rightCoefficient;
+    const rightConstant = coefficientDifference * boundary + coefficient * inside + outside;
+    return {
+      type: "Distributive property",
+      equation: `${coefficient}(x ${inside > 0 ? "+" : "-"} ${Math.abs(
+        inside,
+      )}) ${outside > 0 ? "+" : "-"} ${Math.abs(outside)} ${baseSymbol} ${formatLinear(
+        rightCoefficient,
+        rightConstant,
+      )}`,
+      answer: makeInequalityAnswer(
+        coefficientDifference,
+        baseSymbol,
+        rightConstant - coefficient * inside - outside,
+      ),
+    };
+  }
+
+  const leftCoefficient =
+    random() < 0.5 ? -integerBetween(random, 2, 7) : integerBetween(random, 2, 7);
+  const inside = nonZeroBetween(random, -8, 8);
+  const outside = nonZeroBetween(random, -12, 12);
+  let rightCoefficient = nonZeroBetween(random, -7, 7);
+  while (rightCoefficient === leftCoefficient) {
+    rightCoefficient = nonZeroBetween(random, -7, 7);
+  }
+
+  const coefficientDifference = leftCoefficient - rightCoefficient;
+  const rightConstant = coefficientDifference * boundary + leftCoefficient * inside + outside;
+  return {
+    type: "Distribute and move variables",
+    equation: `${leftCoefficient}(x ${inside > 0 ? "+" : "-"} ${Math.abs(
+      inside,
+    )}) ${outside > 0 ? "+" : "-"} ${Math.abs(outside)} ${baseSymbol} ${formatLinear(
+      rightCoefficient,
+      rightConstant,
+    )}`,
+    answer: makeInequalityAnswer(
+      coefficientDifference,
+      baseSymbol,
+      rightConstant - leftCoefficient * inside - outside,
+    ),
   };
 }
 
