@@ -410,6 +410,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     answerMode: "graphQuadratic",
     directions: "Use the graph to answer each quadratic function question",
   },
+  {
+    id: "solve-quadratics-factoring",
+    label: "Solve Quadratics: Factoring",
+    unitId: "quadratic-equations",
+    generator: makeSolveQuadraticsFactoringProblem,
+    answerMode: "textValue",
+    directions: "Solve each quadratic equation by factoring",
+  },
 ];
 
 export const roster = [
@@ -2463,6 +2471,105 @@ function makeFactorPolynomialsProblem(random, problemNumber = 1) {
     expression,
     equation: "Factor the polynomial completely.",
     answer,
+  };
+}
+
+function makeQuadraticSolutionsAnswer(roots) {
+  const uniqueRoots = [...new Set(roots)].sort((left, right) => left - right);
+
+  if (uniqueRoots.length === 1) {
+    const root = uniqueRoots[0];
+    return makeTextAnswer(`x = ${root}`, [`${root}`, `x=${root}`, `root ${root}`]);
+  }
+
+  const [firstRoot, secondRoot] = uniqueRoots;
+  return makeTextAnswer(`x = ${firstRoot} or x = ${secondRoot}`, [
+    `x=${firstRoot} or x=${secondRoot}`,
+    `x=${secondRoot} or x=${firstRoot}`,
+    `x=${firstRoot} and x=${secondRoot}`,
+    `x=${secondRoot} and x=${firstRoot}`,
+    `x=${firstRoot}, x=${secondRoot}`,
+    `x=${secondRoot}, x=${firstRoot}`,
+    `${firstRoot} or ${secondRoot}`,
+    `${secondRoot} or ${firstRoot}`,
+    `${firstRoot} and ${secondRoot}`,
+    `${secondRoot} and ${firstRoot}`,
+    `${firstRoot}, ${secondRoot}`,
+    `${secondRoot}, ${firstRoot}`,
+    `(${firstRoot}, ${secondRoot})`,
+    `(${secondRoot}, ${firstRoot})`,
+  ]);
+}
+
+function makeSolveQuadraticsFactoringProblem(random, problemNumber = 1) {
+  const problemKind = (problemNumber - 1) % 5;
+  let type = "";
+  let expression = "";
+  let roots = [];
+
+  if (problemKind === 0) {
+    const firstRoot = nonZeroBetween(random, -9, 9);
+    let secondRoot = nonZeroBetween(random, -9, 9);
+    while (secondRoot === firstRoot) {
+      secondRoot = nonZeroBetween(random, -9, 9);
+    }
+
+    type = "Monic trinomial";
+    roots = [firstRoot, secondRoot];
+    expression = formatPolynomial([
+      makePolynomialTerm(1, 2),
+      makePolynomialTerm(-(firstRoot + secondRoot), 1),
+      makePolynomialTerm(firstRoot * secondRoot, 0),
+    ]);
+  } else if (problemKind === 1) {
+    const root = integerBetween(random, 2, 12);
+    type = "Difference of squares";
+    roots = [-root, root];
+    expression = formatPolynomial([
+      makePolynomialTerm(1, 2),
+      makePolynomialTerm(-(root * root), 0),
+    ]);
+  } else if (problemKind === 2) {
+    const root = nonZeroBetween(random, -9, 9);
+    type = "Perfect square trinomial";
+    roots = [root, root];
+    expression = formatPolynomial([
+      makePolynomialTerm(1, 2),
+      makePolynomialTerm(-2 * root, 1),
+      makePolynomialTerm(root * root, 0),
+    ]);
+  } else if (problemKind === 3) {
+    const coefficient = integerBetween(random, 2, 7);
+    const root = nonZeroBetween(random, -9, 9);
+    type = "Factor out the GCF";
+    roots = [0, root];
+    expression = formatPolynomial([
+      makePolynomialTerm(coefficient, 2),
+      makePolynomialTerm(-coefficient * root, 1),
+    ]);
+  } else {
+    const leadingCoefficient = integerBetween(random, 2, 5);
+    const firstRoot = nonZeroBetween(random, -7, 7);
+    let secondRoot = nonZeroBetween(random, -7, 7);
+    while (secondRoot === firstRoot) {
+      secondRoot = nonZeroBetween(random, -7, 7);
+    }
+
+    type = "Leading coefficient";
+    roots = [firstRoot, secondRoot];
+    expression = formatPolynomial([
+      makePolynomialTerm(leadingCoefficient, 2),
+      makePolynomialTerm(-leadingCoefficient * (firstRoot + secondRoot), 1),
+      makePolynomialTerm(leadingCoefficient * firstRoot * secondRoot, 0),
+    ]);
+  }
+
+  return {
+    type,
+    promptLabel: "Quadratic equation",
+    expression: `${expression} = 0`,
+    equation: "Solve by factoring.",
+    answer: makeQuadraticSolutionsAnswer(roots),
   };
 }
 
