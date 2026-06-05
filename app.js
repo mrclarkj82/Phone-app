@@ -371,6 +371,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Solve each one-step inequality for x",
   },
   {
+    id: "two-step-inequalities",
+    label: "Two-Step Inequalities",
+    unitId: "linear-inequalities",
+    generator: makeTwoStepInequalityProblem,
+    answerMode: "inequality",
+    directions: "Solve each two-step inequality for x",
+  },
+  {
     id: "inequalities",
     label: "Inequalities",
     unitId: "linear-inequalities",
@@ -2872,6 +2880,74 @@ function makeOneStepInequalityProblem(random, problemNumber = 1) {
     type: "Negative coefficient",
     equation: `${formatTerm(coefficient)} ${baseSymbol} ${coefficient * boundary}`,
     answer: makeInequalityAnswer(coefficient, baseSymbol, coefficient * boundary),
+  };
+}
+
+function makeTwoStepInequalityProblem(random, problemNumber = 1) {
+  const problemKind = (problemNumber - 1) % 5;
+  const symbolOptions = ["<", ">", "<=", ">="];
+  const baseSymbol = symbolOptions[integerBetween(random, 0, symbolOptions.length - 1)];
+
+  if (problemKind === 0) {
+    const boundary = integerBetween(random, -12, 12);
+    const coefficient = integerBetween(random, 2, 9);
+    const constant = integerBetween(random, 2, 18);
+    const rightValue = coefficient * boundary + constant;
+    return {
+      type: "Positive constant",
+      equation: `${formatLinear(coefficient, constant)} ${baseSymbol} ${rightValue}`,
+      answer: makeInequalityAnswer(coefficient, baseSymbol, rightValue - constant),
+    };
+  }
+
+  if (problemKind === 1) {
+    const boundary = integerBetween(random, -12, 12);
+    const coefficient = integerBetween(random, 2, 9);
+    const constant = integerBetween(random, 2, 18);
+    const rightValue = coefficient * boundary - constant;
+    return {
+      type: "Negative constant",
+      equation: `${formatLinear(coefficient, -constant)} ${baseSymbol} ${rightValue}`,
+      answer: makeInequalityAnswer(coefficient, baseSymbol, rightValue + constant),
+    };
+  }
+
+  if (problemKind === 2) {
+    const boundary = integerBetween(random, -12, 12);
+    const coefficient = -integerBetween(random, 2, 9);
+    const constant = nonZeroBetween(random, -12, 12);
+    const rightValue = coefficient * boundary + constant;
+    return {
+      type: "Negative coefficient",
+      equation: `${formatLinear(coefficient, constant)} ${baseSymbol} ${rightValue}`,
+      answer: makeInequalityAnswer(coefficient, baseSymbol, rightValue - constant),
+    };
+  }
+
+  if (problemKind === 3) {
+    const quotient = nonZeroBetween(random, -12, 12);
+    const divisor = integerBetween(random, 2, 12);
+    const constant = nonZeroBetween(random, -12, 12);
+    return {
+      type: "Division with a constant",
+      equation: `x / ${divisor} ${constant >= 0 ? "+" : "-"} ${Math.abs(constant)} ${baseSymbol} ${
+        quotient + constant
+      }`,
+      answer: {
+        boundary: divisor * quotient,
+        symbol: baseSymbol,
+      },
+    };
+  }
+
+  const boundary = integerBetween(random, -12, 12);
+  const coefficient = -integerBetween(random, 2, 9);
+  const constant = -integerBetween(random, 2, 18);
+  const rightValue = coefficient * boundary + constant;
+  return {
+    type: "Mixed signs",
+    equation: `${formatLinear(coefficient, constant)} ${baseSymbol} ${rightValue}`,
+    answer: makeInequalityAnswer(coefficient, baseSymbol, rightValue - constant),
   };
 }
 
