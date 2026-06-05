@@ -291,6 +291,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Write linear equations in standard form",
   },
   {
+    id: "transformations-linear-functions",
+    label: "Transformations of Linear Functions",
+    unitId: "linear-equations",
+    generator: makeTransformationsLinearFunctionsProblem,
+    answerMode: "textValue",
+    directions: "Write transformed linear functions",
+  },
+  {
     id: "systems-equations",
     label: "Systems of Equations",
     unitId: "systems-equations-inequalities",
@@ -2691,6 +2699,34 @@ function makeStandardFormAnswer(aCoefficient, bCoefficient, constant, extraAccep
   ]);
 }
 
+function formatLinearWithOnes(coefficient, constant) {
+  const variable = `${coefficient}x`;
+  if (constant === 0) return variable;
+  return `${variable} ${constant > 0 ? "+" : "-"} ${Math.abs(constant)}`;
+}
+
+function formatFunctionTransformation(expression, change) {
+  if (change === 0) return expression;
+  return `${expression} ${change > 0 ? "+" : "-"} ${Math.abs(change)}`;
+}
+
+function formatFunctionInputShift(shiftRight) {
+  if (shiftRight === 0) return "x";
+  return `x ${shiftRight > 0 ? "-" : "+"} ${Math.abs(shiftRight)}`;
+}
+
+function makeLinearFunctionEquationAnswer(coefficient, constant, functionName = "g") {
+  const rule = formatLinear(coefficient, constant);
+  const explicitRule = formatLinearWithOnes(coefficient, constant);
+  return makeTextAnswer(`${functionName}(x) = ${rule}`, [
+    `${functionName}(x) = ${explicitRule}`,
+    `y = ${rule}`,
+    `y = ${explicitRule}`,
+    rule,
+    explicitRule,
+  ]);
+}
+
 function formatQuadraticVertexEquation(a, h, k) {
   const aText = a === 1 ? "" : a === -1 ? "-" : `${a}`;
   const hText = h === 0 ? "x" : h > 0 ? `x - ${h}` : `x + ${Math.abs(h)}`;
@@ -3096,6 +3132,88 @@ function makeStandardFormProblem(random, problemNumber = 1) {
       rows,
     },
     answer: makeStandardFormAnswer(aCoefficient, bCoefficient, constant),
+  };
+}
+
+function makeTransformationsLinearFunctionsProblem(random, problemNumber = 1) {
+  const problemKind = (problemNumber - 1) % 5;
+  const makeBaseFunction = (evenValues = false) => ({
+    coefficient: evenValues ? 2 * nonZeroBetween(random, -4, 4) : nonZeroBetween(random, -6, 6),
+    constant: evenValues ? 2 * integerBetween(random, -5, 5) : integerBetween(random, -8, 8),
+  });
+
+  if (problemKind === 0) {
+    const base = makeBaseFunction();
+    const verticalShift = nonZeroBetween(random, -7, 7);
+    return {
+      type: "Vertical shift",
+      promptLabel: "Linear transformation",
+      expression: `${formatFunctionRule("f", base.coefficient, base.constant)}, g(x) = ${formatFunctionTransformation(
+        "f(x)",
+        verticalShift,
+      )}`,
+      equation: "Write the transformed function g(x).",
+      answer: makeLinearFunctionEquationAnswer(base.coefficient, base.constant + verticalShift),
+    };
+  }
+
+  if (problemKind === 1) {
+    const base = makeBaseFunction();
+    return {
+      type: "Reflect over x-axis",
+      promptLabel: "Linear transformation",
+      expression: `${formatFunctionRule("f", base.coefficient, base.constant)}, g(x) = -f(x)`,
+      equation: "Write the transformed function g(x).",
+      answer: makeLinearFunctionEquationAnswer(-base.coefficient, -base.constant),
+    };
+  }
+
+  if (problemKind === 2) {
+    const useCompression = problemNumber % 10 === 3;
+    const base = makeBaseFunction(useCompression);
+    const scale = useCompression ? 0.5 : integerBetween(random, 2, 4);
+    const scaleText = useCompression ? "(1/2)" : `${scale}`;
+    return {
+      type: useCompression ? "Vertical compression" : "Vertical stretch",
+      promptLabel: "Linear transformation",
+      expression: `${formatFunctionRule("f", base.coefficient, base.constant)}, g(x) = ${scaleText}f(x)`,
+      equation: "Write the transformed function g(x).",
+      answer: makeLinearFunctionEquationAnswer(base.coefficient * scale, base.constant * scale),
+    };
+  }
+
+  if (problemKind === 3) {
+    const base = makeBaseFunction();
+    const shiftRight = nonZeroBetween(random, -5, 5);
+    return {
+      type: shiftRight > 0 ? "Horizontal shift right" : "Horizontal shift left",
+      promptLabel: "Linear transformation",
+      expression: `${formatFunctionRule("f", base.coefficient, base.constant)}, g(x) = f(${formatFunctionInputShift(
+        shiftRight,
+      )})`,
+      equation: "Write the transformed function g(x).",
+      answer: makeLinearFunctionEquationAnswer(
+        base.coefficient,
+        base.constant - base.coefficient * shiftRight,
+      ),
+    };
+  }
+
+  const base = makeBaseFunction();
+  const scale = integerBetween(random, 2, 3);
+  const verticalShift = nonZeroBetween(random, -6, 6);
+  return {
+    type: "Combined transformation",
+    promptLabel: "Linear transformation",
+    expression: `${formatFunctionRule("f", base.coefficient, base.constant)}, g(x) = ${formatFunctionTransformation(
+      `${scale}f(x)`,
+      verticalShift,
+    )}`,
+    equation: "Write the transformed function g(x).",
+    answer: makeLinearFunctionEquationAnswer(
+      base.coefficient * scale,
+      base.constant * scale + verticalShift,
+    ),
   };
 }
 
