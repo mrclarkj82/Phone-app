@@ -307,6 +307,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Use slope relationships to identify and write parallel lines",
   },
   {
+    id: "perpendicular-lines",
+    label: "Perpendicular Lines",
+    unitId: "linear-equations",
+    generator: makePerpendicularLinesProblem,
+    answerMode: "textValue",
+    directions: "Use slope relationships to identify and write perpendicular lines",
+  },
+  {
     id: "systems-equations",
     label: "Systems of Equations",
     unitId: "systems-equations-inequalities",
@@ -3243,6 +3251,17 @@ function makeParallelDecisionAnswer(isParallel) {
     : makeTextAnswer("No", ["no", "not parallel", "the lines are not parallel"]);
 }
 
+function getPerpendicularSlope(slope) {
+  const reduced = reduceFraction(slope.numerator, slope.denominator);
+  return reduceFraction(-reduced.denominator, reduced.numerator);
+}
+
+function makePerpendicularDecisionAnswer(isPerpendicular) {
+  return isPerpendicular
+    ? makeTextAnswer("Yes", ["yes", "perpendicular", "the lines are perpendicular"])
+    : makeTextAnswer("No", ["no", "not perpendicular", "the lines are not perpendicular"]);
+}
+
 function makeParallelLineProblem(random, problemNumber = 1) {
   const problemKind = (problemNumber - 1) % 7;
 
@@ -3404,6 +3423,190 @@ function makeParallelLineProblem(random, problemNumber = 1) {
     )}`,
     equation: "What value of k makes the lines parallel?",
     answer: makeTextAnswer(`${slope.numerator}`, [`k = ${slope.numerator}`, `slope = ${slope.numerator}`]),
+  };
+}
+
+function makePerpendicularLinesProblem(random, problemNumber = 1) {
+  const problemKind = (problemNumber - 1) % 7;
+
+  if (problemKind === 0) {
+    const slope = reduceFraction(nonZeroBetween(random, -6, 6), integerBetween(random, 1, 5));
+    const perpendicularSlope = getPerpendicularSlope(slope);
+    const intercept = reduceFraction(integerBetween(random, -8, 8), 1);
+    return {
+      type: "Perpendicular slope",
+      promptLabel: "Perpendicular lines",
+      expression: formatSlopeInterceptEquation(slope, intercept),
+      equation: "What is the slope of any line perpendicular to this line?",
+      answer: makeSlopeTextAnswer(perpendicularSlope),
+    };
+  }
+
+  if (problemKind === 1) {
+    const slope = reduceFraction(nonZeroBetween(random, -5, 5), 1);
+    const perpendicularSlope = getPerpendicularSlope(slope);
+    const baseIntercept = reduceFraction(integerBetween(random, -7, 7), 1);
+    const point = {
+      x: nonZeroBetween(random, -6, 6),
+      y: nonZeroBetween(random, -6, 6),
+    };
+    const perpendicularIntercept = reduceFraction(
+      point.y * perpendicularSlope.denominator - perpendicularSlope.numerator * point.x,
+      perpendicularSlope.denominator,
+    );
+    return {
+      type: "Equation through a point",
+      promptLabel: "Perpendicular lines",
+      expression: `${formatSlopeInterceptEquation(slope, baseIntercept)}, point (${point.x}, ${point.y})`,
+      equation: "Write the equation of the line perpendicular to the given line through the point.",
+      answer: makeSlopeInterceptEquationAnswer(perpendicularSlope, perpendicularIntercept),
+    };
+  }
+
+  if (problemKind === 2) {
+    const slope = reduceFraction(nonZeroBetween(random, -5, 5), integerBetween(random, 2, 5));
+    const perpendicularSlope = getPerpendicularSlope(slope);
+    const baseIntercept = integerBetween(random, -6, 6);
+    const baseStandard = normalizeStandardFormCoefficients(
+      slope.numerator,
+      -slope.denominator,
+      -slope.denominator * baseIntercept,
+    );
+    const pointX = perpendicularSlope.denominator * nonZeroBetween(random, -4, 4);
+    const point = {
+      x: pointX,
+      y: nonZeroBetween(random, -8, 8),
+    };
+    const perpendicularIntercept = reduceFraction(
+      point.y * perpendicularSlope.denominator - perpendicularSlope.numerator * point.x,
+      perpendicularSlope.denominator,
+    );
+    return {
+      type: "Standard form and point",
+      promptLabel: "Perpendicular lines",
+      expression: `${formatStandardFormEquation(
+        baseStandard.a,
+        baseStandard.b,
+        baseStandard.c,
+      )}, point (${point.x}, ${point.y})`,
+      equation: "Write the slope-intercept equation of the perpendicular line through the point.",
+      answer: makeSlopeInterceptEquationAnswer(perpendicularSlope, perpendicularIntercept),
+    };
+  }
+
+  if (problemKind === 3) {
+    const slope = reduceFraction(nonZeroBetween(random, -6, 6), integerBetween(random, 1, 4));
+    const firstLine = formatSlopeInterceptEquation(
+      slope,
+      reduceFraction(integerBetween(random, -8, 8), 1),
+    );
+    const isPerpendicular = problemNumber % 14 === 4;
+    let secondSlope = getPerpendicularSlope(slope);
+    if (!isPerpendicular) {
+      secondSlope = reduceFraction(slope.numerator + nonZeroBetween(random, -3, 3), slope.denominator);
+      while (fractionsEqual(secondSlope, getPerpendicularSlope(slope))) {
+        secondSlope = reduceFraction(
+          slope.numerator + nonZeroBetween(random, -3, 3),
+          slope.denominator,
+        );
+      }
+    }
+    const secondLine = formatSlopeInterceptEquation(
+      secondSlope,
+      reduceFraction(integerBetween(random, -8, 8), 1),
+    );
+    return {
+      type: "Are the lines perpendicular?",
+      promptLabel: "Perpendicular lines",
+      expression: `Line 1: ${firstLine}; Line 2: ${secondLine}`,
+      equation: "Are the two lines perpendicular? Answer yes or no.",
+      answer: makePerpendicularDecisionAnswer(isPerpendicular),
+    };
+  }
+
+  if (problemKind === 5) {
+    const slope = reduceFraction(nonZeroBetween(random, -4, 4), 1);
+    const perpendicularSlope = getPerpendicularSlope(slope);
+    const givenIntercept = reduceFraction(integerBetween(random, -4, 4), 1);
+    let point = {
+      x: perpendicularSlope.denominator * nonZeroBetween(random, -2, 2),
+      y: nonZeroBetween(random, -5, 5),
+      label: "P",
+    };
+    let perpendicularIntercept = reduceFraction(
+      point.y * perpendicularSlope.denominator - perpendicularSlope.numerator * point.x,
+      perpendicularSlope.denominator,
+    );
+    while (Number.isNaN(fractionToNumber(perpendicularIntercept))) {
+      point = {
+        x: perpendicularSlope.denominator * nonZeroBetween(random, -2, 2),
+        y: nonZeroBetween(random, -5, 5),
+        label: "P",
+      };
+      perpendicularIntercept = reduceFraction(
+        point.y * perpendicularSlope.denominator - perpendicularSlope.numerator * point.x,
+        perpendicularSlope.denominator,
+      );
+    }
+    return {
+      type: "Graph and point",
+      promptLabel: "Perpendicular lines",
+      expression: "Use the graphed line and point P.",
+      equation: "Write the equation of the line perpendicular to the graphed line through point P.",
+      graph: {
+        lines: [{ slope, intercept: givenIntercept }],
+        points: [point],
+      },
+      answer: makeSlopeInterceptEquationAnswer(perpendicularSlope, perpendicularIntercept),
+    };
+  }
+
+  if (problemKind === 6) {
+    const slope = reduceFraction(nonZeroBetween(random, -4, 4), 1);
+    const firstIntercept = reduceFraction(integerBetween(random, -5, 5), 1);
+    const isPerpendicular = problemNumber % 14 === 0;
+    let secondSlope = getPerpendicularSlope(slope);
+    if (!isPerpendicular) {
+      secondSlope = reduceFraction(slope.numerator + nonZeroBetween(random, -2, 2), 1);
+      while (fractionsEqual(secondSlope, getPerpendicularSlope(slope))) {
+        secondSlope = reduceFraction(slope.numerator + nonZeroBetween(random, -2, 2), 1);
+      }
+    }
+    const secondIntercept = reduceFraction(integerBetween(random, -5, 5), 1);
+    return {
+      type: "Graphed line comparison",
+      promptLabel: "Perpendicular lines",
+      expression: "Compare the two graphed lines.",
+      equation: "Are the two graphed lines perpendicular? Answer yes or no.",
+      graph: {
+        lines: [
+          { slope, intercept: firstIntercept },
+          { slope: secondSlope, intercept: secondIntercept, className: "is-secondary" },
+        ],
+        points: [],
+      },
+      answer: makePerpendicularDecisionAnswer(isPerpendicular),
+    };
+  }
+
+  const slope = reduceFraction(nonZeroBetween(random, -8, 8), 1);
+  const perpendicularSlope = getPerpendicularSlope(slope);
+  const firstIntercept = reduceFraction(integerBetween(random, -7, 7), 1);
+  const secondIntercept = reduceFraction(integerBetween(random, -7, 7), 1);
+  return {
+    type: "Missing slope value",
+    promptLabel: "Perpendicular lines",
+    expression: `${formatSlopeInterceptEquation(
+      slope,
+      firstIntercept,
+    )} is perpendicular to y = kx ${secondIntercept.numerator >= 0 ? "+" : "-"} ${Math.abs(
+      secondIntercept.numerator,
+    )}`,
+    equation: "What value of k makes the lines perpendicular?",
+    answer: makeTextAnswer(`${formatFractionValue(perpendicularSlope)}`, [
+      `k = ${formatFractionValue(perpendicularSlope)}`,
+      `slope = ${formatFractionValue(perpendicularSlope)}`,
+    ]),
   };
 }
 
