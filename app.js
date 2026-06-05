@@ -299,6 +299,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Write transformed linear functions",
   },
   {
+    id: "parallel-line",
+    label: "Parallel Line",
+    unitId: "linear-equations",
+    generator: makeParallelLineProblem,
+    answerMode: "textValue",
+    directions: "Use slope relationships to identify and write parallel lines",
+  },
+  {
     id: "systems-equations",
     label: "Systems of Equations",
     unitId: "systems-equations-inequalities",
@@ -2727,6 +2735,18 @@ function makeLinearFunctionEquationAnswer(coefficient, constant, functionName = 
   ]);
 }
 
+function makeSlopeInterceptEquationAnswer(slope, intercept, extraAccepted = []) {
+  const display = formatSlopeInterceptEquation(slope, intercept);
+  const slopeNumber = fractionToNumber(slope);
+  const interceptNumber = fractionToNumber(intercept);
+  const rule =
+    Number.isInteger(slopeNumber) && Number.isInteger(interceptNumber)
+      ? formatLinear(slopeNumber, interceptNumber)
+      : display.replace(/^y\s*=\s*/, "");
+
+  return makeTextAnswer(display, [`f(x) = ${rule}`, `g(x) = ${rule}`, rule, ...extraAccepted]);
+}
+
 function formatQuadraticVertexEquation(a, h, k) {
   const aText = a === 1 ? "" : a === -1 ? "-" : `${a}`;
   const hText = h === 0 ? "x" : h > 0 ? `x - ${h}` : `x + ${Math.abs(h)}`;
@@ -3214,6 +3234,118 @@ function makeTransformationsLinearFunctionsProblem(random, problemNumber = 1) {
       base.coefficient * scale,
       base.constant * scale + verticalShift,
     ),
+  };
+}
+
+function makeParallelDecisionAnswer(isParallel) {
+  return isParallel
+    ? makeTextAnswer("Yes", ["yes", "parallel", "the lines are parallel"])
+    : makeTextAnswer("No", ["no", "not parallel", "the lines are not parallel"]);
+}
+
+function makeParallelLineProblem(random, problemNumber = 1) {
+  const problemKind = (problemNumber - 1) % 5;
+
+  if (problemKind === 0) {
+    const slope = reduceFraction(nonZeroBetween(random, -8, 8), 1);
+    const intercept = reduceFraction(integerBetween(random, -9, 9), 1);
+    return {
+      type: "Parallel slope",
+      promptLabel: "Parallel lines",
+      expression: formatSlopeInterceptEquation(slope, intercept),
+      equation: "What is the slope of any line parallel to this line?",
+      answer: makeSlopeTextAnswer(slope),
+    };
+  }
+
+  if (problemKind === 1) {
+    const slope = reduceFraction(nonZeroBetween(random, -6, 6), 1);
+    const baseIntercept = reduceFraction(integerBetween(random, -8, 8), 1);
+    const point = {
+      x: nonZeroBetween(random, -6, 6),
+      y: nonZeroBetween(random, -6, 6),
+    };
+    const parallelIntercept = reduceFraction(point.y - slope.numerator * point.x, 1);
+    return {
+      type: "Equation through a point",
+      promptLabel: "Parallel lines",
+      expression: `${formatSlopeInterceptEquation(slope, baseIntercept)}, point (${point.x}, ${point.y})`,
+      equation: "Write the equation of the line parallel to the given line through the point.",
+      answer: makeSlopeInterceptEquationAnswer(slope, parallelIntercept),
+    };
+  }
+
+  if (problemKind === 2) {
+    const slope = reduceFraction(nonZeroBetween(random, -5, 5), integerBetween(random, 2, 5));
+    const baseIntercept = integerBetween(random, -6, 6);
+    const baseStandard = normalizeStandardFormCoefficients(
+      slope.numerator,
+      -slope.denominator,
+      -slope.denominator * baseIntercept,
+    );
+    const pointX = slope.denominator * nonZeroBetween(random, -4, 4);
+    const point = {
+      x: pointX,
+      y: nonZeroBetween(random, -8, 8),
+    };
+    const parallelIntercept = reduceFraction(
+      point.y * slope.denominator - slope.numerator * point.x,
+      slope.denominator,
+    );
+    return {
+      type: "Standard form and point",
+      promptLabel: "Parallel lines",
+      expression: `${formatStandardFormEquation(
+        baseStandard.a,
+        baseStandard.b,
+        baseStandard.c,
+      )}, point (${point.x}, ${point.y})`,
+      equation: "Write the slope-intercept equation of the parallel line through the point.",
+      answer: makeSlopeInterceptEquationAnswer(slope, parallelIntercept),
+    };
+  }
+
+  if (problemKind === 3) {
+    const slope = reduceFraction(nonZeroBetween(random, -6, 6), 1);
+    const firstLine = formatSlopeInterceptEquation(
+      slope,
+      reduceFraction(integerBetween(random, -8, 8), 1),
+    );
+    const isParallel = problemNumber % 10 === 4;
+    let secondSlope = slope;
+    if (!isParallel) {
+      secondSlope = reduceFraction(slope.numerator + nonZeroBetween(random, -3, 3), 1);
+      while (secondSlope.numerator === slope.numerator) {
+        secondSlope = reduceFraction(slope.numerator + nonZeroBetween(random, -3, 3), 1);
+      }
+    }
+    const secondLine = formatSlopeInterceptEquation(
+      secondSlope,
+      reduceFraction(integerBetween(random, -8, 8), 1),
+    );
+    return {
+      type: "Are the lines parallel?",
+      promptLabel: "Parallel lines",
+      expression: `Line 1: ${firstLine}; Line 2: ${secondLine}`,
+      equation: "Are the two lines parallel? Answer yes or no.",
+      answer: makeParallelDecisionAnswer(isParallel),
+    };
+  }
+
+  const slope = reduceFraction(nonZeroBetween(random, -8, 8), 1);
+  const firstIntercept = reduceFraction(integerBetween(random, -7, 7), 1);
+  const secondIntercept = reduceFraction(integerBetween(random, -7, 7), 1);
+  return {
+    type: "Missing slope value",
+    promptLabel: "Parallel lines",
+    expression: `${formatSlopeInterceptEquation(
+      slope,
+      firstIntercept,
+    )} is parallel to y = kx ${secondIntercept.numerator >= 0 ? "+" : "-"} ${Math.abs(
+      secondIntercept.numerator,
+    )}`,
+    equation: "What value of k makes the lines parallel?",
+    answer: makeTextAnswer(`${slope.numerator}`, [`k = ${slope.numerator}`, `slope = ${slope.numerator}`]),
   };
 }
 
