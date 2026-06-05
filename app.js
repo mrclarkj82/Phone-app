@@ -3244,7 +3244,7 @@ function makeParallelDecisionAnswer(isParallel) {
 }
 
 function makeParallelLineProblem(random, problemNumber = 1) {
-  const problemKind = (problemNumber - 1) % 5;
+  const problemKind = (problemNumber - 1) % 7;
 
   if (problemKind === 0) {
     const slope = reduceFraction(nonZeroBetween(random, -8, 8), 1);
@@ -3328,6 +3328,64 @@ function makeParallelLineProblem(random, problemNumber = 1) {
       promptLabel: "Parallel lines",
       expression: `Line 1: ${firstLine}; Line 2: ${secondLine}`,
       equation: "Are the two lines parallel? Answer yes or no.",
+      answer: makeParallelDecisionAnswer(isParallel),
+    };
+  }
+
+  if (problemKind === 5) {
+    const slope = reduceFraction(nonZeroBetween(random, -4, 4), 1);
+    const givenIntercept = reduceFraction(integerBetween(random, -4, 4), 1);
+    let point = {
+      x: nonZeroBetween(random, -5, 5),
+      y: nonZeroBetween(random, -5, 5),
+      label: "P",
+    };
+    let parallelIntercept = reduceFraction(point.y - slope.numerator * point.x, 1);
+    while (parallelIntercept.numerator === givenIntercept.numerator) {
+      point = {
+        x: nonZeroBetween(random, -5, 5),
+        y: nonZeroBetween(random, -5, 5),
+        label: "P",
+      };
+      parallelIntercept = reduceFraction(point.y - slope.numerator * point.x, 1);
+    }
+    return {
+      type: "Graph and point",
+      promptLabel: "Parallel lines",
+      expression: "Use the graphed line and point P.",
+      equation: "Write the equation of the line parallel to the graphed line through point P.",
+      graph: {
+        lines: [{ slope, intercept: givenIntercept }],
+        points: [point],
+      },
+      answer: makeSlopeInterceptEquationAnswer(slope, parallelIntercept),
+    };
+  }
+
+  if (problemKind === 6) {
+    const slope = reduceFraction(nonZeroBetween(random, -4, 4), 1);
+    const firstIntercept = reduceFraction(integerBetween(random, -5, 5), 1);
+    const isParallel = problemNumber % 14 === 0;
+    let secondSlope = slope;
+    if (!isParallel) {
+      secondSlope = reduceFraction(slope.numerator + nonZeroBetween(random, -2, 2), 1);
+      while (secondSlope.numerator === slope.numerator) {
+        secondSlope = reduceFraction(slope.numerator + nonZeroBetween(random, -2, 2), 1);
+      }
+    }
+    const secondIntercept = reduceFraction(integerBetween(random, -5, 5), 1);
+    return {
+      type: "Graphed line comparison",
+      promptLabel: "Parallel lines",
+      expression: "Compare the two graphed lines.",
+      equation: "Are the two graphed lines parallel? Answer yes or no.",
+      graph: {
+        lines: [
+          { slope, intercept: firstIntercept },
+          { slope: secondSlope, intercept: secondIntercept, className: "is-secondary" },
+        ],
+        points: [],
+      },
       answer: makeParallelDecisionAnswer(isParallel),
     };
   }
@@ -4200,9 +4258,10 @@ function renderReviewProblemCard(problem, answers = new Map(), options = {}) {
       ? "is-classic-algebra-review"
       : "",
     problem.answerMode === "slopeIntercept" ? "is-slope-intercept-review" : "",
-    ["graphLine", "graphQuadratic", "coordinatePlane"].includes(problem.answerMode)
+    problem.graph || ["graphLine", "graphQuadratic", "coordinatePlane"].includes(problem.answerMode)
       ? "is-graph-review"
       : "",
+    problem.graph && problem.answerMode === "textValue" ? "is-text-graph-review" : "",
     [
       "expressionParts",
       "combineLikeTerms",
@@ -4214,7 +4273,7 @@ function renderReviewProblemCard(problem, answers = new Map(), options = {}) {
       "slope",
       "slopeIntercept",
       "inequality",
-    ].includes(problem.answerMode)
+    ].includes(problem.answerMode) && !problem.graph
       ? "is-expression-review"
       : "",
   ]
@@ -4516,6 +4575,22 @@ function renderComplexFraction(problem) {
 }
 
 function renderProblemPrompt(problem) {
+  if (problem.answerMode === "textValue" && problem.graph) {
+    return `
+      <div class="graph-problem">
+        ${renderCoordinateGrid(problem)}
+        <div class="graph-prompt-stack">
+          <div class="expression-parts-prompt">
+            <span>${escapeHtml(problem.promptLabel || "Graph")}</span>
+            ${problem.expression ? `<strong>${renderMathText(problem.expression)}</strong>` : ""}
+            <p>${escapeHtml(problem.equation)}</p>
+            ${renderMathTable(problem.table)}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   if (problem.answerMode === "textValue" || problem.answerMode === "polynomialExpression") {
     const promptClasses = [
       "expression-parts-prompt",
@@ -4736,16 +4811,20 @@ function renderCoordinateGrid(problem) {
   const unit = 11;
   const toSvgX = (value) => center + value * unit;
   const toSvgY = (value) => center - value * unit;
-  const slope = problem.graph.slope;
-  const intercept = problem.graph.intercept;
-  const start = { x: -10, y: fractionToNumber(slope) * -10 + fractionToNumber(intercept) };
-  const end = { x: 10, y: fractionToNumber(slope) * 10 + fractionToNumber(intercept) };
+  const graphLines = problem.graph.lines?.length
+    ? problem.graph.lines
+    : [{ slope: problem.graph.slope, intercept: problem.graph.intercept }];
+  const graphPoints = problem.graph.points || [];
   const clipId = `grid-clip-${problem.id.replace(/[^a-zA-Z0-9-]/g, "-")}`;
   const { gridLines, tickLabels } = makeCoordinateGridParts(toSvgX, toSvgY);
+  const ariaLabel =
+    graphPoints.length >= 2
+      ? `Line through (${graphPoints[0].x}, ${graphPoints[0].y}) and (${graphPoints[1].x}, ${graphPoints[1].y})`
+      : "Line graph on a coordinate grid";
 
   return `
     <figure class="coordinate-graph" aria-label="Coordinate grid from -10 to 10">
-      <svg viewBox="0 0 ${size} ${size}" role="img" aria-label="Line through (${problem.graph.points[0].x}, ${problem.graph.points[0].y}) and (${problem.graph.points[1].x}, ${problem.graph.points[1].y})">
+      <svg viewBox="0 0 ${size} ${size}" role="img" aria-label="${ariaLabel}">
         <defs>
           <clipPath id="${clipId}">
             <rect x="${toSvgX(-10)}" y="${toSvgY(10)}" width="${unit * 20}" height="${unit * 20}" />
@@ -4754,21 +4833,38 @@ function renderCoordinateGrid(problem) {
         <rect class="grid-background" x="${toSvgX(-10)}" y="${toSvgY(10)}" width="${unit * 20}" height="${unit * 20}" />
         ${gridLines.join("")}
         <g clip-path="url(#${clipId})">
-          <line
-            class="graph-line"
-            x1="${toSvgX(start.x)}"
-            y1="${toSvgY(start.y)}"
-            x2="${toSvgX(end.x)}"
-            y2="${toSvgY(end.y)}"
-          />
+          ${graphLines
+            .map((line, index) => {
+              const start = {
+                x: -10,
+                y: fractionToNumber(line.slope) * -10 + fractionToNumber(line.intercept),
+              };
+              const end = {
+                x: 10,
+                y: fractionToNumber(line.slope) * 10 + fractionToNumber(line.intercept),
+              };
+              const lineClass = ["graph-line", line.className || (index === 1 ? "is-secondary" : "")]
+                .filter(Boolean)
+                .join(" ");
+              return `
+                <line
+                  class="${lineClass}"
+                  x1="${toSvgX(start.x)}"
+                  y1="${toSvgY(start.y)}"
+                  x2="${toSvgX(end.x)}"
+                  y2="${toSvgY(end.y)}"
+                />
+              `;
+            })
+            .join("")}
         </g>
         ${renderAxisLabels(toSvgX, toSvgY, tickLabels)}
-        ${problem.graph.points
+        ${graphPoints
           .map(
             (point, index) => `
               <g class="graph-point">
                 <circle cx="${toSvgX(point.x)}" cy="${toSvgY(point.y)}" r="3.1" />
-                <text x="${toSvgX(point.x) + 5}" y="${toSvgY(point.y) - 5}">${index === 0 ? "A" : "B"}</text>
+                <text x="${toSvgX(point.x) + 5}" y="${toSvgY(point.y) - 5}">${point.label || (index === 0 ? "A" : "B")}</text>
               </g>
             `,
           )

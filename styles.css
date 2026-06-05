@@ -545,6 +545,10 @@ button:focus-visible {
   stroke-width: 3.5;
 }
 
+.graph-line.is-secondary {
+  stroke: #9a5b16;
+}
+
 .graph-curve {
   fill: none;
   stroke: var(--accent);
@@ -1006,6 +1010,10 @@ tbody tr.is-selected-work {
 .review-card.is-preview.is-graph-review {
   min-height: 460px;
   overflow: hidden;
+}
+
+.review-card.is-preview.is-text-graph-review {
+  min-height: 640px;
 }
 
 .review-card.is-expression-review {
