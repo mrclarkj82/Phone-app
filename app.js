@@ -363,6 +363,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Solve each multi-step equation",
   },
   {
+    id: "one-step-inequalities",
+    label: "One-Step Inequalities",
+    unitId: "linear-inequalities",
+    generator: makeOneStepInequalityProblem,
+    answerMode: "inequality",
+    directions: "Solve each one-step inequality for x",
+  },
+  {
     id: "inequalities",
     label: "Inequalities",
     unitId: "linear-inequalities",
@@ -2813,6 +2821,57 @@ function makeInequalityAnswer(coefficient, symbol, rightValue) {
   return {
     boundary,
     symbol: coefficient < 0 ? flipInequalitySymbol(symbol) : symbol,
+  };
+}
+
+function makeOneStepInequalityProblem(random, problemNumber = 1) {
+  const problemKind = (problemNumber - 1) % 5;
+  const symbolOptions = ["<", ">", "<=", ">="];
+  const baseSymbol = symbolOptions[integerBetween(random, 0, symbolOptions.length - 1)];
+
+  if (problemKind === 0 || problemKind === 1) {
+    const boundary = integerBetween(random, -12, 12);
+    const constant =
+      problemKind === 0 ? integerBetween(random, 2, 16) : -integerBetween(random, 2, 16);
+    return {
+      type: problemKind === 0 ? "Addition inequality" : "Subtraction inequality",
+      equation: `${formatLinear(1, constant)} ${baseSymbol} ${boundary + constant}`,
+      answer: {
+        boundary,
+        symbol: baseSymbol,
+      },
+    };
+  }
+
+  if (problemKind === 2) {
+    const coefficient = integerBetween(random, 2, 10);
+    const boundary = integerBetween(random, -12, 12);
+    return {
+      type: "Multiplication inequality",
+      equation: `${formatTerm(coefficient)} ${baseSymbol} ${coefficient * boundary}`,
+      answer: makeInequalityAnswer(coefficient, baseSymbol, coefficient * boundary),
+    };
+  }
+
+  if (problemKind === 3) {
+    const divisor = integerBetween(random, 2, 10);
+    const quotient = integerBetween(random, -12, 12);
+    return {
+      type: "Division inequality",
+      equation: `x / ${divisor} ${baseSymbol} ${quotient}`,
+      answer: {
+        boundary: divisor * quotient,
+        symbol: baseSymbol,
+      },
+    };
+  }
+
+  const coefficient = -integerBetween(random, 2, 10);
+  const boundary = integerBetween(random, -12, 12);
+  return {
+    type: "Negative coefficient",
+    equation: `${formatTerm(coefficient)} ${baseSymbol} ${coefficient * boundary}`,
+    answer: makeInequalityAnswer(coefficient, baseSymbol, coefficient * boundary),
   };
 }
 
