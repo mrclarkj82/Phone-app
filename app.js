@@ -275,6 +275,14 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     directions: "Identify the slope m and y-intercept b",
   },
   {
+    id: "point-slope-form",
+    label: "Point-Slope Form",
+    unitId: "linear-equations",
+    generator: makePointSlopeFormProblem,
+    answerMode: "textValue",
+    directions: "Write linear equations in point-slope form",
+  },
+  {
     id: "systems-equations",
     label: "Systems of Equations",
     unitId: "systems-equations-inequalities",
@@ -2593,6 +2601,42 @@ function formatSlopeInterceptEquation(slope, intercept) {
   })}`;
 }
 
+function formatPointSlopeSide(variable, coordinate) {
+  if (coordinate === 0) return variable;
+  return `${variable} ${coordinate > 0 ? "-" : "+"} ${Math.abs(coordinate)}`;
+}
+
+function formatPointSlopeCoefficient(slope) {
+  const reducedSlope = reduceFraction(slope.numerator, slope.denominator);
+  return formatFractionValue(reducedSlope);
+}
+
+function formatPointSlopeEquation(slope, point) {
+  return `${formatPointSlopeSide("y", point.y)} = ${formatPointSlopeCoefficient(slope)}(${formatPointSlopeSide(
+    "x",
+    point.x,
+  )})`;
+}
+
+function makePointSlopeAnswer(slope, point, extraAccepted = []) {
+  const display = formatPointSlopeEquation(slope, point);
+  const ySide = formatPointSlopeSide("y", point.y);
+  const xSide = formatPointSlopeSide("x", point.x);
+  const slopeText = formatPointSlopeCoefficient(slope);
+  const accepted = [
+    `${ySide} = ${slopeText} * (${xSide})`,
+    `${ySide} = (${slopeText})(${xSide})`,
+    ...extraAccepted,
+  ];
+
+  if (slope.denominator === 1 && Math.abs(slope.numerator) === 1) {
+    const sign = slope.numerator === -1 ? "-" : "";
+    accepted.push(`${ySide} = ${sign}(${xSide})`);
+  }
+
+  return makeTextAnswer(display, accepted);
+}
+
 function formatQuadraticVertexEquation(a, h, k) {
   const aText = a === 1 ? "" : a === -1 ? "-" : `${a}`;
   const hText = h === 0 ? "x" : h > 0 ? `x - ${h}` : `x + ${Math.abs(h)}`;
@@ -2813,6 +2857,88 @@ function makeSlopeInterceptProblem(random, problemNumber = 1) {
       m: slope,
       b: intercept,
     },
+  };
+}
+
+function makePointSlopeFormProblem(random, problemNumber = 1) {
+  const problemKind = (problemNumber - 1) % 5;
+  const makeSafePoint = () => ({
+    x: nonZeroBetween(random, -6, 6),
+    y: nonZeroBetween(random, -6, 6),
+  });
+
+  if (problemKind === 0) {
+    const point = makeSafePoint();
+    const slope = reduceFraction(integerBetween(random, 1, 6), 1);
+    return {
+      type: "Slope and point",
+      promptLabel: "Point-slope form",
+      expression: `m = ${formatFractionValue(slope)}, point (${point.x}, ${point.y})`,
+      equation: "Write the equation in point-slope form.",
+      answer: makePointSlopeAnswer(slope, point),
+    };
+  }
+
+  if (problemKind === 1) {
+    const point = makeSafePoint();
+    const slope = reduceFraction(-integerBetween(random, 1, 6), 1);
+    return {
+      type: "Negative slope",
+      promptLabel: "Point-slope form",
+      expression: `m = ${formatFractionValue(slope)}, point (${point.x}, ${point.y})`,
+      equation: "Write the equation in point-slope form.",
+      answer: makePointSlopeAnswer(slope, point),
+    };
+  }
+
+  if (problemKind === 2) {
+    const point = makeSafePoint();
+    const slope = reduceFraction(nonZeroBetween(random, -5, 5), 1);
+    const run = integerBetween(random, 2, 5);
+    const secondPoint = {
+      x: point.x + run,
+      y: point.y + slope.numerator * run,
+    };
+    return {
+      type: "Two points",
+      promptLabel: "Point-slope form",
+      expression: `points (${point.x}, ${point.y}) and (${secondPoint.x}, ${secondPoint.y})`,
+      equation: "Write the equation in point-slope form using the first point shown.",
+      answer: makePointSlopeAnswer(slope, point, [formatPointSlopeEquation(slope, secondPoint)]),
+    };
+  }
+
+  if (problemKind === 3) {
+    const point = makeSafePoint();
+    const slope = reduceFraction(nonZeroBetween(random, -4, 4), 1);
+    const rows = [0, 1, 2].map((step) => {
+      const x = point.x + step;
+      const y = point.y + slope.numerator * step;
+      return [x, y];
+    });
+    return {
+      type: "Table to point-slope",
+      promptLabel: "Point-slope form",
+      expression: "Use the first point shown in the table.",
+      equation: "Write the equation in point-slope form.",
+      table: {
+        headers: ["x", "y"],
+        rows,
+      },
+      answer: makePointSlopeAnswer(slope, point),
+    };
+  }
+
+  const point = makeSafePoint();
+  const denominator = integerBetween(random, 2, 5);
+  const numerator = nonZeroBetween(random, -6, 6);
+  const slope = reduceFraction(numerator, denominator);
+  return {
+    type: "Fractional slope",
+    promptLabel: "Point-slope form",
+    expression: `m = ${formatFractionValue(slope)}, point (${point.x}, ${point.y})`,
+    equation: "Write the equation in point-slope form.",
+    answer: makePointSlopeAnswer(slope, point),
   };
 }
 
