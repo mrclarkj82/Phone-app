@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { roster } from "../../app";
 import { useAuth } from "../auth/AuthProvider";
+import AnnouncementDisplay from "../components/AnnouncementDisplay";
 import PrivateHeader from "../components/PrivateHeader";
 import useAssignmentDashboard from "../hooks/useAssignmentDashboard";
 import { db } from "../lib/firebase";
@@ -93,6 +94,7 @@ export default function TeacherDashboard() {
             {classError}
           </section>
         ) : null}
+        <AnnouncementDisplay audienceRole="teacher" className="mb-5" />
         <section aria-labelledby="teacher-heading">
           <div className="dashboard-grid">
             <section className="dashboard-summary" aria-label="Class summary">

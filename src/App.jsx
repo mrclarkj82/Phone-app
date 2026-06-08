@@ -1,5 +1,6 @@
 import { Route, Routes } from "react-router-dom";
 import EntryGate from "./routes/EntryGate";
+import AdminAnnouncements from "./pages/AdminAnnouncements";
 import AdminDashboard from "./pages/AdminDashboard";
 import AssignmentMaker from "./pages/AssignmentMaker";
 import StudentDashboard from "./pages/StudentDashboard";
@@ -40,6 +41,14 @@ export default function App() {
         element={
           <EntryGate allowedRole="admin">
             <AdminDashboard />
+          </EntryGate>
+        }
+      />
+      <Route
+        path="/admin/announcements"
+        element={
+          <EntryGate allowedRole="admin">
+            <AdminAnnouncements />
           </EntryGate>
         }
       />

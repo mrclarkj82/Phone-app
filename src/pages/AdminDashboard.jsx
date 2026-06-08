@@ -8,6 +8,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { roster } from "../../app";
 import PrivateHeader from "../components/PrivateHeader";
 import { db } from "../lib/firebase";
@@ -351,7 +352,13 @@ export default function AdminDashboard() {
         </div>
 
         <section className="grid gap-4">
-          <div className="flex justify-end">
+          <div className="flex flex-wrap justify-end gap-3">
+            <Link
+              className="primary-button inline-grid min-h-11 place-items-center px-4"
+              to="/admin/announcements"
+            >
+              Manage Announcements
+            </Link>
             <button
               className="primary-button px-4"
               onClick={() => setShowAccessPanel(true)}

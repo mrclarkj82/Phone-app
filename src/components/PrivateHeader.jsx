@@ -7,6 +7,7 @@ export default function PrivateHeader({ title, eyebrow, children }) {
     account?.role === "admin"
       ? [
           { label: "Admin", to: "/admin" },
+          { label: "Announcements", to: "/admin/announcements" },
           { label: "Teacher", to: "/teacher" },
           { label: "Create", to: "/assignments/create" },
         ]

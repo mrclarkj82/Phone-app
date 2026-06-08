@@ -1,6 +1,7 @@
 import PrivateHeader from "../components/PrivateHeader";
 import useAssignmentDashboard from "../hooks/useAssignmentDashboard";
 import { useAuth } from "../auth/AuthProvider";
+import AnnouncementDisplay from "../components/AnnouncementDisplay";
 
 export default function StudentDashboard() {
   const { account } = useAuth();
@@ -20,6 +21,7 @@ export default function StudentDashboard() {
       </PrivateHeader>
 
       <main className="app-shell">
+        <AnnouncementDisplay audienceRole="student" className="mb-5" />
         <section aria-labelledby="student-heading">
           <div className="workspace-grid">
             <aside className="student-panel" aria-label="Student information">
