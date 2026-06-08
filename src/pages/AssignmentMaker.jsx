@@ -8,16 +8,16 @@ import { db } from "../lib/firebase";
 import LoadingScreen from "./LoadingScreen";
 
 const baseAssignments = [
-  { title: "Linear Equations", problemCount: 30, unit: "2. Linear Equations" },
+  { title: "Solving Linear Equations", problemCount: 30, unit: "2. Solving Linear Equations" },
   {
-    title: "Systems of Equations",
+    title: "Solving Systems",
     problemCount: 15,
-    unit: "5. Systems of Equations and Inequalities",
+    unit: "5. Systems of Equations & Inequalities",
   },
-  { title: "Slope from Two Points", problemCount: 30, unit: "4. Introduction to Functions" },
-  { title: "Slope-Intercept Form", problemCount: 30, unit: "2. Linear Equations" },
-  { title: "Linear Inequalities", problemCount: 30, unit: "3. Linear Inequalities" },
-  { title: "Coordinate Grid Lines", problemCount: 30, unit: "4. Introduction to Functions" },
+  { title: "Slope Between Two Points", problemCount: 30, unit: "4. Function Foundations" },
+  { title: "Slope-Intercept Equations", problemCount: 30, unit: "2. Solving Linear Equations" },
+  { title: "Solving Linear Inequalities", problemCount: 30, unit: "3. Solving Linear Inequalities" },
+  { title: "Lines on the Coordinate Grid", problemCount: 30, unit: "4. Function Foundations" },
 ];
 
 export default function AssignmentMaker() {

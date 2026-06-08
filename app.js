@@ -20,9 +20,9 @@ const DASHBOARD_REFRESH_INTERVAL_MS = 3000;
 const assignments = [
   {
     id: LINEAR_ASSIGNMENT_ID,
-    title: "Linear Equations",
+    title: "Solving Linear Equations",
     assignmentUnit: "linear-equations",
-    assignmentUnitLabel: "2. Linear Equations",
+    assignmentUnitLabel: "2. Solving Linear Equations",
     directions: "Solve for x",
     problemCount: 30,
     answerMode: "single",
@@ -31,9 +31,9 @@ const assignments = [
   },
   {
     id: "systems-equations-doral-v1",
-    title: "Systems of Equations",
+    title: "Solving Systems",
     assignmentUnit: "systems-equations-inequalities",
-    assignmentUnitLabel: "5. Systems of Equations and Inequalities",
+    assignmentUnitLabel: "5. Systems of Equations & Inequalities",
     directions: "Solve for x and y",
     problemCount: 15,
     answerMode: "pair",
@@ -42,9 +42,9 @@ const assignments = [
   },
   {
     id: "slope-two-points-v1",
-    title: "Slope from Two Points",
+    title: "Slope Between Two Points",
     assignmentUnit: "intro-functions",
-    assignmentUnitLabel: "4. Introduction to Functions",
+    assignmentUnitLabel: "4. Function Foundations",
     directions: "Find the slope between the two points",
     problemCount: 30,
     answerMode: "slope",
@@ -53,9 +53,9 @@ const assignments = [
   },
   {
     id: "slope-intercept-form-v1",
-    title: "Slope-Intercept Form",
+    title: "Slope-Intercept Equations",
     assignmentUnit: "linear-equations",
-    assignmentUnitLabel: "2. Linear Equations",
+    assignmentUnitLabel: "2. Solving Linear Equations",
     directions: "Identify the slope m and y-intercept b",
     problemCount: 30,
     answerMode: "slopeIntercept",
@@ -64,9 +64,9 @@ const assignments = [
   },
   {
     id: "linear-inequalities-html-v1",
-    title: "Linear Inequalities",
+    title: "Solving Linear Inequalities",
     assignmentUnit: "linear-inequalities",
-    assignmentUnitLabel: "3. Linear Inequalities",
+    assignmentUnitLabel: "3. Solving Linear Inequalities",
     directions: "Solve each inequality for x",
     problemCount: 30,
     answerMode: "inequality",
@@ -75,9 +75,9 @@ const assignments = [
   },
   {
     id: "coordinate-grid-lines-v1",
-    title: "Coordinate Grid Lines",
+    title: "Lines on the Coordinate Grid",
     assignmentUnit: "intro-functions",
-    assignmentUnitLabel: "4. Introduction to Functions",
+    assignmentUnitLabel: "4. Function Foundations",
     directions: "Use the graph to answer each question",
     problemCount: 30,
     answerMode: "graphLine",
@@ -89,42 +89,42 @@ const assignments = [
 const CUSTOM_ASSIGNMENT_UNITS = [
   {
     id: "intro-expressions",
-    label: "1. Intro to Expressions",
+    label: "1. Expression Foundations",
   },
   {
     id: "linear-equations",
-    label: "2. Linear Equations",
+    label: "2. Solving Linear Equations",
   },
   {
     id: "linear-inequalities",
-    label: "3. Linear Inequalities",
+    label: "3. Solving Linear Inequalities",
   },
   {
     id: "intro-functions",
-    label: "4. Introduction to Functions",
+    label: "4. Function Foundations",
   },
   {
     id: "systems-equations-inequalities",
-    label: "5. Systems of Equations and Inequalities",
+    label: "5. Systems of Equations & Inequalities",
   },
   {
     id: "exponents-radicals",
-    label: "6. Exponents and Radicals",
+    label: "6. Powers and Radicals",
   },
   {
     id: "polynomials",
-    label: "7. Polynomials",
+    label: "7. Polynomial Expressions",
   },
   {
     id: "quadratic-equations",
-    label: "8. Quadratic Equations",
+    label: "8. Quadratic Functions & Equations",
   },
 ];
 
 const CUSTOM_ASSIGNMENT_TYPES = [
   {
     id: "parts-of-an-expression",
-    label: "Parts of an Expression",
+    label: "Expression Parts",
     unitId: "intro-expressions",
     generator: makePartsOfExpressionProblem,
     answerMode: "expressionParts",
@@ -132,7 +132,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "combining-like-terms",
-    label: "Combining Like Terms",
+    label: "Combine Like Terms",
     unitId: "intro-expressions",
     generator: makeCombiningLikeTermsProblem,
     answerMode: "combineLikeTerms",
@@ -140,7 +140,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "simplify-and-evaluate-expressions",
-    label: "Simplify and Evaluate Expressions",
+    label: "Simplify & Evaluate Expressions",
     unitId: "intro-expressions",
     generator: makeSimplifyAndEvaluateExpressionProblem,
     answerMode: "evaluateExpression",
@@ -148,7 +148,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "equivalent-expressions",
-    label: "Equivalent Expressions",
+    label: "Equivalent Expression Forms",
     unitId: "intro-expressions",
     generator: makeEquivalentExpressionsProblem,
     answerMode: "combineLikeTerms",
@@ -156,7 +156,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "complex-fractions",
-    label: "Complex Fractions",
+    label: "Complex Fraction Practice",
     unitId: "intro-expressions",
     generator: makeComplexFractionsProblem,
     answerMode: "fractionValue",
@@ -164,7 +164,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "exponent-laws-notation",
-    label: "Exponent Laws and Notation",
+    label: "Exponent Rules & Notation",
     unitId: "exponents-radicals",
     generator: makeExponentLawsNotationProblem,
     answerMode: "textValue",
@@ -172,7 +172,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "simplify-roots",
-    label: "Simplify Roots",
+    label: "Simplifying Roots",
     unitId: "exponents-radicals",
     generator: makeSimplifyRootsProblem,
     answerMode: "textValue",
@@ -180,7 +180,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "radical-laws-notation",
-    label: "Radical Laws and Notation",
+    label: "Radical Rules & Notation",
     unitId: "exponents-radicals",
     generator: makeRadicalLawsNotationProblem,
     answerMode: "textValue",
@@ -188,7 +188,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "rational-exponents",
-    label: "Rational Exponents",
+    label: "Fractional Exponents",
     unitId: "exponents-radicals",
     generator: makeRationalExponentsProblem,
     answerMode: "textValue",
@@ -196,7 +196,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "rationalize-denominators",
-    label: "Rationalize Denominators",
+    label: "Rationalizing Denominators",
     unitId: "exponents-radicals",
     generator: makeRationalizeDenominatorsProblem,
     answerMode: "textValue",
@@ -204,7 +204,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "polynomial-operations",
-    label: "Polynomial Operations",
+    label: "Operations with Polynomials",
     unitId: "polynomials",
     generator: makePolynomialOperationsProblem,
     answerMode: "polynomialExpression",
@@ -212,7 +212,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "factor-polynomials",
-    label: "Factor Polynomials",
+    label: "Polynomial Factoring",
     unitId: "polynomials",
     generator: makeFactorPolynomialsProblem,
     answerMode: "textValue",
@@ -220,7 +220,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "linear-equations",
-    label: "Linear Equations",
+    label: "Solving Linear Equations",
     unitId: "linear-equations",
     generator: makeLinearProblem,
     answerMode: "single",
@@ -228,7 +228,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "one-step-equations",
-    label: "One-Step Equations",
+    label: "One-Step Linear Equations",
     unitId: "linear-equations",
     generator: makeOneStepEquationProblem,
     answerMode: "single",
@@ -236,7 +236,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "two-step-equations",
-    label: "Two-Step Equations",
+    label: "Two-Step Linear Equations",
     unitId: "linear-equations",
     generator: makeTwoStepEquationProblem,
     answerMode: "single",
@@ -244,7 +244,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "formulas",
-    label: "Formulas",
+    label: "Formula Solving",
     unitId: "linear-equations",
     generator: makeFormulasProblem,
     answerMode: "textValue",
@@ -252,7 +252,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "coordinate-plane",
-    label: "Coordinate Plane",
+    label: "Coordinate Plane Skills",
     unitId: "linear-equations",
     generator: makeCoordinatePlaneProblem,
     answerMode: "coordinatePlane",
@@ -260,7 +260,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "understanding-slope",
-    label: "Understanding Slope",
+    label: "Slope Basics",
     unitId: "linear-equations",
     generator: makeUnderstandingSlopeProblem,
     answerMode: "textValue",
@@ -268,7 +268,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "slope-intercept-form",
-    label: "Slope-Intercept Form",
+    label: "Slope-Intercept Equations",
     unitId: "linear-equations",
     generator: makeSlopeInterceptProblem,
     answerMode: "slopeIntercept",
@@ -276,7 +276,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "point-slope-form",
-    label: "Point-Slope Form",
+    label: "Point-Slope Equations",
     unitId: "linear-equations",
     generator: makePointSlopeFormProblem,
     answerMode: "textValue",
@@ -284,7 +284,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "standard-form",
-    label: "Standard Form",
+    label: "Standard Form Equations",
     unitId: "linear-equations",
     generator: makeStandardFormProblem,
     answerMode: "textValue",
@@ -292,7 +292,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "transformations-linear-functions",
-    label: "Transformations of Linear Functions",
+    label: "Linear Function Transformations",
     unitId: "linear-equations",
     generator: makeTransformationsLinearFunctionsProblem,
     answerMode: "textValue",
@@ -300,7 +300,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "parallel-line",
-    label: "Parallel Line",
+    label: "Parallel Lines",
     unitId: "linear-equations",
     generator: makeParallelLineProblem,
     answerMode: "textValue",
@@ -308,7 +308,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "perpendicular-lines",
-    label: "Perpendicular Lines",
+    label: "Perpendicular Line Relationships",
     unitId: "linear-equations",
     generator: makePerpendicularLinesProblem,
     answerMode: "textValue",
@@ -316,7 +316,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "systems-equations",
-    label: "Systems of Equations",
+    label: "Solving Systems of Equations",
     unitId: "systems-equations-inequalities",
     generator: makeSystemProblem,
     answerMode: "pair",
@@ -324,7 +324,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "algebraic-functions",
-    label: "Algebraic Functions",
+    label: "Function Notation Practice",
     unitId: "intro-functions",
     generator: makeAlgebraicFunctionProblem,
     answerMode: "functionValue",
@@ -332,7 +332,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "slope-two-points",
-    label: "Slope from Two Points",
+    label: "Slope Between Points",
     unitId: "intro-functions",
     generator: makeSlopeProblem,
     answerMode: "slope",
@@ -340,7 +340,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "graphing-linear-equations",
-    label: "Graphing Linear Equations",
+    label: "Graphing Lines",
     unitId: "intro-functions",
     generator: makeCoordinateGridLineProblem,
     answerMode: "graphLine",
@@ -348,7 +348,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "writing-equations-from-graphs",
-    label: "Writing Equations from Graphs",
+    label: "Equations from Graphs",
     unitId: "intro-functions",
     generator: makeCoordinateGridLineProblem,
     answerMode: "graphLine",
@@ -356,7 +356,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "multi-step-equations",
-    label: "Multi-Step Equations",
+    label: "Multi-Step Linear Equations",
     unitId: "linear-equations",
     generator: makeMultiStepEquationProblem,
     answerMode: "single",
@@ -364,7 +364,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "one-step-inequalities",
-    label: "One-Step Inequalities",
+    label: "One-Step Linear Inequalities",
     unitId: "linear-inequalities",
     generator: makeOneStepInequalityProblem,
     answerMode: "inequality",
@@ -372,7 +372,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "two-step-inequalities",
-    label: "Two-Step Inequalities",
+    label: "Two-Step Linear Inequalities",
     unitId: "linear-inequalities",
     generator: makeTwoStepInequalityProblem,
     answerMode: "inequality",
@@ -380,7 +380,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "multi-step-inequalities",
-    label: "Multi-Step Inequalities",
+    label: "Multi-Step Linear Inequalities",
     unitId: "linear-inequalities",
     generator: makeMultiStepInequalityProblem,
     answerMode: "inequality",
@@ -388,7 +388,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "inequalities",
-    label: "Inequalities",
+    label: "Linear Inequality Practice",
     unitId: "linear-inequalities",
     generator: makeLinearInequalityProblem,
     answerMode: "inequality",
@@ -396,7 +396,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "coordinate-grid-problems",
-    label: "Coordinate Grid Problems",
+    label: "Coordinate Grid Practice",
     unitId: "intro-functions",
     generator: makeCoordinateGridLineProblem,
     answerMode: "graphLine",
@@ -404,7 +404,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "quadratic-functions-graphing",
-    label: "Quadratic Functions with Graphing",
+    label: "Graphing Quadratic Functions",
     unitId: "quadratic-equations",
     generator: makeQuadraticGraphProblem,
     answerMode: "graphQuadratic",
@@ -412,7 +412,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
   {
     id: "solve-quadratics-factoring",
-    label: "Solve Quadratics: Factoring",
+    label: "Solving Quadratics by Factoring",
     unitId: "quadratic-equations",
     generator: makeSolveQuadraticsFactoringProblem,
     answerMode: "textValue",
