@@ -2,7 +2,7 @@
 
 React/Tailwind Algebra I assignment app with Firebase Google Sign-In and a Firestore assigned-account gate. The student and teacher worksheets still store worksheet submissions in the current browser for now, but no dashboard route mounts until Firebase Auth and Firestore account verification finish.
 
-Live GitHub Pages URL: `https://mrclarkj82.github.io/Phone-app/`
+Live Firebase Hosting URL: `https://drrs-math.web.app/`
 
 ## Local setup
 
@@ -27,9 +27,20 @@ Use `users/{uid}` as the canonical Firestore account path. Each assigned account
 
 Allowed roles are `student`, `teacher`, and `admin`. The app queries the `users` collection by the signed-in Google email and falls back to `users/{uid}`. It never writes a user document during sign-in; unassigned or inactive users are signed out and returned to the login page.
 
+## Firebase Hosting
+
+The app is configured as the `DRRS Algebra 1` web app inside the Firebase project `dragonmath-f6f56` and deploys to the hosting target `drrs-math`.
+
+Deploy the app with:
+
+```bash
+npm run build
+npx firebase-tools deploy --only hosting:drrs-math --project dragonmath-f6f56
+```
+
 ## GitHub Pages
 
-The Pages workflow builds the React app for `/Phone-app/`. Add these repository secrets before the live login flow is expected to work:
+The older Pages workflow still builds the React app for `/Phone-app/`, but the primary live site is Firebase Hosting. If GitHub Pages is still used as a backup, add these repository secrets before the live login flow is expected to work:
 
 - `VITE_FIREBASE_API_KEY`
 - `VITE_FIREBASE_AUTH_DOMAIN`

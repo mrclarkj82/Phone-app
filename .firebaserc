@@ -1,5 +1,15 @@
 {
   "projects": {
-    "default": "freshman-algebra-phone-app"
+    "default": "dragonmath-f6f56",
+    "legacy": "freshman-algebra-phone-app"
+  },
+  "targets": {
+    "dragonmath-f6f56": {
+      "hosting": {
+        "drrs-math": [
+          "drrs-math"
+        ]
+      }
+    }
   }
 }
