@@ -104,22 +104,34 @@ async function ensureAuthPersistence() {
 
 export function AuthProvider({ children }) {
   const deniedMessage = useRef("");
+  const accountRef = useRef(null);
+  const authUserRef = useRef(null);
   const [status, setStatus] = useState("checking");
   const [authUser, setAuthUser] = useState(null);
   const [account, setAccount] = useState(null);
   const [message, setMessage] = useState("");
   const [signInLoading, setSignInLoading] = useState(false);
 
+  const setAccountState = useCallback((nextAccount) => {
+    accountRef.current = nextAccount;
+    setAccount(nextAccount);
+  }, []);
+
+  const setAuthUserState = useCallback((nextAuthUser) => {
+    authUserRef.current = nextAuthUser;
+    setAuthUser(nextAuthUser);
+  }, []);
+
   const clearSession = useCallback(async (nextMessage = "") => {
     deniedMessage.current = nextMessage;
-    setAccount(null);
-    setAuthUser(null);
+    setAccountState(null);
+    setAuthUserState(null);
     if (auth) {
       await signOut(auth);
     }
     setMessage(nextMessage);
     setStatus("signedOut");
-  }, []);
+  }, [setAccountState, setAuthUserState]);
 
   useEffect(() => {
     if (!firebaseConfigured) {
@@ -136,32 +148,47 @@ export function AuthProvider({ children }) {
 
       if (!firebaseUser) {
         if (!mounted) return;
-        setAuthUser(null);
-        setAccount(null);
+        setAuthUserState(null);
+        setAccountState(null);
         setStatus("signedOut");
         setMessage(deniedMessage.current);
         return;
       }
 
-      setStatus("checking");
-      setAuthUser(firebaseUser);
-      setAccount(null);
+      const verifiedAccount = accountRef.current;
+      const isSameVerifiedUser = verifiedAccount?.uid === firebaseUser.uid;
+
+      setAuthUserState(firebaseUser);
+      if (!isSameVerifiedUser) {
+        setStatus("checking");
+        setAccountState(null);
+      }
 
       try {
         const assignedAccount = await readAssignedAccountWithRetry(firebaseUser);
         if (!mounted || currentCheck !== checkNumber) return;
 
         if (!assignedAccount) {
+          if (accountRef.current?.uid === firebaseUser.uid) {
+            setStatus("assigned");
+            return;
+          }
+
           await clearSession(ACCESS_DENIED_MESSAGE);
           return;
         }
 
         deniedMessage.current = "";
-        setAccount(assignedAccount);
+        setAccountState(assignedAccount);
         setMessage("");
         setStatus("assigned");
       } catch {
         if (!mounted || currentCheck !== checkNumber) return;
+        if (accountRef.current?.uid === firebaseUser.uid) {
+          setStatus("assigned");
+          return;
+        }
+
         setMessage("Unable to verify account access. Please refresh and try again.");
         setStatus("signedOut");
       }
@@ -171,7 +198,7 @@ export function AuthProvider({ children }) {
       mounted = false;
       unsubscribe();
     };
-  }, [clearSession]);
+  }, [clearSession, setAccountState, setAuthUserState]);
 
   const signInWithGoogle = useCallback(async () => {
     if (!firebaseConfigured) {
