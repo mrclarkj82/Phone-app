@@ -1,6 +1,8 @@
 import {
+  browserLocalPersistence,
   GoogleAuthProvider,
   onAuthStateChanged,
+  setPersistence,
   signInWithPopup,
   signOut,
 } from "firebase/auth";
@@ -43,8 +45,17 @@ function accountFromSnapshot(snapshot, firebaseUser) {
     : null;
 }
 
+function wait(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
 async function readAssignedAccount(firebaseUser) {
   if (!firebaseUser.email) return null;
+
+  const uidAccount = accountFromSnapshot(await getDoc(appDoc("users", firebaseUser.uid)), firebaseUser);
+  if (uidAccount) return uidAccount;
 
   let matchingAccounts = [];
 
@@ -59,14 +70,36 @@ async function readAssignedAccount(firebaseUser) {
       .map((accountDoc) => accountFromSnapshot(accountDoc, firebaseUser))
       .filter(Boolean);
   } catch {
-    // users/{uid} is the canonical rules path and remains the fallback below.
+    // Email-indexed account records are optional; users/{uid} is the stable login path.
   }
 
   if (matchingAccounts.length) {
     return matchingAccounts[0];
   }
 
-  return accountFromSnapshot(await getDoc(appDoc("users", firebaseUser.uid)), firebaseUser);
+  return null;
+}
+
+async function readAssignedAccountWithRetry(firebaseUser) {
+  let lastError = null;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await readAssignedAccount(firebaseUser);
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) {
+        await wait(350 * (attempt + 1));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+async function ensureAuthPersistence() {
+  if (!auth) return;
+  await setPersistence(auth, browserLocalPersistence);
 }
 
 export function AuthProvider({ children }) {
@@ -115,7 +148,7 @@ export function AuthProvider({ children }) {
       setAccount(null);
 
       try {
-        const assignedAccount = await readAssignedAccount(firebaseUser);
+        const assignedAccount = await readAssignedAccountWithRetry(firebaseUser);
         if (!mounted || currentCheck !== checkNumber) return;
 
         if (!assignedAccount) {
@@ -129,7 +162,8 @@ export function AuthProvider({ children }) {
         setStatus("assigned");
       } catch {
         if (!mounted || currentCheck !== checkNumber) return;
-        await clearSession("Unable to verify account access. Please try again.");
+        setMessage("Unable to verify account access. Please refresh and try again.");
+        setStatus("signedOut");
       }
     });
 
@@ -150,6 +184,7 @@ export function AuthProvider({ children }) {
     setSignInLoading(true);
 
     try {
+      await ensureAuthPersistence();
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: "select_account" });
       await signInWithPopup(auth, provider);
