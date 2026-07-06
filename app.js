@@ -1,10 +1,9 @@
 import {
-  collection,
-  doc,
   onSnapshot,
   serverTimestamp,
   setDoc,
 } from "firebase/firestore";
+import { appCollection, appDoc } from "./src/lib/appFirestore";
 import { db, firebaseConfigured } from "./src/lib/firebase";
 
 const LINEAR_ASSIGNMENT_ID = "linear-equations-doral-v1";
@@ -4466,7 +4465,7 @@ function subscribeCustomAssignments() {
   }
 
   state.assignmentUnsubscribe = onSnapshot(
-    collection(db, "assignments"),
+    appCollection("assignments"),
     (snapshot) => {
       state.customAssignments = snapshot.docs
         .map((assignmentDoc) => normalizeCustomAssignment(assignmentDoc.data(), assignmentDoc.id))
@@ -4967,7 +4966,7 @@ async function saveCustomAssignment() {
   setBanner(elements.teacherNote, "Creating assignment...", "neutral");
 
   try {
-    await setDoc(doc(db, "assignments", payload.assignmentId), payload, { merge: true });
+    await setDoc(appDoc("assignments", payload.assignmentId), payload, { merge: true });
     const createdAssignment = normalizeCustomAssignment(payload, payload.assignmentId);
     state.customAssignments = [
       ...state.customAssignments.filter((assignment) => assignment.id !== createdAssignment.id),

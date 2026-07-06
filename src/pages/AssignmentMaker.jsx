@@ -1,10 +1,10 @@
-import { collection, deleteDoc, doc, onSnapshot, query, where } from "firebase/firestore";
+import { deleteDoc, onSnapshot, query, where } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import PrivateHeader from "../components/PrivateHeader";
 import useAssignmentDashboard from "../hooks/useAssignmentDashboard";
-import { db } from "../lib/firebase";
+import { appCollection, appDoc } from "../lib/appFirestore";
 import LoadingScreen from "./LoadingScreen";
 
 const baseAssignments = [
@@ -37,8 +37,8 @@ export default function AssignmentMaker() {
 
     const classSource =
       account.role === "admin"
-        ? collection(db, "classes")
-        : query(collection(db, "classes"), where("teacherUid", "==", account.uid));
+        ? appCollection("classes")
+        : query(appCollection("classes"), where("teacherUid", "==", account.uid));
 
     const unsubscribe = onSnapshot(
       classSource,
@@ -63,7 +63,7 @@ export default function AssignmentMaker() {
     setAssignmentError("");
 
     const assignmentSource = query(
-      collection(db, "assignments"),
+      appCollection("assignments"),
       where("teacherUid", "==", account.uid),
     );
 
@@ -141,7 +141,7 @@ function AssignmentMakerContent({
     setDeleteStatus("Deleting assignment...");
 
     try {
-      await deleteDoc(doc(db, "assignments", assignment.id));
+      await deleteDoc(appDoc("assignments", assignment.id));
       setDeleteStatus(`${assignment.title || "Assignment"} was deleted.`);
     } catch (error) {
       setDeleteStatus(error.message || "Unable to delete assignment.");

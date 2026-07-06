@@ -1,5 +1,4 @@
 import {
-  collection,
   deleteDoc,
   doc,
   onSnapshot,
@@ -11,7 +10,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { AnnouncementCard } from "../components/AnnouncementDisplay";
 import PrivateHeader from "../components/PrivateHeader";
-import { db } from "../lib/firebase";
+import { appCollection, appDoc } from "../lib/appFirestore";
 import {
   announcementAudiences,
   announcementPriorities,
@@ -100,7 +99,7 @@ export default function AdminAnnouncements() {
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
-      collection(db, "announcements"),
+      appCollection("announcements"),
       (snapshot) => {
         setAnnouncements(readAnnouncements(snapshot));
         setMessage((current) =>
@@ -166,9 +165,9 @@ export default function AdminAnnouncements() {
     setSaving(true);
     try {
       const ref = editingId
-        ? doc(db, "announcements", editingId)
+        ? appDoc("announcements", editingId)
         : doc(
-            collection(db, "announcements"),
+            appCollection("announcements"),
             `${cleanAnnouncementId(title) || "announcement"}-${Date.now()}`,
           );
 
@@ -209,7 +208,7 @@ export default function AdminAnnouncements() {
 
   async function archiveAnnouncement(announcement) {
     await setDoc(
-      doc(db, "announcements", announcement.id),
+      appDoc("announcements", announcement.id),
       {
         active: false,
         archived: true,
@@ -223,7 +222,7 @@ export default function AdminAnnouncements() {
 
   async function toggleAnnouncement(announcement) {
     await setDoc(
-      doc(db, "announcements", announcement.id),
+      appDoc("announcements", announcement.id),
       {
         active: !announcement.active,
         updatedAt: serverTimestamp(),
@@ -237,7 +236,7 @@ export default function AdminAnnouncements() {
   async function deleteAnnouncement(announcement) {
     const confirmed = window.confirm(`Delete "${announcement.title}"?`);
     if (!confirmed) return;
-    await deleteDoc(doc(db, "announcements", announcement.id));
+    await deleteDoc(appDoc("announcements", announcement.id));
     setMessage(`${announcement.title} was deleted.`);
     setMessageTone("success");
     if (editingId === announcement.id) resetForm();

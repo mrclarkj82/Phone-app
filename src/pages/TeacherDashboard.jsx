@@ -1,4 +1,4 @@
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { onSnapshot, query, where } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { roster } from "../../app";
@@ -6,7 +6,7 @@ import { useAuth } from "../auth/AuthProvider";
 import AnnouncementDisplay from "../components/AnnouncementDisplay";
 import PrivateHeader from "../components/PrivateHeader";
 import useAssignmentDashboard from "../hooks/useAssignmentDashboard";
-import { db } from "../lib/firebase";
+import { appCollection } from "../lib/appFirestore";
 import LoadingScreen from "./LoadingScreen";
 
 export default function TeacherDashboard() {
@@ -20,8 +20,8 @@ export default function TeacherDashboard() {
 
     const classSource =
       account.role === "admin"
-        ? collection(db, "classes")
-        : query(collection(db, "classes"), where("teacherUid", "==", account.uid));
+        ? appCollection("classes")
+        : query(appCollection("classes"), where("teacherUid", "==", account.uid));
 
     const unsubscribe = onSnapshot(
       classSource,

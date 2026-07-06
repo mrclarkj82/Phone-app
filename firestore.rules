@@ -6,114 +6,865 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function hasAllowedRole(role) {
+    function isSchoolDomain() {
+      return signedIn()
+        && request.auth.token.email != null
+        && (
+          request.auth.token.email.matches('.*@doralacademynv[.]org$')
+          || request.auth.token.email.matches('.*@student[.]doralacademynv[.]org$')
+        );
+    }
+
+    function accessConfigPath() {
+      return /databases/$(database)/documents/apps/dcc/config/access;
+    }
+
+    function isBootstrapAdminEmail() {
+      return signedIn()
+        && request.auth.token.email != null
+        && exists(accessConfigPath())
+        && get(accessConfigPath()).data.allowedAdminEmails is list
+        && request.auth.token.email in get(accessConfigPath()).data.allowedAdminEmails;
+    }
+
+    function isAllowedAccount() {
+      return isSchoolDomain() || isBootstrapAdminEmail();
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isDccApp(appId) {
+      return appId == 'dcc';
+    }
+
+    function userPath(userId) {
+      return /databases/$(database)/documents/apps/dcc/users/$(userId);
+    }
+
+    function userDoc() {
+      return get(userPath(request.auth.uid));
+    }
+
+    function userRole() {
+      return signedIn() && exists(userPath(request.auth.uid))
+        ? userDoc().data.role
+        : null;
+    }
+
+    function validRole(role) {
       return role in ['student', 'teacher', 'admin'];
     }
 
-    function accountPath() {
+    function isTeacher() {
+      return isAllowedAccount() && userRole() == 'teacher';
+    }
+
+    function isAdmin() {
+      return isAllowedAccount() && userRole() == 'admin';
+    }
+
+    function isClassTeacher(classData) {
+      return isAllowedAccount()
+        && request.auth.uid in classData.teacherIds
+        && (isTeacher() || isAdmin());
+    }
+
+    function classPath(classId) {
+      return /databases/$(database)/documents/apps/dcc/classes/$(classId);
+    }
+
+    function classExists(classId) {
+      return classId is string && exists(classPath(classId));
+    }
+
+    function classData(classId) {
+      return get(classPath(classId)).data;
+    }
+
+    function canManageClassById(classId) {
+      return isAdmin()
+        || (
+          isTeacher()
+          && classExists(classId)
+          && request.auth.uid in classData(classId).teacherIds
+        );
+    }
+
+    function isClassStudent(classData) {
+      return isAllowedAccount() && request.auth.uid in classData.studentIds;
+    }
+
+    function userHasClassId(classId) {
+      return isAllowedAccount()
+        && exists(userPath(request.auth.uid))
+        && classId in userDoc().data.classIds;
+    }
+
+    function canReadClass(classId, classData) {
+      return isAdmin()
+        || isClassTeacher(classData)
+        || isClassStudent(classData)
+        || userHasClassId(classId);
+    }
+
+    function teacherCanReadStudent(userData) {
+      return isTeacher()
+        && userData.role == 'student'
+        && userData.classIds is list
+        && userDoc().data.classIds is list
+        && userData.classIds.hasAny(userDoc().data.classIds);
+    }
+
+    function activeItemTypeIsSupported(activeItemType) {
+      return activeItemType in [
+        'lesson',
+        'assignment',
+        'mediaProject',
+        'broadcastUpdate',
+        'quiz',
+        'portfolioCheckpoint'
+      ];
+    }
+
+    function activeProgramAreaExists(classData) {
+      return classData.activeProgramAreaId is string
+        && exists(/databases/$(database)/documents/apps/dcc/programAreas/$(classData.activeProgramAreaId));
+    }
+
+    function activeItemMatchesProgramArea(collectionName, classData) {
+      let activeItemPath = /databases/$(database)/documents/apps/dcc/$(collectionName)/$(classData.activeItemId);
+      return exists(activeItemPath)
+        && get(activeItemPath).data.programAreaId == classData.activeProgramAreaId;
+    }
+
+    function activeItemExists(classData) {
+      return classData.activeItemId is string
+        && classData.activeItemId.size() > 0
+        && (
+          (classData.activeItemType == 'lesson'
+            && activeItemMatchesProgramArea('lessons', classData))
+          || (classData.activeItemType == 'assignment'
+            && activeItemMatchesProgramArea('assignments', classData))
+          || (classData.activeItemType == 'mediaProject'
+            && activeItemMatchesProgramArea('mediaProjects', classData))
+          || (classData.activeItemType == 'broadcastUpdate'
+            && activeItemMatchesProgramArea('broadcastUpdates', classData))
+          || (classData.activeItemType == 'quiz'
+            && activeItemMatchesProgramArea('quizzes', classData))
+          || classData.activeItemType == 'portfolioCheckpoint'
+        );
+    }
+
+    function validActiveClassItem(classData) {
+      return activeItemTypeIsSupported(classData.activeItemType)
+        && activeProgramAreaExists(classData)
+        && activeItemExists(classData);
+    }
+
+    function safeAdminUserUpdate() {
+      return isAdmin()
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && validRole(request.resource.data.role)
+        && request.resource.data.classIds is list
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function safeAdminClassCreate(classId) {
+      return isAdmin()
+        && request.resource.data.id == classId
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.period is string
+        && request.resource.data.period.size() > 0
+        && request.resource.data.schoolYear is string
+        && request.resource.data.schoolYear.size() > 0
+        && request.resource.data.teacherIds is list
+        && request.resource.data.studentIds is list
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && validActiveClassItem(request.resource.data);
+    }
+
+    function validJoinCodeId(code) {
+      return code.matches('[A-HJ-NP-Z2-9]{6}');
+    }
+
+    function validJoinCodeCreate(code) {
+      return isAllowedAccount()
+        && request.resource.data.keys().hasOnly([
+          'code',
+          'classId',
+          'className',
+          'period',
+          'createdBy',
+          'createdAt',
+          'updatedAt',
+          'expiresAt',
+          'isActive',
+          'allowedEmailDomain',
+          'usageCount',
+          'lastUsedAt'
+        ])
+        && validJoinCodeId(code)
+        && request.resource.data.code == code
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.classId is string
+        && canManageClassById(request.resource.data.classId)
+        && request.resource.data.className == classData(request.resource.data.classId).name
+        && request.resource.data.period == classData(request.resource.data.classId).period
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.expiresAt == null
+        && request.resource.data.isActive == true
+        && request.resource.data.allowedEmailDomain == 'student.doralacademynv.org'
+        && request.resource.data.usageCount == 0
+        && request.resource.data.lastUsedAt == null;
+    }
+
+    function canManageJoinCode(joinCodeData) {
+      return isAdmin()
+        || (
+          isTeacher()
+          && joinCodeData.classId is string
+          && classExists(joinCodeData.classId)
+          && request.auth.uid in classData(joinCodeData.classId).teacherIds
+        );
+    }
+
+    function safeJoinCodeDisable() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'isActive',
+          'updatedAt'
+        ])
+        && request.resource.data.isActive == false
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function safeUserCreate(userId) {
+      return isAllowedAccount()
+        && isSelf(userId)
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'displayName',
+          'email',
+          'photoURL',
+          'role',
+          'classIds',
+          'createdAt',
+          'updatedAt',
+          'lastLoginAt'
+        ])
+        && request.resource.data.uid == userId
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == 'student'
+        && validRole(request.resource.data.role)
+        && request.resource.data.classIds is list
+        && request.resource.data.classIds.size() == 0
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.lastLoginAt == request.time;
+    }
+
+    function safeSelfUserUpdate() {
+      return isAllowedAccount()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName',
+          'photoURL',
+          'updatedAt',
+          'lastLoginAt'
+        ])
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.classIds == resource.data.classIds
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.lastLoginAt == request.time;
+    }
+
+    function teacherActiveClassItemUpdateOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'activeProgramAreaId',
+          'activeItemType',
+          'activeItemId',
+          'updatedAt'
+        ])
+        && request.resource.data.activeItemType in [
+          'lesson',
+          'assignment',
+          'mediaProject',
+          'broadcastUpdate',
+          'quiz',
+          'portfolioCheckpoint'
+        ]
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function responseAllowedKeys(responseData) {
+      return responseData.keys().hasOnly([
+        'id',
+        'uid',
+        'studentName',
+        'studentEmail',
+        'classId',
+        'programAreaId',
+        'activeItemType',
+        'activeItemId',
+        'prompt',
+        'response',
+        'status',
+        'createdAt',
+        'updatedAt'
+      ]);
+    }
+
+    function responseMatchesActiveClassItem(responseData) {
+      return responseData.classId is string
+        && classExists(responseData.classId)
+        && responseData.programAreaId == classData(responseData.classId).activeProgramAreaId
+        && responseData.activeItemType == classData(responseData.classId).activeItemType
+        && responseData.activeItemId == classData(responseData.classId).activeItemId;
+    }
+
+    function canReadStudentResponse(responseData) {
+      return isAdmin()
+        || (
+          isAllowedAccount()
+          && responseData.uid == request.auth.uid
+          && responseData.classId is string
+          && classExists(responseData.classId)
+          && request.auth.uid in classData(responseData.classId).studentIds
+        )
+        || (
+          isTeacher()
+          && responseData.classId is string
+          && classExists(responseData.classId)
+          && request.auth.uid in classData(responseData.classId).teacherIds
+        );
+    }
+
+    function safeStudentResponseBase(responseId) {
+      return isAllowedAccount()
+        && userRole() == 'student'
+        && responseAllowedKeys(request.resource.data)
+        && request.resource.data.id == responseId
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.studentEmail == request.auth.token.email
+        && request.resource.data.studentName is string
+        && request.resource.data.prompt is string
+        && request.resource.data.prompt.size() > 0
+        && request.resource.data.response is string
+        && request.resource.data.response.size() > 0
+        && request.resource.data.response.size() <= 4000
+        && request.resource.data.status == 'submitted'
+        && request.resource.data.programAreaId is string
+        && request.resource.data.activeItemId is string
+        && activeItemTypeIsSupported(request.resource.data.activeItemType)
+        && responseMatchesActiveClassItem(request.resource.data)
+        && request.auth.uid in classData(request.resource.data.classId).studentIds
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function safeStudentResponseCreate(responseId) {
+      return safeStudentResponseBase(responseId)
+        && request.resource.data.createdAt == request.time;
+    }
+
+    function safeStudentResponseUpdate(responseId) {
+      return safeStudentResponseBase(responseId)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.classId == resource.data.classId
+        && request.resource.data.programAreaId == resource.data.programAreaId
+        && request.resource.data.activeItemType == resource.data.activeItemType
+        && request.resource.data.activeItemId == resource.data.activeItemId;
+    }
+
+    function validSubmissionTargetType(targetType) {
+      return targetType in ['lesson', 'assignment', 'mediaProject', 'broadcastUpdate'];
+    }
+
+    function validSubmissionKind(submissionKind) {
+      return submissionKind in [
+        'unreal-evidence',
+        'video-production',
+        'broadcast-evidence',
+        'general'
+      ];
+    }
+
+    function validSubmissionStatus(status) {
+      return status in ['submitted', 'resubmitted', 'needs_revision', 'accepted'];
+    }
+
+    function submissionAllowedKeys(submissionData) {
+      return submissionData.keys().hasOnly([
+        'id',
+        'uid',
+        'studentName',
+        'studentEmail',
+        'classId',
+        'programAreaId',
+        'targetType',
+        'targetId',
+        'activeItemType',
+        'activeItemId',
+        'title',
+        'submissionKind',
+        'driveLinks',
+        'otherLinks',
+        'reflection',
+        'textResponse',
+        'evidenceChecklist',
+        'status',
+        'teacherFeedback',
+        'reviewedBy',
+        'reviewedAt',
+        'createdAt',
+        'updatedAt',
+        'submittedAt',
+        'resubmittedAt'
+      ]);
+    }
+
+    function targetMatchesProgramArea(collectionName, submissionData) {
+      let targetPath = /databases/$(database)/documents/apps/dcc/$(collectionName)/$(submissionData.targetId);
+      return exists(targetPath)
+        && get(targetPath).data.programAreaId == submissionData.programAreaId;
+    }
+
+    function submissionTargetExists(submissionData) {
+      return submissionData.targetId is string
+        && submissionData.targetId.size() > 0
+        && (
+          (submissionData.targetType == 'lesson'
+            && targetMatchesProgramArea('lessons', submissionData))
+          || (submissionData.targetType == 'assignment'
+            && targetMatchesProgramArea('assignments', submissionData))
+          || (submissionData.targetType == 'mediaProject'
+            && targetMatchesProgramArea('mediaProjects', submissionData))
+          || (submissionData.targetType == 'broadcastUpdate'
+            && targetMatchesProgramArea('broadcastUpdates', submissionData))
+        );
+    }
+
+    function activeSubmissionItemMatchesProgramArea(collectionName, submissionData) {
+      let activePath = /databases/$(database)/documents/apps/dcc/$(collectionName)/$(submissionData.activeItemId);
+      return exists(activePath)
+        && get(activePath).data.programAreaId == submissionData.programAreaId;
+    }
+
+    function submissionActiveItemExists(submissionData) {
+      return submissionData.activeItemId is string
+        && submissionData.activeItemId.size() > 0
+        && activeItemTypeIsSupported(submissionData.activeItemType)
+        && (
+          (submissionData.activeItemType == 'lesson'
+            && activeSubmissionItemMatchesProgramArea('lessons', submissionData))
+          || (submissionData.activeItemType == 'assignment'
+            && activeSubmissionItemMatchesProgramArea('assignments', submissionData))
+          || (submissionData.activeItemType == 'mediaProject'
+            && activeSubmissionItemMatchesProgramArea('mediaProjects', submissionData))
+          || (submissionData.activeItemType == 'broadcastUpdate'
+            && activeSubmissionItemMatchesProgramArea('broadcastUpdates', submissionData))
+          || (submissionData.activeItemType == 'quiz'
+            && activeSubmissionItemMatchesProgramArea('quizzes', submissionData))
+          || submissionData.activeItemType == 'portfolioCheckpoint'
+        );
+    }
+
+    function canReadStudentSubmission(submissionData) {
+      return isAdmin()
+        || (
+          isAllowedAccount()
+          && submissionData.uid == request.auth.uid
+          && submissionData.classId is string
+          && classExists(submissionData.classId)
+          && request.auth.uid in classData(submissionData.classId).studentIds
+        )
+        || (
+          isTeacher()
+          && submissionData.classId is string
+          && classExists(submissionData.classId)
+          && request.auth.uid in classData(submissionData.classId).teacherIds
+        );
+    }
+
+    function canReadQuizAttempt(attemptData) {
+      return isAdmin()
+        || (
+          isAllowedAccount()
+          && attemptData.uid == request.auth.uid
+          && attemptData.classId is string
+          && classExists(attemptData.classId)
+          && request.auth.uid in classData(attemptData.classId).studentIds
+        )
+        || (
+          isTeacher()
+          && attemptData.classId is string
+          && classExists(attemptData.classId)
+          && request.auth.uid in classData(attemptData.classId).teacherIds
+        );
+    }
+
+    function safeStudentSubmissionBase(submissionId) {
+      return isAllowedAccount()
+        && userRole() == 'student'
+        && submissionAllowedKeys(request.resource.data)
+        && request.resource.data.id == submissionId
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.studentEmail == request.auth.token.email
+        && request.resource.data.studentName is string
+        && request.resource.data.classId is string
+        && classExists(request.resource.data.classId)
+        && request.auth.uid in classData(request.resource.data.classId).studentIds
+        && request.resource.data.programAreaId is string
+        && request.resource.data.programAreaId == classData(request.resource.data.classId).activeProgramAreaId
+        && validSubmissionTargetType(request.resource.data.targetType)
+        && submissionTargetExists(request.resource.data)
+        && submissionActiveItemExists(request.resource.data)
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && validSubmissionKind(request.resource.data.submissionKind)
+        && validSubmissionStatus(request.resource.data.status)
+        && request.resource.data.driveLinks is list
+        && request.resource.data.otherLinks is list
+        && request.resource.data.driveLinks.size() + request.resource.data.otherLinks.size() > 0
+        && request.resource.data.reflection is string
+        && request.resource.data.reflection.size() > 0
+        && request.resource.data.reflection.size() <= 8000
+        && request.resource.data.textResponse is string
+        && request.resource.data.textResponse.size() <= 8000
+        && request.resource.data.evidenceChecklist is list
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function safeStudentSubmissionCreate(submissionId) {
+      return safeStudentSubmissionBase(submissionId)
+        && request.resource.data.status == 'submitted'
+        && request.resource.data.teacherFeedback == ''
+        && request.resource.data.reviewedBy == ''
+        && request.resource.data.reviewedAt == null
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.submittedAt == request.time
+        && request.resource.data.resubmittedAt == null;
+    }
+
+    function safeStudentSubmissionUpdate(submissionId) {
+      return safeStudentSubmissionBase(submissionId)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.submittedAt == resource.data.submittedAt
+        && request.resource.data.teacherFeedback == resource.data.teacherFeedback
+        && request.resource.data.reviewedBy == resource.data.reviewedBy
+        && request.resource.data.reviewedAt == resource.data.reviewedAt
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.classId == resource.data.classId
+        && request.resource.data.programAreaId == resource.data.programAreaId
+        && request.resource.data.targetType == resource.data.targetType
+        && request.resource.data.targetId == resource.data.targetId
+        && request.resource.data.activeItemType == resource.data.activeItemType
+        && request.resource.data.activeItemId == resource.data.activeItemId
+        && request.resource.data.title == resource.data.title
+        && request.resource.data.submissionKind == resource.data.submissionKind
+        && (
+          (
+            request.resource.data.status == 'submitted'
+            && resource.data.status in ['submitted', 'resubmitted']
+            && request.resource.data.resubmittedAt == resource.data.resubmittedAt
+          )
+          || (
+            request.resource.data.status == 'resubmitted'
+            && resource.data.status == 'needs_revision'
+            && request.resource.data.resubmittedAt == request.time
+          )
+        );
+    }
+
+    function canReviewSubmission(submissionData) {
+      return isAdmin()
+        || (
+          isTeacher()
+          && submissionData.classId is string
+          && classExists(submissionData.classId)
+          && request.auth.uid in classData(submissionData.classId).teacherIds
+        );
+    }
+
+    function safeSubmissionReviewUpdate() {
+      return canReviewSubmission(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'teacherFeedback',
+          'reviewedBy',
+          'reviewedAt',
+          'updatedAt'
+        ])
+        && request.resource.data.status in ['needs_revision', 'accepted']
+        && request.resource.data.teacherFeedback is string
+        && request.resource.data.teacherFeedback.size() <= 8000
+        && request.resource.data.reviewedBy == request.auth.uid
+        && request.resource.data.reviewedAt == request.time
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function teacherPreviewResponseAllowedKeys(responseData) {
+      return responseData.keys().hasOnly([
+        'id',
+        'teacherUid',
+        'teacherName',
+        'teacherEmail',
+        'classId',
+        'programAreaId',
+        'activeItemType',
+        'activeItemId',
+        'responseKind',
+        'prompt',
+        'response',
+        'status',
+        'isPreview',
+        'createdAt',
+        'updatedAt'
+      ]);
+    }
+
+    function canReadTeacherPreviewResponse(responseData) {
+      return isAdmin()
+        || (
+          isTeacher()
+          && responseData.teacherUid == request.auth.uid
+          && responseData.classId is string
+          && classExists(responseData.classId)
+          && request.auth.uid in classData(responseData.classId).teacherIds
+        );
+    }
+
+    function safeTeacherPreviewResponseBase(responseId) {
+      return isAllowedAccount()
+        && (isTeacher() || isAdmin())
+        && teacherPreviewResponseAllowedKeys(request.resource.data)
+        && request.resource.data.id == responseId
+        && request.resource.data.teacherUid == request.auth.uid
+        && request.resource.data.teacherEmail == request.auth.token.email
+        && request.resource.data.teacherName is string
+        && request.resource.data.classId is string
+        && canManageClassById(request.resource.data.classId)
+        && request.resource.data.responseKind in ['bellRinger', 'exitTicket']
+        && request.resource.data.prompt is string
+        && request.resource.data.prompt.size() > 0
+        && request.resource.data.response is string
+        && request.resource.data.response.size() > 0
+        && request.resource.data.response.size() <= 4000
+        && request.resource.data.status == 'preview-submitted'
+        && request.resource.data.isPreview == true
+        && request.resource.data.programAreaId is string
+        && request.resource.data.activeItemId is string
+        && activeItemTypeIsSupported(request.resource.data.activeItemType)
+        && responseMatchesActiveClassItem(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function safeTeacherPreviewResponseCreate(responseId) {
+      return safeTeacherPreviewResponseBase(responseId)
+        && request.resource.data.createdAt == request.time;
+    }
+
+    function safeTeacherPreviewResponseUpdate(responseId) {
+      return safeTeacherPreviewResponseBase(responseId)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.teacherUid == resource.data.teacherUid
+        && request.resource.data.classId == resource.data.classId
+        && request.resource.data.programAreaId == resource.data.programAreaId
+        && request.resource.data.activeItemType == resource.data.activeItemType
+        && request.resource.data.activeItemId == resource.data.activeItemId
+        && request.resource.data.responseKind == resource.data.responseKind
+        && request.resource.data.isPreview == resource.data.isPreview;
+    }
+
+    function hpUserPath() {
       return /databases/$(database)/documents/users/$(request.auth.uid);
     }
 
-    function assignedAccount() {
-      return get(accountPath()).data;
+    function hpHasUserDoc() {
+      return signedIn() && exists(hpUserPath());
     }
 
-    function hasAssignedActiveAccount() {
+    function hpUserData() {
+      return get(hpUserPath()).data;
+    }
+
+    function hpRole() {
+      return signedIn() && request.auth.token.role != null
+        ? request.auth.token.role
+        : (hpHasUserDoc() ? hpUserData().role : "pending");
+    }
+
+    function hpIsBootstrapAdminAuth() {
       return signedIn()
-        && exists(accountPath())
-        && assignedAccount().uid == request.auth.uid
-        && assignedAccount().email == request.auth.token.email
-        && assignedAccount().active == true
-        && hasAllowedRole(assignedAccount().role);
+        && request.auth.token.email in [
+          "joseph.clark@doralacademynv.org",
+          "nicole.whitaker@doralacademynv.org"
+        ];
     }
 
-    function hasRole(role) {
-      return hasAssignedActiveAccount() && assignedAccount().role == role;
+    function hpIsAdmin() {
+      return signedIn() && (hpRole() == "admin" || request.auth.token.admin == true || hpIsBootstrapAdminAuth());
     }
 
-    function teacherOrAdmin() {
-      return hasRole('teacher') || hasRole('admin');
+    function hpIsTeacher() {
+      return signedIn() && (hpIsAdmin() || hpRole() == "teacher");
     }
 
-    function ownsAssignment(data) {
+    function hpIsStudent() {
+      return signedIn() && hpRole() == "student";
+    }
+
+    function hpImportedStudent(emailLower) {
+      return exists(/databases/$(database)/documents/students/$(emailLower));
+    }
+
+    function hpImportedTeacher(emailLower) {
+      return exists(/databases/$(database)/documents/teachers/$(emailLower));
+    }
+
+    function hpImportedTeacherRole(emailLower) {
+      return get(/databases/$(database)/documents/teachers/$(emailLower)).data.role;
+    }
+
+    function hpIsBootstrapAdminEmail(emailLower) {
+      return emailLower in [
+        "joseph.clark@doralacademynv.org",
+        "nicole.whitaker@doralacademynv.org"
+      ];
+    }
+
+    function hpValidOwnUserRole() {
+      let requestedRole = request.resource.data.role;
+      let emailLower = request.resource.data.emailLower;
+      return (
+        requestedRole == "pending"
+        || (requestedRole == "student" && hpImportedStudent(emailLower))
+        || (requestedRole == "teacher" && hpImportedTeacher(emailLower) && hpImportedTeacherRole(emailLower) == "teacher")
+        || (requestedRole == "admin" && hpImportedTeacher(emailLower) && hpImportedTeacherRole(emailLower) == "admin")
+        || (requestedRole == "admin" && hpIsBootstrapAdminEmail(emailLower))
+        || (requestedRole == "admin" && request.auth.token.admin == true)
+      );
+    }
+
+    function hpValidOwnUserCreate() {
+      let emailLower = request.resource.data.emailLower;
+      return request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && emailLower is string
+        && hpValidOwnUserRole();
+    }
+
+    function hpValidOwnUserUpdate() {
+      return request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.emailLower == resource.data.emailLower
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(["uid", "email", "emailLower", "displayName", "photoURL", "lastLoginAt", "role", "studentId", "teacherId", "active"])
+        && (
+          request.resource.data.role == resource.data.role
+          || (hpIsBootstrapAdminEmail(resource.data.emailLower) && hpValidOwnUserRole())
+          || (resource.data.role == "pending" && hpValidOwnUserRole())
+        );
+    }
+
+    function hpIsOwnStudent(studentId) {
+      return signedIn()
+        && (
+          (hpHasUserDoc() && hpUserData().studentId == studentId)
+          || resource.data.email == request.auth.token.email
+        );
+    }
+
+    function hpIsOwnTeacher(teacherId) {
+      return signedIn()
+        && (
+          (hpHasUserDoc() && hpUserData().teacherId == teacherId)
+          || resource.data.email == request.auth.token.email
+        );
+    }
+
+    function hpValidAwardCreate() {
+      return hpIsTeacher()
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0
+        && request.resource.data.reversed == false
+        && request.resource.data.awardType in ["individual", "group", "class", "house"]
+        && (
+          request.resource.data.teacherId == request.auth.uid
+          || (hpHasUserDoc() && request.resource.data.teacherId == hpUserData().teacherId)
+        );
+    }
+
+    function drrsIsMathApp(appId) {
+      return appId == "drrs-math";
+    }
+
+    function drrsAccountPath() {
+      return /databases/$(database)/documents/apps/drrs-math/users/$(request.auth.uid);
+    }
+
+    function drrsAssignedAccount() {
+      return get(drrsAccountPath()).data;
+    }
+
+    function drrsHasAllowedRole(role) {
+      return role in ["student", "teacher", "admin"];
+    }
+
+    function drrsHasAssignedActiveAccount() {
+      return signedIn()
+        && request.auth.token.email != null
+        && exists(drrsAccountPath())
+        && drrsAssignedAccount().uid == request.auth.uid
+        && drrsAssignedAccount().email == request.auth.token.email
+        && drrsAssignedAccount().active == true
+        && drrsHasAllowedRole(drrsAssignedAccount().role);
+    }
+
+    function drrsHasRole(role) {
+      return drrsHasAssignedActiveAccount() && drrsAssignedAccount().role == role;
+    }
+
+    function drrsTeacherOrAdmin() {
+      return drrsHasRole("teacher") || drrsHasRole("admin");
+    }
+
+    function drrsOwnsAssignment(data) {
       return data.teacherUid is string && data.teacherUid == request.auth.uid;
     }
 
-    function isClassTeacher(data) {
-      return hasRole('teacher') && data.teacherUid == request.auth.uid;
+    function drrsIsClassTeacher(data) {
+      return drrsHasRole("teacher") && data.teacherUid == request.auth.uid;
     }
 
-    function isClassStudent(data) {
-      return hasRole('student')
-        && data.studentUids is list
-        && request.auth.uid in data.studentUids;
+    function drrsIsClassStudent(data) {
+      return drrsHasRole("student")
+        && (
+          (data.studentUids is list && request.auth.uid in data.studentUids)
+          || (data.studentEmails is list && request.auth.token.email in data.studentEmails)
+        );
     }
 
-    function validUserDocument(data) {
-      return data.keys().hasAll(['uid', 'email', 'displayName', 'role', 'active'])
+    function drrsValidUserDocument(data) {
+      return data.keys().hasAll(["uid", "email", "displayName", "role", "active"])
         && data.uid is string
         && data.email is string
         && data.displayName is string
         && data.active is bool
-        && hasAllowedRole(data.role);
+        && drrsHasAllowedRole(data.role);
     }
 
-    function isOwnEmail(data) {
-      return signedIn() && data.email == request.auth.token.email;
-    }
-
-    function announcementTargetsRole(data) {
-      return (hasRole('student') && data.targetAudience in ['students', 'both'])
-        || (hasRole('teacher') && data.targetAudience in ['teachers', 'both']);
-    }
-
-    function canReadAnnouncement(data) {
-      return hasRole('admin')
-        || (
-          hasAssignedActiveAccount()
-          && data.active == true
-          && data.archived != true
-          && announcementTargetsRole(data)
-        );
-    }
-
-    function validAnnouncement(data) {
-      return data.keys().hasAll([
-          'title',
-          'body',
-          'type',
-          'priority',
-          'targetAudience',
-          'active',
-          'startDate',
-          'createdBy',
-          'createdByEmail',
-          'updatedAt',
-          'archived'
-        ])
-        && data.title is string
-        && data.body is string
-        && data.type in [
-          'general',
-          'class-reminder',
-          'assignment-reminder',
-          'testing',
-          'schedule-change',
-          'important-alert',
-          'video-announcement'
-        ]
-        && data.priority in ['normal', 'important', 'urgent']
-        && data.targetAudience in ['students', 'teachers', 'both']
-        && data.active is bool
-        && data.archived is bool
-        && data.startDate is timestamp
-        && (data.endDate == null || data.endDate is timestamp)
-        && data.createdBy is string
-        && data.createdByEmail is string;
-    }
-
-    function ownsAnnouncementRead(data) {
-      return hasAssignedActiveAccount()
+    function drrsOwnsAnnouncementRead(data) {
+      return drrsHasAssignedActiveAccount()
         && data.userId is string
         && data.userId == request.auth.uid
         && data.userEmail is string
@@ -121,90 +872,305 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // Google Auth may identify a user before the Firestore account check.
-      // Only the already-assigned user record may be read during that check.
-      allow get: if signedIn()
-        && (userId == request.auth.uid || isOwnEmail(resource.data) || hasRole('admin'));
-      allow list: if signedIn() && (isOwnEmail(resource.data) || hasRole('admin'));
-      allow create, update: if hasRole('admin') && validUserDocument(request.resource.data);
-      allow delete: if hasRole('admin');
+      allow get: if signedIn() && (userId == request.auth.uid || hpIsAdmin());
+      allow list: if hpIsAdmin();
+      allow create: if signedIn() && userId == request.auth.uid && hpValidOwnUserCreate();
+      allow update: if hpIsAdmin()
+        || (signedIn() && userId == request.auth.uid && hpValidOwnUserUpdate());
+      allow delete: if hpIsAdmin();
     }
 
-    match /assignments/{assignmentId} {
-      allow read: if hasAssignedActiveAccount();
-      allow create: if hasRole('admin')
-        || (hasRole('teacher') && ownsAssignment(request.resource.data));
-      allow update: if hasRole('admin')
+    match /students/{studentId} {
+      allow get: if hpIsAdmin() || hpIsTeacher() || hpIsOwnStudent(studentId);
+      allow list: if hpIsAdmin() || hpIsTeacher();
+      allow create, delete: if hpIsAdmin();
+      allow update: if hpIsAdmin()
         || (
-          hasRole('teacher')
-          && ownsAssignment(resource.data)
-          && ownsAssignment(request.resource.data)
+          hpIsTeacher()
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(["totalPoints", "updatedAt"])
         );
-      allow delete: if hasRole('admin')
-        || (hasRole('teacher') && ownsAssignment(resource.data));
-    }
-
-    match /announcements/{announcementId} {
-      allow read: if canReadAnnouncement(resource.data);
-      allow create, update: if hasRole('admin') && validAnnouncement(request.resource.data);
-      allow delete: if hasRole('admin');
-    }
-
-    match /announcementReads/{readId} {
-      allow read: if hasRole('admin') || ownsAnnouncementRead(resource.data);
-      allow create: if ownsAnnouncementRead(request.resource.data);
-      allow update: if ownsAnnouncementRead(resource.data)
-        && ownsAnnouncementRead(request.resource.data)
-        && request.resource.data.announcementId == resource.data.announcementId;
-      allow delete: if hasRole('admin') || ownsAnnouncementRead(resource.data);
     }
 
     match /teachers/{teacherId} {
-      allow read: if hasRole('admin')
-        || (hasRole('teacher') && resource.data.uid == request.auth.uid);
-      allow create, update, delete: if hasRole('admin');
+      allow get: if hpIsAdmin() || hpIsOwnTeacher(teacherId);
+      allow list: if hpIsAdmin();
+      allow create, update, delete: if hpIsAdmin();
     }
 
-    match /classes/{classId} {
-      allow read: if hasRole('admin') || isClassTeacher(resource.data) || isClassStudent(resource.data);
-      allow create, update, delete: if hasRole('admin');
-    }
-
-    match /submissions/{submissionId} {
-      allow read: if hasAssignedActiveAccount()
-        && (teacherOrAdmin() || resource.data.studentUid == request.auth.uid);
-      allow create: if hasAssignedActiveAccount()
-        && (
-          teacherOrAdmin()
-          || (hasRole('student') && request.resource.data.studentUid == request.auth.uid)
+    match /houses/{houseId} {
+      allow read: if signedIn();
+      allow create, delete: if hpIsAdmin();
+      allow update: if hpIsAdmin()
+        || (
+          hpIsTeacher()
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(["id", "name", "totalPoints", "seasonTotals", "updatedAt"])
         );
-      allow update: if hasAssignedActiveAccount()
-        && (
-          teacherOrAdmin()
-          || (
-            hasRole('student')
-            && resource.data.studentUid == request.auth.uid
-            && request.resource.data.studentUid == resource.data.studentUid
-          )
-        );
-      allow delete: if teacherOrAdmin();
     }
 
-    match /studentData/{studentUid}/{studentDocument=**} {
-      allow read, write: if hasAssignedActiveAccount()
-        && (teacherOrAdmin() || studentUid == request.auth.uid);
+    match /categories/{categoryId} {
+      allow get, list: if signedIn() && (hpIsTeacher() || hpIsAdmin() || resource.data.active == true);
+      allow create, update, delete: if hpIsAdmin();
     }
 
-    match /teacherData/{teacherDocument=**} {
-      allow read, write: if teacherOrAdmin();
+    match /seasons/{seasonId} {
+      allow read: if signedIn();
+      allow create, update, delete: if hpIsAdmin();
     }
 
-    match /adminData/{adminDocument=**} {
-      allow read, write: if hasRole('admin');
+    match /classesOrPeriods/{classId} {
+      allow read: if hpIsTeacher();
+      allow create, update, delete: if hpIsAdmin();
     }
 
+    match /pointTransactions/{transactionId} {
+      allow create: if hpValidAwardCreate();
+      allow get, list: if hpIsAdmin()
+        || hpIsTeacher()
+        || (hpIsStudent() && resource.data.studentId == hpUserData().studentId);
+      allow update: if hpIsAdmin();
+      allow delete: if false;
+    }
+
+    match /apps/{appId} {
+      allow read, write: if false;
+
+      match /users/{userId} {
+        allow get: if isDccApp(appId)
+          && isAllowedAccount()
+          && (isSelf(userId) || isAdmin() || teacherCanReadStudent(resource.data));
+        allow list: if isDccApp(appId) && isAdmin();
+        allow create: if isDccApp(appId) && safeUserCreate(userId);
+        allow update: if isDccApp(appId)
+          && (safeAdminUserUpdate() || (isSelf(userId) && safeSelfUserUpdate()));
+        allow delete: if isDccApp(appId) && isAdmin();
+      }
+
+      match /classes/{classId} {
+        allow read: if isDccApp(appId) && canReadClass(classId, resource.data);
+        allow create: if isDccApp(appId) && safeAdminClassCreate(classId);
+        allow delete: if isDccApp(appId) && isAdmin();
+        allow update: if isDccApp(appId)
+          && (
+            (isAdmin() && validActiveClassItem(request.resource.data))
+            || (
+              isClassTeacher(resource.data)
+              && teacherActiveClassItemUpdateOnly()
+              && validActiveClassItem(request.resource.data)
+            )
+          );
+      }
+
+      match /classJoinCodes/{code} {
+        allow get, list: if isDccApp(appId) && canManageJoinCode(resource.data);
+        allow create: if isDccApp(appId) && validJoinCodeCreate(code);
+        allow update: if isDccApp(appId)
+          && canManageJoinCode(resource.data)
+          && safeJoinCodeDisable();
+        allow delete: if isDccApp(appId) && isAdmin();
+      }
+
+      match /bellRingerResponses/{responseId} {
+        allow get, list: if isDccApp(appId) && canReadStudentResponse(resource.data);
+        allow create: if isDccApp(appId) && safeStudentResponseCreate(responseId);
+        allow update: if isDccApp(appId) && safeStudentResponseUpdate(responseId);
+        allow delete: if false;
+      }
+
+      match /exitTicketResponses/{responseId} {
+        allow get, list: if isDccApp(appId) && canReadStudentResponse(resource.data);
+        allow create: if isDccApp(appId) && safeStudentResponseCreate(responseId);
+        allow update: if isDccApp(appId) && safeStudentResponseUpdate(responseId);
+        allow delete: if false;
+      }
+
+      match /submissions/{submissionId} {
+        allow get, list: if isDccApp(appId) && canReadStudentSubmission(resource.data);
+        allow create: if isDccApp(appId) && safeStudentSubmissionCreate(submissionId);
+        allow update: if isDccApp(appId)
+          && (
+            safeStudentSubmissionUpdate(submissionId)
+            || safeSubmissionReviewUpdate()
+          );
+        allow delete: if false;
+      }
+
+      match /quizAttempts/{attemptId} {
+        allow get, list: if isDccApp(appId) && canReadQuizAttempt(resource.data);
+        allow create, update, delete: if false;
+      }
+
+      match /teacherPreviewResponses/{responseId} {
+        allow get, list: if isDccApp(appId) && canReadTeacherPreviewResponse(resource.data);
+        allow create: if isDccApp(appId) && safeTeacherPreviewResponseCreate(responseId);
+        allow update: if isDccApp(appId) && safeTeacherPreviewResponseUpdate(responseId);
+        allow delete: if false;
+      }
+
+      match /programAreas/{programAreaId} {
+        allow read: if isDccApp(appId) && isAllowedAccount();
+        allow write: if isDccApp(appId) && isAdmin();
+      }
+
+      match /lessons/{lessonId} {
+        allow read: if isDccApp(appId) && isAllowedAccount();
+        allow write: if isDccApp(appId) && isAdmin();
+      }
+
+      match /assignments/{assignmentId} {
+        allow read: if isDccApp(appId) && isAllowedAccount();
+        allow write: if isDccApp(appId) && isAdmin();
+      }
+
+      match /quizzes/{quizId} {
+        allow read: if isDccApp(appId) && isAllowedAccount();
+        allow write: if isDccApp(appId) && isAdmin();
+      }
+
+      match /quizAnswerKeys/{quizId} {
+        allow read: if false;
+        allow write: if isDccApp(appId) && isAdmin();
+      }
+
+      match /mediaProjects/{projectId} {
+        allow read: if isDccApp(appId) && isAllowedAccount();
+        allow write: if isDccApp(appId) && isAdmin();
+      }
+
+      match /broadcastUpdates/{updateId} {
+        allow read: if isDccApp(appId) && isAllowedAccount();
+        allow write: if isDccApp(appId) && isAdmin();
+      }
+
+      match /config/{configId} {
+        allow read, write: if isDccApp(appId) && isAdmin();
+      }
+    }
+
+    match /apps/{appId} {
+      match /users/{userId} {
+        allow get: if drrsIsMathApp(appId)
+          && signedIn()
+          && (userId == request.auth.uid || drrsHasRole("admin"));
+        allow list: if drrsIsMathApp(appId)
+          && signedIn()
+          && (
+            drrsHasRole("admin")
+            || resource.data.email == request.auth.token.email
+          );
+        allow create, update: if drrsIsMathApp(appId)
+          && drrsHasRole("admin")
+          && drrsValidUserDocument(request.resource.data);
+        allow delete: if drrsIsMathApp(appId) && drrsHasRole("admin");
+      }
+
+      match /teachers/{teacherId} {
+        allow read: if drrsIsMathApp(appId)
+          && (
+            drrsHasRole("admin")
+            || (drrsHasRole("teacher") && resource.data.uid == request.auth.uid)
+          );
+        allow create, update, delete: if drrsIsMathApp(appId) && drrsHasRole("admin");
+      }
+
+      match /classes/{classId} {
+        allow read: if drrsIsMathApp(appId)
+          && (
+            drrsHasRole("admin")
+            || drrsIsClassTeacher(resource.data)
+            || drrsIsClassStudent(resource.data)
+          );
+        allow create, update, delete: if drrsIsMathApp(appId) && drrsHasRole("admin");
+      }
+
+      match /assignments/{assignmentId} {
+        allow read: if drrsIsMathApp(appId) && drrsHasAssignedActiveAccount();
+        allow create: if drrsIsMathApp(appId)
+          && (
+            drrsHasRole("admin")
+            || (drrsHasRole("teacher") && drrsOwnsAssignment(request.resource.data))
+          );
+        allow update: if drrsIsMathApp(appId)
+          && (
+            drrsHasRole("admin")
+            || (
+              drrsHasRole("teacher")
+              && drrsOwnsAssignment(resource.data)
+              && drrsOwnsAssignment(request.resource.data)
+            )
+          );
+        allow delete: if drrsIsMathApp(appId)
+          && (
+            drrsHasRole("admin")
+            || (drrsHasRole("teacher") && drrsOwnsAssignment(resource.data))
+          );
+      }
+
+      match /announcements/{announcementId} {
+        allow read: if drrsIsMathApp(appId) && drrsHasAssignedActiveAccount();
+        allow create, update, delete: if drrsIsMathApp(appId) && drrsHasRole("admin");
+      }
+
+      match /announcementReads/{readId} {
+        allow read: if drrsIsMathApp(appId)
+          && (drrsHasRole("admin") || drrsOwnsAnnouncementRead(resource.data));
+        allow create: if drrsIsMathApp(appId) && drrsOwnsAnnouncementRead(request.resource.data);
+        allow update: if drrsIsMathApp(appId)
+          && drrsOwnsAnnouncementRead(resource.data)
+          && drrsOwnsAnnouncementRead(request.resource.data)
+          && request.resource.data.announcementId == resource.data.announcementId;
+        allow delete: if drrsIsMathApp(appId)
+          && (drrsHasRole("admin") || drrsOwnsAnnouncementRead(resource.data));
+      }
+
+      match /submissions/{submissionId} {
+        allow read: if drrsIsMathApp(appId)
+          && drrsHasAssignedActiveAccount()
+          && (drrsTeacherOrAdmin() || resource.data.studentUid == request.auth.uid);
+        allow create: if drrsIsMathApp(appId)
+          && drrsHasAssignedActiveAccount()
+          && (
+            drrsTeacherOrAdmin()
+            || (drrsHasRole("student") && request.resource.data.studentUid == request.auth.uid)
+          );
+        allow update: if drrsIsMathApp(appId)
+          && drrsHasAssignedActiveAccount()
+          && (
+            drrsTeacherOrAdmin()
+            || (
+              drrsHasRole("student")
+              && resource.data.studentUid == request.auth.uid
+              && request.resource.data.studentUid == resource.data.studentUid
+            )
+          );
+        allow delete: if drrsIsMathApp(appId) && drrsTeacherOrAdmin();
+      }
+
+      match /studentData/{studentUid}/{studentDocument=**} {
+        allow read, write: if drrsIsMathApp(appId)
+          && drrsHasAssignedActiveAccount()
+          && (drrsTeacherOrAdmin() || studentUid == request.auth.uid);
+      }
+
+      match /teacherData/{teacherDocument=**} {
+        allow read, write: if drrsIsMathApp(appId) && drrsTeacherOrAdmin();
+      }
+
+      match /adminData/{adminDocument=**} {
+        allow read, write: if drrsIsMathApp(appId) && drrsHasRole("admin");
+      }
+
+      match /{document=**} {
+        allow read, write: if drrsIsMathApp(appId) && drrsHasRole("admin");
+      }
+    }
+
+    // Future phases will add tightly scoped rules for uploads and later classroom collections:
+    // mediaSubmissions, portfolioItems, grading records, and raw file workflows.
     match /{document=**} {
-      allow read, write: if hasRole('admin');
+      allow read, write: if false;
     }
   }
 }
+

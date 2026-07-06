@@ -1,6 +1,4 @@
 import {
-  collection,
-  doc,
   onSnapshot,
   query,
   serverTimestamp,
@@ -9,6 +7,7 @@ import {
 } from "firebase/firestore";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../auth/AuthProvider";
+import { appCollection, appDoc } from "../lib/appFirestore";
 import { db, firebaseConfigured } from "../lib/firebase";
 import {
   announcementAudiences,
@@ -188,7 +187,7 @@ export default function AnnouncementDisplay({ audienceRole, className = "" }) {
     if (!audienceValues.length) return undefined;
 
     const announcementQuery = query(
-      collection(db, "announcements"),
+      appCollection("announcements"),
       where("active", "==", true),
       where("archived", "==", false),
       where("targetAudience", "in", audienceValues),
@@ -219,7 +218,7 @@ export default function AnnouncementDisplay({ audienceRole, className = "" }) {
     if (!firebaseConfigured || !db || !account?.uid) return undefined;
 
     const readsQuery = query(
-      collection(db, "announcementReads"),
+      appCollection("announcementReads"),
       where("userId", "==", account.uid),
     );
 
@@ -247,7 +246,7 @@ export default function AnnouncementDisplay({ audienceRole, className = "" }) {
       if (readMarked.current.has(announcement.id)) return;
       readMarked.current.add(announcement.id);
       setDoc(
-        doc(db, "announcementReads", readKey(account.uid, announcement.id)),
+        appDoc("announcementReads", readKey(account.uid, announcement.id)),
         {
           announcementId: announcement.id,
           userId: account.uid,
@@ -264,7 +263,7 @@ export default function AnnouncementDisplay({ audienceRole, className = "" }) {
   async function dismissAnnouncement(announcement) {
     if (!account?.uid || announcement.priority === "urgent") return;
     await setDoc(
-      doc(db, "announcementReads", readKey(account.uid, announcement.id)),
+      appDoc("announcementReads", readKey(account.uid, announcement.id)),
       {
         announcementId: announcement.id,
         userId: account.uid,

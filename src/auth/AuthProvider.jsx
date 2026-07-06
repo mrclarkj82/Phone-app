@@ -4,11 +4,11 @@ import {
   signInWithPopup,
   signOut,
 } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, limit, query, where } from "firebase/firestore";
+import { getDoc, getDocs, limit, query, where } from "firebase/firestore";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { appCollection, appDoc } from "../lib/appFirestore";
 import {
   auth,
-  db,
   firebaseConfigured,
   missingFirebaseConfig,
 } from "../lib/firebase";
@@ -50,7 +50,7 @@ async function readAssignedAccount(firebaseUser) {
 
   try {
     const accountsByEmail = query(
-      collection(db, "users"),
+      appCollection("users"),
       where("email", "==", firebaseUser.email),
       limit(3),
     );
@@ -66,7 +66,7 @@ async function readAssignedAccount(firebaseUser) {
     return matchingAccounts[0];
   }
 
-  return accountFromSnapshot(await getDoc(doc(db, "users", firebaseUser.uid)), firebaseUser);
+  return accountFromSnapshot(await getDoc(appDoc("users", firebaseUser.uid)), firebaseUser);
 }
 
 export function AuthProvider({ children }) {

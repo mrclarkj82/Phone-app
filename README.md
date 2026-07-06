@@ -13,7 +13,7 @@ Live Firebase Hosting URL: `https://drrs-math.web.app/`
 
 ## Assigned users
 
-Use `users/{uid}` as the canonical Firestore account path. Each assigned account must include:
+Use `apps/drrs-math/users/{uid}` as the canonical Firestore account path. Each assigned account must include:
 
 ```json
 {
@@ -25,7 +25,7 @@ Use `users/{uid}` as the canonical Firestore account path. Each assigned account
 }
 ```
 
-Allowed roles are `student`, `teacher`, and `admin`. The app queries the `users` collection by the signed-in Google email and falls back to `users/{uid}`. It never writes a user document during sign-in; unassigned or inactive users are signed out and returned to the login page.
+Allowed roles are `student`, `teacher`, and `admin`. The app queries the `apps/drrs-math/users` collection by the signed-in Google email and falls back to `apps/drrs-math/users/{uid}`. It never writes a user document during sign-in; unassigned or inactive users are signed out and returned to the login page.
 
 ## Firebase Hosting
 

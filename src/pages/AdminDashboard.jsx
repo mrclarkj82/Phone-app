@@ -1,8 +1,6 @@
 import {
   arrayUnion,
-  collection,
   deleteDoc,
-  doc,
   onSnapshot,
   serverTimestamp,
   setDoc,
@@ -11,7 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { roster } from "../../app";
 import PrivateHeader from "../components/PrivateHeader";
-import { db } from "../lib/firebase";
+import { appCollection, appDoc } from "../lib/appFirestore";
 
 const emptyAccountForm = {
   uid: "",
@@ -74,7 +72,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const unsubscribeUsers = onSnapshot(
-      collection(db, "users"),
+      appCollection("users"),
       (snapshot) => setAccounts(readSnapshot(snapshot)),
       (error) => {
         setMessage(error.message || "Unable to load assigned accounts.");
@@ -83,7 +81,7 @@ export default function AdminDashboard() {
     );
 
     const unsubscribeClasses = onSnapshot(
-      collection(db, "classes"),
+      appCollection("classes"),
       (snapshot) => setClasses(readSnapshot(snapshot)),
       (error) => {
         setMessage(error.message || "Unable to load classes.");
@@ -200,11 +198,11 @@ export default function AdminDashboard() {
         payload.createdAt = serverTimestamp();
       }
 
-      await setDoc(doc(db, "users", uid), payload, { merge: true });
+      await setDoc(appDoc("users", uid), payload, { merge: true });
 
       if (role === "teacher") {
         await setDoc(
-          doc(db, "teachers", email),
+          appDoc("teachers", email),
           {
             uid,
             email,
@@ -236,9 +234,9 @@ export default function AdminDashboard() {
     if (!confirmed) return;
 
     try {
-      await deleteDoc(doc(db, "users", uid));
+      await deleteDoc(appDoc("users", uid));
       if (account.role === "teacher" && account.email) {
-        await deleteDoc(doc(db, "teachers", normalizeEmail(account.email)));
+        await deleteDoc(appDoc("teachers", normalizeEmail(account.email)));
       }
       setMessage(`${account.displayName || account.email} was removed.`);
       setMessageTone("success");
@@ -278,11 +276,11 @@ export default function AdminDashboard() {
         payload.createdAt = serverTimestamp();
       }
 
-      await setDoc(doc(db, "classes", classId), payload, { merge: true });
+      await setDoc(appDoc("classes", classId), payload, { merge: true });
 
       if (teacher?.email) {
         await setDoc(
-          doc(db, "teachers", normalizeEmail(teacher.email)),
+          appDoc("teachers", normalizeEmail(teacher.email)),
           {
             uid: teacher.uid || teacher.id,
             email: teacher.email,
@@ -313,7 +311,7 @@ export default function AdminDashboard() {
     if (!confirmed) return;
 
     try {
-      await deleteDoc(doc(db, "classes", classRecord.id));
+      await deleteDoc(appDoc("classes", classRecord.id));
       setMessage(`${classRecord.name || classRecord.id} was deleted.`);
       setMessageTone("success");
       if (editingClassId === classRecord.id) clearClassForm();
