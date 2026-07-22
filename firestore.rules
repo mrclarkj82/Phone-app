@@ -6,6 +6,98 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // DGD2 role authority is isolated from the existing DCC role model. Claims and
+    // dgd2Access are server-controlled; profile fields never grant authorization.
+    function dgd2AccessPath(uid) {
+      return /databases/$(database)/documents/dgd2Access/$(uid);
+    }
+
+    function hasDgd2Role(role) {
+      return signedIn()
+        && (
+          request.auth.token.get('dgd2Role', '') == role
+          || (
+            request.auth.token.get('dgd2Roles', []) is list
+            && role in request.auth.token.get('dgd2Roles', [])
+          )
+          || (
+            exists(dgd2AccessPath(request.auth.uid))
+            && get(dgd2AccessPath(request.auth.uid)).data.roles is list
+            && role in get(dgd2AccessPath(request.auth.uid)).data.roles
+          )
+        );
+    }
+
+    function isDgd2Admin() {
+      return hasDgd2Role('admin');
+    }
+
+    function isDgd2Author() {
+      return hasDgd2Role('author') || isDgd2Admin();
+    }
+
+    function hasVerifiedDgd2StudentEmail() {
+      return signedIn()
+        && request.auth.token.get('email_verified', false) == true
+        && request.auth.token.get('email', '') is string
+        && (
+          request.auth.token.get('email', '').matches('.*@student[.]doralacademynv[.]org$')
+          || request.auth.token.get('email', '') == 'mrclarkj82@gmail.com'
+        );
+    }
+
+    function hasPrivilegedDgd2Role() {
+      return hasDgd2Role('teacher') || hasDgd2Role('author') || hasDgd2Role('admin');
+    }
+
+    function isApprovedDgd2Account() {
+      return hasPrivilegedDgd2Role() || hasVerifiedDgd2StudentEmail();
+    }
+
+    function isApprovedDgd2Self(uid) {
+      return isApprovedDgd2Account() && isSelf(uid);
+    }
+
+    function dgd2ClassPath(classId) {
+      return /databases/$(database)/documents/dgd2Classrooms/$(classId);
+    }
+
+    function dgd2MemberPath(classId, uid) {
+      return /databases/$(database)/documents/dgd2Classrooms/$(classId)/members/$(uid);
+    }
+
+    function isDgd2TeacherOf(classId) {
+      return signedIn()
+        && classId is string
+        && exists(dgd2ClassPath(classId))
+        && (
+          isDgd2Admin()
+          || (
+            hasDgd2Role('teacher')
+            && get(dgd2ClassPath(classId)).data.teacherIds is list
+            && request.auth.uid in get(dgd2ClassPath(classId)).data.teacherIds
+          )
+        );
+    }
+
+    function isDgd2MemberOf(classId) {
+      return isApprovedDgd2Account()
+        && classId is string
+        && exists(dgd2MemberPath(classId, request.auth.uid))
+        && get(dgd2MemberPath(classId, request.auth.uid)).data.status == 'active';
+    }
+
+    function isDgd2User() {
+      return isApprovedDgd2Account()
+        && (
+          hasDgd2Role('student')
+          || hasDgd2Role('teacher')
+          || hasDgd2Role('author')
+          || hasDgd2Role('admin')
+          || exists(/databases/$(database)/documents/dgd2Profiles/$(request.auth.uid))
+        );
+    }
+
     function isSchoolDomain() {
       return signedIn()
         && request.auth.token.email != null
@@ -685,6 +777,172 @@ service cloud.firestore {
         && request.resource.data.isPreview == resource.data.isPreview;
     }
 
+    function gameSaveAllowedKeys(saveData) {
+      return saveData.keys().hasOnly([
+        'id',
+        'uid',
+        'studentEmail',
+        'classId',
+        'programAreaId',
+        'targetType',
+        'targetId',
+        'activeItemType',
+        'activeItemId',
+        'submissionId',
+        'snapshot',
+        'createdAt',
+        'updatedAt'
+      ]);
+    }
+
+    function validSavedVector(vectorData) {
+      return vectorData is map
+        && vectorData.keys().hasOnly(['x', 'y'])
+        && vectorData.x is number
+        && vectorData.y is number
+        && vectorData.x >= 8
+        && vectorData.x <= 92
+        && vectorData.y >= 17
+        && vectorData.y <= 86;
+    }
+
+    function validEnemyIdAt(enemyIds, index) {
+      return enemyIds.size() <= index
+        || enemyIds[index] in ['hollow-squire-01', 'ash-wisp-01'];
+    }
+
+    function validItemIdAt(itemIds, index) {
+      return itemIds.size() <= index
+        || itemIds[index] in ['emberShard', 'rustyKey', 'lanternOil'];
+    }
+
+    function validGameSaveProgression(progressionData, saveData) {
+      return progressionData is map
+        && progressionData.keys().hasOnly([
+          'unlockedGateIds',
+          'unlockedAreaIds',
+          'completedTargetIds'
+        ])
+        && progressionData.unlockedGateIds is list
+        && progressionData.unlockedGateIds.size() == 1
+        && progressionData.unlockedGateIds[0] == 'ember-gate'
+        && progressionData.unlockedAreaIds is list
+        && progressionData.unlockedAreaIds.size() == 2
+        && progressionData.unlockedAreaIds[0] == 'ruined-courtyard'
+        && progressionData.unlockedAreaIds[1] == 'ember-gate-passage'
+        && progressionData.completedTargetIds is list
+        && progressionData.completedTargetIds.size() == 1
+        && progressionData.completedTargetIds[0] == saveData.targetId;
+    }
+
+    function validGameSaveSnapshot(snapshotData, saveData) {
+      return snapshotData is map
+        && snapshotData.keys().hasOnly([
+          'snapshotVersion',
+          'levelId',
+          'player',
+          'defeatedEnemyIds',
+          'collectedItemIds',
+          'progression'
+        ])
+        && snapshotData.snapshotVersion == 2
+        && snapshotData.levelId == 'ruined-courtyard'
+        && snapshotData.player is map
+        && snapshotData.player.keys().hasOnly(['position', 'facingDirection'])
+        && validSavedVector(snapshotData.player.position)
+        && snapshotData.player.facingDirection in ['north', 'south', 'east', 'west']
+        && snapshotData.defeatedEnemyIds is list
+        && snapshotData.defeatedEnemyIds.size() <= 2
+        && validEnemyIdAt(snapshotData.defeatedEnemyIds, 0)
+        && validEnemyIdAt(snapshotData.defeatedEnemyIds, 1)
+        && snapshotData.collectedItemIds is list
+        && snapshotData.collectedItemIds.size() <= 3
+        && validItemIdAt(snapshotData.collectedItemIds, 0)
+        && validItemIdAt(snapshotData.collectedItemIds, 1)
+        && validItemIdAt(snapshotData.collectedItemIds, 2)
+        && validGameSaveProgression(snapshotData.progression, saveData);
+    }
+
+    function gameSaveSubmissionPath(saveData) {
+      return /databases/$(database)/documents/apps/dcc/submissions/$(saveData.submissionId);
+    }
+
+    function gameSaveHasVerifiedSubmission(saveData) {
+      return saveData.submissionId is string
+        && exists(gameSaveSubmissionPath(saveData))
+        && get(gameSaveSubmissionPath(saveData)).data.uid == request.auth.uid
+        && get(gameSaveSubmissionPath(saveData)).data.classId == saveData.classId
+        && get(gameSaveSubmissionPath(saveData)).data.programAreaId == saveData.programAreaId
+        && get(gameSaveSubmissionPath(saveData)).data.targetType == saveData.targetType
+        && get(gameSaveSubmissionPath(saveData)).data.targetId == saveData.targetId
+        && get(gameSaveSubmissionPath(saveData)).data.activeItemType == saveData.activeItemType
+        && get(gameSaveSubmissionPath(saveData)).data.activeItemId == saveData.activeItemId
+        && get(gameSaveSubmissionPath(saveData)).data.status in ['submitted', 'resubmitted', 'accepted']
+        && get(gameSaveSubmissionPath(saveData)).data.driveLinks is list
+        && get(gameSaveSubmissionPath(saveData)).data.otherLinks is list
+        && (
+          get(gameSaveSubmissionPath(saveData)).data.driveLinks.size()
+            + get(gameSaveSubmissionPath(saveData)).data.otherLinks.size() > 0
+        )
+        && get(gameSaveSubmissionPath(saveData)).data.reflection is string
+        && get(gameSaveSubmissionPath(saveData)).data.reflection.size() > 0;
+    }
+
+    function safeGameSaveBase(saveId) {
+      return isAllowedAccount()
+        && userRole() == 'student'
+        && gameSaveAllowedKeys(request.resource.data)
+        && request.resource.data.id == saveId
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.studentEmail == request.auth.token.email
+        && request.resource.data.classId is string
+        && classExists(request.resource.data.classId)
+        && request.auth.uid in classData(request.resource.data.classId).studentIds
+        && userHasClassId(request.resource.data.classId)
+        && request.resource.data.programAreaId == classData(request.resource.data.classId).activeProgramAreaId
+        && validSubmissionTargetType(request.resource.data.targetType)
+        && submissionTargetExists(request.resource.data)
+        && activeItemTypeIsSupported(request.resource.data.activeItemType)
+        && request.resource.data.activeItemType == classData(request.resource.data.classId).activeItemType
+        && request.resource.data.activeItemId == classData(request.resource.data.classId).activeItemId
+        && submissionActiveItemExists(request.resource.data)
+        && gameSaveHasVerifiedSubmission(request.resource.data)
+        && validGameSaveSnapshot(request.resource.data.snapshot, request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function safeGameSaveCreate(saveId) {
+      return safeGameSaveBase(saveId)
+        && request.resource.data.createdAt == request.time;
+    }
+
+    function safeGameSaveUpdate(saveId) {
+      return safeGameSaveBase(saveId)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.studentEmail == resource.data.studentEmail
+        && request.resource.data.classId == resource.data.classId
+        && request.resource.data.programAreaId == resource.data.programAreaId
+        && request.resource.data.targetType == resource.data.targetType
+        && request.resource.data.targetId == resource.data.targetId
+        && request.resource.data.activeItemType == resource.data.activeItemType
+        && request.resource.data.activeItemId == resource.data.activeItemId
+        && request.resource.data.submissionId == resource.data.submissionId;
+    }
+
+    function canReadGameSave(saveData) {
+      return isAllowedAccount()
+        && userRole() == 'student'
+        && saveData.uid == request.auth.uid
+        && saveData.classId is string
+        && classExists(saveData.classId)
+        && request.auth.uid in classData(saveData.classId).studentIds
+        && userHasClassId(saveData.classId);
+    }
+
+    // Existing House Points and Dragon Math authorization helpers. These remain
+    // in the shared project rules so a DGD2 rules deploy cannot remove them.
     function hpUserPath() {
       return /databases/$(database)/documents/users/$(request.auth.uid);
     }
@@ -939,7 +1197,13 @@ service cloud.firestore {
       match /users/{userId} {
         allow get: if isDccApp(appId)
           && isAllowedAccount()
-          && (isSelf(userId) || isAdmin() || teacherCanReadStudent(resource.data));
+          && (
+            isSelf(userId)
+            || (
+              exists(userPath(userId))
+              && (isAdmin() || teacherCanReadStudent(resource.data))
+            )
+          );
         allow list: if isDccApp(appId) && isAdmin();
         allow create: if isDccApp(appId) && safeUserCreate(userId);
         allow update: if isDccApp(appId)
@@ -1008,6 +1272,14 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      match /gameSaves/{saveId} {
+        allow get: if isDccApp(appId) && canReadGameSave(resource.data);
+        allow list: if false;
+        allow create: if isDccApp(appId) && safeGameSaveCreate(saveId);
+        allow update: if isDccApp(appId) && safeGameSaveUpdate(saveId);
+        allow delete: if false;
+      }
+
       match /programAreas/{programAreaId} {
         allow read: if isDccApp(appId) && isAllowedAccount();
         allow write: if isDccApp(appId) && isAdmin();
@@ -1048,6 +1320,164 @@ service cloud.firestore {
       }
     }
 
+    // DGD2 profiles expose only the learner's own preferences. Mastery, role,
+    // timestamp, audit, and scoring fields remain server-authoritative.
+    match /dgd2Profiles/{uid} {
+      allow get: if isApprovedDgd2Self(uid) || isDgd2Admin();
+      allow list, create, delete: if false;
+      allow update: if isApprovedDgd2Self(uid)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['settings', 'onboardingState']);
+
+      match /mastery/{skillId} {
+        allow read: if isApprovedDgd2Self(uid);
+        allow write: if false;
+      }
+
+      match /reviewQueue/{itemId} {
+        allow read: if isApprovedDgd2Self(uid);
+        allow write: if false;
+      }
+
+      match /vocabularyState/{termId} {
+        allow read: if isApprovedDgd2Self(uid);
+        allow write: if false;
+      }
+    }
+
+    match /dgd2Access/{uid} {
+      allow get: if isApprovedDgd2Self(uid) || isDgd2Admin();
+      allow list: if isDgd2Admin();
+      allow write: if false;
+    }
+
+    match /dgd2Classrooms/{classId} {
+      allow get: if isDgd2TeacherOf(classId) || isDgd2MemberOf(classId);
+      allow list: if isDgd2TeacherOf(classId);
+      allow write: if false;
+
+      match /members/{uid} {
+        allow get: if isApprovedDgd2Self(uid) || isDgd2TeacherOf(classId);
+        allow list: if isDgd2TeacherOf(classId);
+        allow write: if false;
+      }
+    }
+
+    match /dgd2Courses/{courseId} {
+      allow read: if isDgd2User() && resource.data.status == 'published';
+      allow write: if false;
+    }
+
+    match /dgd2CourseVersions/{versionId} {
+      allow read: if isDgd2User() && resource.data.status == 'published';
+      allow write: if false;
+
+      match /modules/{moduleId} {
+        allow read: if isDgd2User();
+        allow write: if false;
+      }
+
+      match /lessons/{lessonId} {
+        allow read: if isDgd2User();
+        allow write: if false;
+      }
+    }
+
+    match /dgd2Vocabulary/{termId} {
+      allow read: if isDgd2User() && resource.data.status == 'published';
+      allow write: if false;
+    }
+
+    match /dgd2Assignments/{assignmentId} {
+      allow read: if isDgd2TeacherOf(resource.data.classId)
+        || isDgd2MemberOf(resource.data.classId);
+      allow write: if false;
+    }
+
+    match /dgd2AssignmentStates/{stateId} {
+      allow read: if isApprovedDgd2Self(resource.data.uid)
+        || isDgd2TeacherOf(resource.data.classId);
+      allow write: if false;
+    }
+
+    match /dgd2Attempts/{attemptId} {
+      allow read: if isApprovedDgd2Self(resource.data.uid)
+        || isDgd2TeacherOf(resource.data.classId);
+      allow write: if false;
+
+      match /evidence/{evidenceId} {
+        allow read: if isApprovedDgd2Self(resource.data.uid);
+        allow write: if false;
+      }
+    }
+
+    match /dgd2Submissions/{submissionId} {
+      allow read: if isApprovedDgd2Self(resource.data.uid)
+        || isDgd2TeacherOf(resource.data.classId);
+      allow write: if false;
+    }
+
+    match /dgd2CodeSnapshots/{snapshotId} {
+      allow read: if isApprovedDgd2Self(resource.data.uid);
+      allow write: if false;
+    }
+
+    match /dgd2AssessmentSessions/{sessionId} {
+      allow get, list: if isApprovedDgd2Self(resource.data.uid);
+      allow write: if false;
+    }
+
+    match /dgd2AssessmentResponses/{responseId} {
+      allow get, list: if isApprovedDgd2Self(resource.data.uid);
+      allow write: if false;
+    }
+
+    match /dgd2AssessmentResults/{resultId} {
+      allow get: if isApprovedDgd2Self(resource.data.uid)
+        || isDgd2TeacherOf(resource.data.classId);
+      allow list: if isDgd2TeacherOf(resource.data.classId);
+      allow write: if false;
+    }
+
+    match /dgd2ContentDrafts/{draftId} {
+      allow read: if isDgd2Author();
+      allow write: if false;
+    }
+
+    // Questions, keys, hidden tests, teacher notes, raw analytics, runs,
+    // rate limits, idempotency records, and audits are function-only.
+    match /dgd2QuestionBank/{questionId} { allow read, write: if false; }
+    match /dgd2QuestionKeys/{questionId} { allow read, write: if false; }
+    match /dgd2Challenges/{challengeId} {
+      allow read: if isDgd2User() && resource.data.status == 'published';
+      allow write: if false;
+    }
+    match /dgd2Practice/{practiceId} {
+      allow read: if isDgd2User() && resource.data.status == 'published';
+      allow write: if false;
+    }
+    match /dgd2Capstones/{capstoneId} {
+      allow read: if isDgd2User() && resource.data.status == 'published';
+      allow write: if false;
+    }
+    match /dgd2ChallengeSecrets/{challengeId} { allow read, write: if false; }
+    match /dgd2TeacherNotes/{contentId} { allow read, write: if false; }
+    match /dgd2AnalyticsEvents/{eventId} { allow read, write: if false; }
+    match /dgd2AuditLogs/{eventId} {
+      allow read: if isDgd2Admin();
+      allow write: if false;
+    }
+    match /dgd2Runs/{runId} { allow read, write: if false; }
+    match /dgd2RateLimits/{limitId} { allow read, write: if false; }
+    match /dgd2Idempotency/{keyId} { allow read, write: if false; }
+
+    match /dgd2Config/public {
+      allow read: if isDgd2User();
+      allow write: if false;
+    }
+    match /dgd2Config/{configId} { allow read, write: if false; }
+
+    // Keep the existing Dragon Math app namespace intact alongside DCC and DGD2.
     match /apps/{appId} {
       match /users/{userId} {
         allow get: if drrsIsMathApp(appId)
@@ -1173,4 +1603,3 @@ service cloud.firestore {
     }
   }
 }
-
