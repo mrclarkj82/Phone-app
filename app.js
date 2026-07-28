@@ -4395,6 +4395,12 @@ function mergeSubmissions(...stores) {
 }
 
 function makeDemoAnswer(problem, shouldBeCorrect) {
+  if (problem.answerMode === "single") {
+    return {
+      x: `${shouldBeCorrect ? problem.answer : Number(problem.answer) + 1}`,
+    };
+  }
+
   if (!shouldBeCorrect) {
     if (problem.answerMode === "combineLikeTerms") {
       return { expression: "not equivalent" };
@@ -4452,6 +4458,41 @@ function addDemoSubmissions(submissions) {
       isDemo: true,
     };
   });
+
+  const oneStepDraft = BUILT_IN_ASSIGNMENTS.find(
+    (assignment) => assignment.id === "unit-2-one-step-linear-equations-v1",
+  );
+  if (oneStepDraft) {
+    const answeredNumbers = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    const wrongNumbers = new Set([4, 9]);
+    const problems = generateAssignment(demoStudent, oneStepDraft);
+    const answers = Object.fromEntries(
+      problems
+        .filter((problem) => answeredNumbers.has(problem.number))
+        .map((problem) => [
+          problem.id,
+          makeDemoAnswer(problem, !wrongNumbers.has(problem.number)),
+        ]),
+    );
+
+    if (!submissions[oneStepDraft.id]) {
+      submissions[oneStepDraft.id] = {};
+    }
+    submissions[oneStepDraft.id][demoStudent.key] = {
+      assignmentId: oneStepDraft.id,
+      assignmentTitle: oneStepDraft.title,
+      studentKey: demoStudent.key,
+      name: demoStudent.name,
+      correct: answeredNumbers.size - wrongNumbers.size,
+      total: oneStepDraft.problemCount,
+      percent: null,
+      answered: answeredNumbers.size,
+      answers,
+      submitted: false,
+      submittedAt: "",
+      isDemo: true,
+    };
+  }
 
   return submissions;
 }
@@ -6846,6 +6887,7 @@ function submitAssignment() {
     percent: score.percent,
     answered: score.answered,
     answers: serializeAnswers(),
+    submitted: true,
     submittedAt: new Date().toISOString(),
   };
   state.lockedSubmission = assignmentSubmissions[state.selectedStudent.key];
@@ -6899,7 +6941,8 @@ function renderStudentWorkPanel(studentKey = "", options = {}) {
   const submission = getSubmission(student, assignment);
   const problems = generateAssignment(student, assignment);
   const answers = answersToMap(submission?.answers);
-  const submittedAt = submission
+  const isInProgress = submission?.submitted === false;
+  const submittedAt = submission && !isInProgress
     ? new Intl.DateTimeFormat(undefined, {
         dateStyle: "short",
         timeStyle: "short",
@@ -6909,7 +6952,9 @@ function renderStudentWorkPanel(studentKey = "", options = {}) {
   setText(elements.studentWorkTitle, `${student.name} - ${assignment.title}`);
   setText(
     elements.studentWorkMeta,
-    submission
+    isInProgress
+      ? `In progress: ${submission.answered} of ${submission.total} answered. This assignment has not been submitted.`
+      : submission
       ? `Submitted ${submittedAt}. Score: ${submission.correct} / ${submission.total} (${submission.percent}%).`
       : "No submitted answers yet. Showing the generated problem set and answer key.",
   );
@@ -6944,7 +6989,9 @@ function renderDashboard() {
   const visibleKeys = new Set(visibleRoster.map((student) => student.key));
   const rows = visibleRoster.map((student) => {
     const submission = assignmentSubmissions[student.key];
-    const submittedAt = submission
+    const isInProgress = submission?.submitted === false;
+    const isSubmitted = Boolean(submission) && !isInProgress;
+    const submittedAt = isSubmitted
       ? new Intl.DateTimeFormat(undefined, {
           dateStyle: "short",
           timeStyle: "short",
@@ -6954,12 +7001,12 @@ function renderDashboard() {
       <tr class="${state.selectedWorkStudentKey === student.key ? "is-selected-work" : ""}">
         <td>${escapeHtml(student.name)}</td>
         <td>
-          <span class="status-pill ${submission ? "is-submitted" : ""}">
-            ${submission ? "Submitted" : "Waiting"}
+          <span class="status-pill ${isSubmitted ? "is-submitted" : ""}">
+            ${isSubmitted ? "Submitted" : isInProgress ? "In Progress" : "Waiting"}
           </span>
         </td>
-        <td>${submission ? `${submission.correct} / ${submission.total}` : "--"}</td>
-        <td>${submission ? `${submission.percent}%` : "--"}</td>
+        <td>${isSubmitted ? `${submission.correct} / ${submission.total}` : "--"}</td>
+        <td>${isSubmitted ? `${submission.percent}%` : "--"}</td>
         <td>${submission ? `${submission.answered} / ${submission.total}` : "--"}</td>
         <td>${submittedAt}</td>
         <td>
@@ -6992,7 +7039,7 @@ function renderDashboard() {
   });
 
   const submissions = Object.values(assignmentSubmissions).filter((submission) =>
-    visibleKeys.has(submission.studentKey),
+    visibleKeys.has(submission.studentKey) && submission.submitted !== false,
   );
   const submittedCount = submissions.length;
   const average = submittedCount
