@@ -215,7 +215,7 @@ function TeacherCorrectionSummary({ assignments, demo, records: initialRecords }
 
         <section className="mt-6 grid gap-3" aria-label="Correction details">
           {demo.problems.map((problem, index) => {
-            const record = records[index];
+            const record = records[index] || makeInitialRecord();
             const problemState = record.mastered
               ? "Mastered"
               : record.elapsedSeconds || record.revealed || record.followUpAttempts
@@ -591,7 +591,12 @@ function CorrectionReviewRouter() {
   }
 
   return mode === "teacher" ? (
-    <TeacherCorrectionSummary assignments={assignments} demo={demo} records={initialRecords} />
+    <TeacherCorrectionSummary
+      assignments={assignments}
+      demo={demo}
+      key={`${studentKey}:${assignmentId}:teacher`}
+      records={initialRecords}
+    />
   ) : (
     <StudentCorrectionReview
       assignments={assignments}
