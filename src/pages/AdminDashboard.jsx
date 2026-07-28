@@ -581,11 +581,10 @@ export default function AdminDashboard() {
                       key={classRecord.id}
                     >
                       <div>
-                        <p className="eyebrow">
-                          {classRecord.period ? `Period ${classRecord.period}` : classRecord.id}
-                        </p>
+                        <p className="eyebrow">Class code: {classRecord.id}</p>
                         <h3 className="m-0 text-lg font-black">{classRecord.name || classRecord.id}</h3>
                         <p className="m-0 mt-1 text-sm font-semibold text-slate-600">
+                          {classRecord.period ? `Period ${classRecord.period} | ` : ""}
                           {classRecord.teacherUid ? "Teacher assigned" : "No teacher selected"}
                         </p>
                       </div>

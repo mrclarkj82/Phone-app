@@ -6,7 +6,6 @@ import {
 import { appCollection, appDoc } from "./src/lib/appFirestore";
 import { db, firebaseConfigured } from "./src/lib/firebase";
 
-const LINEAR_ASSIGNMENT_ID = "linear-equations-doral-v1";
 const STORAGE_KEY = "freshman-algebra-linear-dashboard-doral-v3";
 const LEGACY_STORAGE_KEYS = [
   "freshman-algebra-linear-dashboard-doral-v2",
@@ -16,74 +15,15 @@ const ANSWER_TOLERANCE = 0.0001;
 const ACCESS_HASH_SALT = "freshman-algebra-doral-id-v1";
 const DASHBOARD_REFRESH_INTERVAL_MS = 3000;
 
-const assignments = [
-  {
-    id: LINEAR_ASSIGNMENT_ID,
-    title: "Solving Linear Equations",
-    assignmentUnit: "linear-equations",
-    assignmentUnitLabel: "2. Solving Linear Equations",
-    directions: "Solve for x",
-    problemCount: 30,
-    answerMode: "single",
-    answerPlaceholder: "x =",
-    generator: makeLinearProblem,
-  },
-  {
-    id: "systems-equations-doral-v1",
-    title: "Solving Systems",
-    assignmentUnit: "systems-equations-inequalities",
-    assignmentUnitLabel: "5. Systems of Equations & Inequalities",
-    directions: "Solve for x and y",
-    problemCount: 15,
-    answerMode: "pair",
-    answerPlaceholder: "value",
-    generator: makeSystemProblem,
-  },
-  {
-    id: "slope-two-points-v1",
-    title: "Slope Between Two Points",
-    assignmentUnit: "intro-functions",
-    assignmentUnitLabel: "4. Function Foundations",
-    directions: "Find the slope between the two points",
-    problemCount: 30,
-    answerMode: "slope",
-    answerPlaceholder: "slope",
-    generator: makeSlopeProblem,
-  },
-  {
-    id: "slope-intercept-form-v1",
-    title: "Slope-Intercept Equations",
-    assignmentUnit: "linear-equations",
-    assignmentUnitLabel: "2. Solving Linear Equations",
-    directions: "Identify the slope m and y-intercept b",
-    problemCount: 30,
-    answerMode: "slopeIntercept",
-    answerPlaceholder: "value",
-    generator: makeSlopeInterceptProblem,
-  },
-  {
-    id: "linear-inequalities-html-v1",
-    title: "Solving Linear Inequalities",
-    assignmentUnit: "linear-inequalities",
-    assignmentUnitLabel: "3. Solving Linear Inequalities",
-    directions: "Solve each inequality for x",
-    problemCount: 30,
-    answerMode: "inequality",
-    answerPlaceholder: "boundary",
-    generator: makeLinearInequalityProblem,
-  },
-  {
-    id: "coordinate-grid-lines-v1",
-    title: "Lines on the Coordinate Grid",
-    assignmentUnit: "intro-functions",
-    assignmentUnitLabel: "4. Function Foundations",
-    directions: "Use the graph to answer each question",
-    problemCount: 30,
-    answerMode: "graphLine",
-    answerPlaceholder: "value",
-    generator: makeCoordinateGridLineProblem,
-  },
-];
+const EMPTY_ASSIGNMENT = {
+  id: "",
+  title: "No assignments available",
+  directions: "A teacher-created assignment will appear here once it is available.",
+  problemCount: 0,
+  answerMode: "single",
+  answerPlaceholder: "answer",
+  active: false,
+};
 
 const CUSTOM_ASSIGNMENT_UNITS = [
   {
@@ -419,6 +359,56 @@ const CUSTOM_ASSIGNMENT_TYPES = [
   },
 ];
 
+function createBuiltInAssignment(id, typeId, title, problemCount) {
+  const type = CUSTOM_ASSIGNMENT_TYPES.find((item) => item.id === typeId);
+  const unit = CUSTOM_ASSIGNMENT_UNITS.find((item) => item.id === type?.unitId);
+
+  return {
+    id,
+    title,
+    assignmentUnit: type.unitId,
+    assignmentUnitLabel: unit.label,
+    assignmentType: type.id,
+    assignmentTypeLabel: type.label,
+    directions: type.directions,
+    problemCount,
+    answerMode: type.answerMode,
+    answerPlaceholder: "value",
+    generator: type.generator,
+    isTeacherCreated: false,
+    active: true,
+  };
+}
+
+// Counts target about 40 minutes: routine identification gets more items,
+// while multi-step expression work gets fewer, more involved questions.
+const BUILT_IN_ASSIGNMENTS = [
+  createBuiltInAssignment(
+    "unit-1-parts-of-an-expression-v1",
+    "parts-of-an-expression",
+    "Parts of an Expression",
+    20,
+  ),
+  createBuiltInAssignment(
+    "unit-1-combining-like-terms-v1",
+    "combining-like-terms",
+    "Combining Like Terms",
+    18,
+  ),
+  createBuiltInAssignment(
+    "unit-1-simplify-evaluate-expressions-v1",
+    "simplify-and-evaluate-expressions",
+    "Simplifying and Evaluating Expressions",
+    15,
+  ),
+  createBuiltInAssignment(
+    "unit-1-equivalent-expressions-v1",
+    "equivalent-expressions",
+    "Equivalent Expressions",
+    15,
+  ),
+];
+
 export const roster = [
   {
     key: "akers-lillian",
@@ -543,7 +533,8 @@ export const roster = [
 ].sort(compareStudentsByLastName);
 
 const state = {
-  selectedAssignment: assignments[0],
+  selectedUnitId: "intro-expressions",
+  selectedAssignment: null,
   selectedStudent: null,
   lockedSubmission: null,
   problems: [],
@@ -561,7 +552,9 @@ let dashboardRefreshTimer = null;
 
 function collectElements() {
   elements = {
+    unitSelect: document.querySelector("#unit-select"),
     assignmentSelect: document.querySelector("#assignment-select"),
+    dashboardUnitSelect: document.querySelector("#dashboard-unit-select"),
     dashboardAssignmentSelect: document.querySelector("#dashboard-assignment-select"),
     studentId: document.querySelector("#student-id"),
     accessNote: document.querySelector("#student-access-note"),
@@ -681,15 +674,23 @@ function setAccessNote(message, status = "") {
 }
 
 function getSelectedAssignment() {
-  return state.selectedAssignment || assignments[0];
+  return state.selectedAssignment || getAssignmentsForUnit(state.selectedUnitId)[0] || EMPTY_ASSIGNMENT;
 }
 
 function getAllAssignments() {
-  return [...assignments, ...state.customAssignments];
+  return [...BUILT_IN_ASSIGNMENTS, ...state.customAssignments];
+}
+
+function getAssignmentsForUnit(unitId) {
+  return getAllAssignments().filter((assignment) => assignment.assignmentUnit === unitId);
 }
 
 function getAssignmentById(assignmentId) {
-  return getAllAssignments().find((assignment) => assignment.id === assignmentId) || assignments[0];
+  return (
+    getAllAssignments().find((assignment) => assignment.id === assignmentId) ||
+    getAssignmentsForUnit(state.selectedUnitId)[0] ||
+    EMPTY_ASSIGNMENT
+  );
 }
 
 function getAssignmentUnitLabel(assignment = {}) {
@@ -704,9 +705,7 @@ function getAssignmentUnitLabel(assignment = {}) {
 
 function getAssignmentOptionLabel(assignment = {}) {
   const title = assignment.title || assignment.assignmentTypeLabel || "Assignment";
-  const unitLabel = getAssignmentUnitLabel(assignment);
-  const label = unitLabel ? `${unitLabel} - ${title}` : title;
-  return `${label} (${assignment.problemCount || 0})`;
+  return `${title} (${assignment.problemCount || 0})`;
 }
 
 function renderHeaderCounts() {
@@ -4253,10 +4252,7 @@ function generateAssignment(student, assignment) {
 }
 
 function createEmptySubmissionStore() {
-  return assignments.reduce((store, assignment) => {
-    store[assignment.id] = {};
-    return store;
-  }, {});
+  return {};
 }
 
 function isLegacySubmissionStore(saved) {
@@ -4275,7 +4271,6 @@ function normalizeSubmissions(saved) {
   if (!saved || typeof saved !== "object") return normalized;
 
   if (isLegacySubmissionStore(saved)) {
-    normalized[LINEAR_ASSIGNMENT_ID] = saved;
     return normalized;
   }
 
@@ -4358,22 +4353,45 @@ function isAssignmentLocked() {
   return Boolean(state.lockedSubmission);
 }
 
+function renderUnitOptions() {
+  const options = CUSTOM_ASSIGNMENT_UNITS.map(
+    (unit) => `<option value="${escapeHtml(unit.id)}">${escapeHtml(unit.label)}</option>`,
+  ).join("");
+
+  if (elements.unitSelect) {
+    elements.unitSelect.innerHTML = options;
+    elements.unitSelect.value = state.selectedUnitId;
+  }
+
+  if (elements.dashboardUnitSelect) {
+    elements.dashboardUnitSelect.innerHTML = options;
+    elements.dashboardUnitSelect.value = state.selectedUnitId;
+  }
+}
+
 function renderAssignmentOptions() {
-  const options = getAllAssignments()
-    .map(
-      (assignment) =>
-        `<option value="${escapeHtml(assignment.id)}">${escapeHtml(getAssignmentOptionLabel(assignment))}</option>`,
-    )
-    .join("");
+  const availableAssignments = getAssignmentsForUnit(state.selectedUnitId);
+  const options = availableAssignments.length
+    ? availableAssignments
+        .map(
+          (assignment) =>
+            `<option value="${escapeHtml(assignment.id)}">${escapeHtml(getAssignmentOptionLabel(assignment))}</option>`,
+        )
+        .join("")
+    : `<option value="" disabled>No assignments in this unit</option>`;
 
   if (elements.assignmentSelect) {
     elements.assignmentSelect.innerHTML = options;
-    elements.assignmentSelect.value = getSelectedAssignment().id;
+    elements.assignmentSelect.value = availableAssignments.length ? getSelectedAssignment().id : "";
+    elements.assignmentSelect.disabled = !availableAssignments.length;
   }
 
   if (elements.dashboardAssignmentSelect) {
     elements.dashboardAssignmentSelect.innerHTML = options;
-    elements.dashboardAssignmentSelect.value = getSelectedAssignment().id;
+    elements.dashboardAssignmentSelect.value = availableAssignments.length
+      ? getSelectedAssignment().id
+      : "";
+    elements.dashboardAssignmentSelect.disabled = !availableAssignments.length;
   }
 }
 
@@ -4472,10 +4490,13 @@ function subscribeCustomAssignments() {
         .filter(shouldShowCustomAssignment)
         .sort((left, right) => left.title.localeCompare(right.title));
 
-      if (!getAllAssignments().some((assignment) => assignment.id === getSelectedAssignment().id)) {
-        state.selectedAssignment = assignments[0];
+      if (!getAssignmentsForUnit(state.selectedUnitId).some((assignment) =>
+        assignment.id === getSelectedAssignment().id,
+      )) {
+        state.selectedAssignment = getAssignmentsForUnit(state.selectedUnitId)[0] || null;
       }
 
+      renderUnitOptions();
       renderAssignmentOptions();
       renderCustomAssignmentList();
       updateAssignmentDisplay();
@@ -4998,6 +5019,12 @@ function renderStudentAccess() {
 function updateAssignmentDisplay() {
   const assignment = getSelectedAssignment();
   setText(elements.assignmentDirections, assignment.directions);
+  if (!getAssignmentsForUnit(state.selectedUnitId).length) {
+    setText(elements.assignmentTitle, "No assignments available yet");
+    setDisabled(elements.loadAssignment, true);
+  } else {
+    setDisabled(elements.loadAssignment, false);
+  }
   renderHeaderCounts();
 }
 
@@ -5016,13 +5043,40 @@ function resetStudentWorkspace(title = "Enter your student ID to begin") {
   updateStudentScore();
 }
 
+function selectUnit(unitId, options = {}) {
+  const unit = CUSTOM_ASSIGNMENT_UNITS.find((item) => item.id === unitId);
+  if (!unit) return;
+
+  state.selectedUnitId = unit.id;
+  state.selectedAssignment = getAssignmentsForUnit(unit.id)[0] || null;
+  renderUnitOptions();
+  renderAssignmentOptions();
+  updateAssignmentDisplay();
+
+  if (options.resetStudentWork !== false) {
+    setAccessNote("");
+    resetStudentWorkspace();
+  }
+
+  renderDashboard();
+  renderStudentWorkPanel(state.selectedWorkStudentKey);
+}
+
 function selectAssignment(assignmentId, options = {}) {
-  state.selectedAssignment = getAssignmentById(assignmentId);
+  const assignment = getAssignmentById(assignmentId);
+  if (assignment.id) {
+    state.selectedUnitId = assignment.assignmentUnit;
+    state.selectedAssignment = assignment;
+  } else {
+    state.selectedAssignment = null;
+  }
+  renderUnitOptions();
+  renderAssignmentOptions();
   if (elements.assignmentSelect) {
-    elements.assignmentSelect.value = state.selectedAssignment.id;
+    elements.assignmentSelect.value = getSelectedAssignment().id;
   }
   if (elements.dashboardAssignmentSelect) {
-    elements.dashboardAssignmentSelect.value = state.selectedAssignment.id;
+    elements.dashboardAssignmentSelect.value = getSelectedAssignment().id;
   }
 
   updateAssignmentDisplay();
@@ -5038,6 +5092,11 @@ function selectAssignment(assignmentId, options = {}) {
 
 async function loadSelectedStudent() {
   if (!elements.studentId) return;
+
+  if (!getAssignmentsForUnit(state.selectedUnitId).length) {
+    setAccessNote("No assignments are available in this unit yet.", "error");
+    return;
+  }
 
   const assignment = getSelectedAssignment();
   const accessCode = normalizeStudentId(elements.studentId.value);
@@ -6660,6 +6719,16 @@ function submitAssignment() {
 function renderStudentWorkPanel(studentKey = "") {
   if (!elements.studentWorkPanel || !elements.studentWorkProblems) return;
 
+  if (!getAssignmentsForUnit(state.selectedUnitId).length) {
+    setText(elements.studentWorkTitle, "No assignments available");
+    setText(elements.studentWorkMeta, "Create an assignment before reviewing student work.");
+    elements.studentWorkProblems.innerHTML =
+      `<div class="empty-state compact-empty">No assignments available.</div>`;
+    if (elements.closeWorkPanel) elements.closeWorkPanel.hidden = true;
+    elements.studentWorkPanel.classList.remove("is-attention");
+    return;
+  }
+
   const assignment = getSelectedAssignment();
   const student = getVisibleRoster().find((item) => item.key === studentKey);
   state.selectedWorkStudentKey = student?.key || "";
@@ -6708,6 +6777,15 @@ function renderStudentWorkPanel(studentKey = "") {
 
 function renderDashboard() {
   if (!elements.dashboardBody) return;
+
+  if (!getAssignmentsForUnit(state.selectedUnitId).length) {
+    elements.dashboardBody.innerHTML =
+      `<div class="empty-state">No assignments are available yet. Create an assignment to begin reviewing student work.</div>`;
+    setText(elements.submittedCount, `0 / ${getVisibleRoster().length}`);
+    setText(elements.classAverage, "--");
+    setText(elements.highestScore, "--");
+    return;
+  }
 
   const assignment = getSelectedAssignment();
   const assignmentSubmissions = getAssignmentSubmissions(assignment);
@@ -6793,6 +6871,8 @@ function updateDashboardSyncStatus() {
 }
 
 function resetDashboard() {
+  if (!getAssignmentsForUnit(state.selectedUnitId).length) return;
+
   const assignment = getSelectedAssignment();
   const confirmed = window.confirm(`Clear all submitted grades for ${assignment.title}?`);
   if (!confirmed) return;
@@ -6804,6 +6884,8 @@ function resetDashboard() {
 }
 
 function resetStudentSubmission(studentKey) {
+  if (!getAssignmentsForUnit(state.selectedUnitId).length) return;
+
   const assignment = getSelectedAssignment();
   const student = getVisibleRoster().find((item) => item.key === studentKey);
   if (!student) return;
@@ -6818,6 +6900,18 @@ function resetStudentSubmission(studentKey) {
 }
 
 function bindEvents() {
+  if (elements.unitSelect) {
+    elements.unitSelect.addEventListener("change", () => {
+      selectUnit(elements.unitSelect.value);
+    });
+  }
+
+  if (elements.dashboardUnitSelect) {
+    elements.dashboardUnitSelect.addEventListener("change", () => {
+      selectUnit(elements.dashboardUnitSelect.value);
+    });
+  }
+
   if (elements.assignmentSelect) {
     elements.assignmentSelect.addEventListener("change", () => {
       selectAssignment(elements.assignmentSelect.value, { resetStudentWork: true });
@@ -6929,6 +7023,7 @@ function bindEvents() {
 
 function init() {
   renderAssignmentBuilderOptions();
+  renderUnitOptions();
   renderAssignmentOptions();
   updateAssignmentDisplay();
   renderStudentAccess();
@@ -6948,7 +7043,8 @@ export function mountAssignmentDashboard(options = {}) {
   }
 
   collectElements();
-  state.selectedAssignment = assignments[0];
+  state.selectedUnitId = "intro-expressions";
+  state.selectedAssignment = null;
   state.selectedStudent = null;
   state.lockedSubmission = null;
   state.problems = [];

@@ -7,19 +7,6 @@ import useAssignmentDashboard from "../hooks/useAssignmentDashboard";
 import { appCollection, appDoc } from "../lib/appFirestore";
 import LoadingScreen from "./LoadingScreen";
 
-const baseAssignments = [
-  { title: "Solving Linear Equations", problemCount: 30, unit: "2. Solving Linear Equations" },
-  {
-    title: "Solving Systems",
-    problemCount: 15,
-    unit: "5. Systems of Equations & Inequalities",
-  },
-  { title: "Slope Between Two Points", problemCount: 30, unit: "4. Function Foundations" },
-  { title: "Slope-Intercept Equations", problemCount: 30, unit: "2. Solving Linear Equations" },
-  { title: "Solving Linear Inequalities", problemCount: 30, unit: "3. Solving Linear Inequalities" },
-  { title: "Lines on the Coordinate Grid", problemCount: 30, unit: "4. Function Foundations" },
-];
-
 export default function AssignmentMaker() {
   const { account } = useAuth();
   const [accountClasses, setAccountClasses] = useState([]);
@@ -133,7 +120,7 @@ function AssignmentMakerContent({
     if (!assignment?.id || deletingAssignmentId) return;
 
     const confirmed = window.confirm(
-      `Delete "${assignment.title || "this assignment"}"? The base assignments will stay available.`,
+      `Delete "${assignment.title || "this assignment"}"? This removes the teacher-created assignment.`,
     );
     if (!confirmed) return;
 
@@ -344,18 +331,7 @@ function AssignmentLibrary({
   teacherAssignmentsLoaded,
 }) {
   return (
-    <section className="custom-assignment-list" aria-label="Available assignments">
-      {baseAssignments.map((assignment) => (
-        <article className="assignment-card" key={assignment.title}>
-          <div>
-            <p className="eyebrow">{assignment.unit}</p>
-            <h3>{assignment.title}</h3>
-            <p>{assignment.problemCount} problems</p>
-          </div>
-          <span>Always available</span>
-        </article>
-      ))}
-
+    <section className="custom-assignment-list" aria-label="Teacher-created assignments">
       {assignmentError ? (
         <div className="empty-state compact-empty">{assignmentError}</div>
       ) : null}

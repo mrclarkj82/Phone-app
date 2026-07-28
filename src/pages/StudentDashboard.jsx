@@ -26,6 +26,9 @@ export default function StudentDashboard() {
           <div className="workspace-grid">
             <aside className="student-panel" aria-label="Student information">
               <h2 id="student-heading">Student</h2>
+              <label htmlFor="unit-select">Unit</label>
+              <select id="unit-select" />
+
               <label htmlFor="assignment-select">Assignment</label>
               <select id="assignment-select" />
 
@@ -57,7 +60,7 @@ export default function StudentDashboard() {
               <p className="submission-note" id="submission-note" />
             </aside>
 
-            <section className="assignment-panel" aria-label="Linear equation problems">
+            <section className="assignment-panel" aria-label="Assignment problems">
               <div className="assignment-toolbar">
                 <div>
                   <p className="eyebrow" id="assignment-directions">

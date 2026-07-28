@@ -95,6 +95,42 @@ export default function TeacherDashboard() {
           </section>
         ) : null}
         <AnnouncementDisplay audienceRole="teacher" className="mb-5" />
+        {classes.length ? (
+          <section aria-labelledby="class-codes-heading" className="mb-5 border-y border-slate-200 py-4">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Class Codes</p>
+                <h2 className="m-0 text-xl font-black" id="class-codes-heading">
+                  Share With Students
+                </h2>
+              </div>
+              <div className="grid w-full gap-2 sm:w-auto sm:min-w-80">
+                {[...classes]
+                  .sort((left, right) =>
+                    String(left.name || left.id).localeCompare(String(right.name || right.id)),
+                  )
+                  .map((classRecord) => (
+                    <div
+                      className="flex min-h-14 items-center justify-between gap-4 rounded-md border border-slate-200 bg-white px-4 py-2"
+                      key={classRecord.id}
+                    >
+                      <div className="min-w-0">
+                        <p className="m-0 truncate text-sm font-bold text-slate-800">
+                          {classRecord.name || classRecord.id}
+                        </p>
+                        {classRecord.period ? (
+                          <p className="m-0 text-xs font-semibold text-slate-500">
+                            Period {classRecord.period}
+                          </p>
+                        ) : null}
+                      </div>
+                      <strong className="shrink-0 text-base text-teal-800">{classRecord.id}</strong>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </section>
+        ) : null}
         <section aria-labelledby="teacher-heading">
           <div className="dashboard-grid">
             <section className="dashboard-summary" aria-label="Class summary">
@@ -103,6 +139,9 @@ export default function TeacherDashboard() {
                 <h2 id="teacher-heading">Class Dashboard</h2>
               </div>
               <div className="dashboard-controls">
+                <label htmlFor="dashboard-unit-select">Unit</label>
+                <select id="dashboard-unit-select" />
+
                 <label htmlFor="dashboard-assignment-select">Assignment</label>
                 <select id="dashboard-assignment-select" />
               </div>
