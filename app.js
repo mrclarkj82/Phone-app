@@ -380,8 +380,8 @@ function createBuiltInAssignment(id, typeId, title, problemCount) {
   };
 }
 
-// Counts target about 40 minutes: routine identification gets more items,
-// while multi-step expression work gets fewer, more involved questions.
+// Counts target about 40 minutes. Short fluency checks get more items, while
+// graphing, equation conversion, and multi-step reasoning get smaller sets.
 const BUILT_IN_ASSIGNMENTS = [
   createBuiltInAssignment(
     "unit-1-parts-of-an-expression-v1",
@@ -407,6 +407,84 @@ const BUILT_IN_ASSIGNMENTS = [
     "Equivalent Expressions",
     15,
   ),
+  createBuiltInAssignment(
+    "unit-2-one-step-linear-equations-v1",
+    "one-step-equations",
+    "One-Step Linear Equations",
+    24,
+  ),
+  createBuiltInAssignment(
+    "unit-2-two-step-linear-equations-v1",
+    "two-step-equations",
+    "Two-Step Linear Equations",
+    20,
+  ),
+  createBuiltInAssignment(
+    "unit-2-multi-step-linear-equations-v1",
+    "multi-step-equations",
+    "Multi-Step Linear Equations",
+    15,
+  ),
+  createBuiltInAssignment(
+    "unit-2-mixed-linear-equations-v1",
+    "linear-equations",
+    "Mixed Linear Equation Practice",
+    15,
+  ),
+  createBuiltInAssignment(
+    "unit-2-formula-solving-v1",
+    "formulas",
+    "Formula Solving",
+    15,
+  ),
+  createBuiltInAssignment(
+    "unit-2-coordinate-plane-skills-v1",
+    "coordinate-plane",
+    "Coordinate Plane Skills",
+    20,
+  ),
+  createBuiltInAssignment(
+    "unit-2-slope-basics-v1",
+    "understanding-slope",
+    "Slope Basics",
+    15,
+  ),
+  createBuiltInAssignment(
+    "unit-2-slope-intercept-equations-v1",
+    "slope-intercept-form",
+    "Slope-Intercept Equations",
+    30,
+  ),
+  createBuiltInAssignment(
+    "unit-2-point-slope-equations-v1",
+    "point-slope-form",
+    "Point-Slope Equations",
+    15,
+  ),
+  createBuiltInAssignment(
+    "unit-2-standard-form-equations-v1",
+    "standard-form",
+    "Standard Form Equations",
+    15,
+  ),
+  createBuiltInAssignment(
+    "unit-2-linear-function-transformations-v1",
+    "transformations-linear-functions",
+    "Linear Function Transformations",
+    15,
+  ),
+  createBuiltInAssignment(
+    "unit-2-parallel-lines-v1",
+    "parallel-line",
+    "Parallel Lines",
+    12,
+  ),
+  createBuiltInAssignment(
+    "unit-2-perpendicular-line-relationships-v1",
+    "perpendicular-lines",
+    "Perpendicular Line Relationships",
+    12,
+  ),
 ];
 
 export const demoStudent = {
@@ -415,6 +493,7 @@ export const demoStudent = {
   accessHash: "demo-account-cannot-sign-in",
   isDemo: true,
 };
+const DEMO_SUBMITTED_AT = new Date(Date.now() - 12 * 60 * 1000).toISOString();
 
 export const roster = [
   demoStudent,
@@ -4342,7 +4421,6 @@ function addDemoSubmissions(submissions) {
     ["unit-1-simplify-evaluate-expressions-v1", new Set([6, 12])],
     ["unit-1-equivalent-expressions-v1", new Set([3, 8, 14])],
   ]);
-  const submittedAt = new Date(Date.now() - 12 * 60 * 1000).toISOString();
 
   BUILT_IN_ASSIGNMENTS.forEach((assignment) => {
     const wrongNumbers = wrongProblemNumbers.get(assignment.id);
@@ -4370,7 +4448,7 @@ function addDemoSubmissions(submissions) {
       percent: Math.round((correctTarget / assignment.problemCount) * 100),
       answered: assignment.problemCount,
       answers,
-      submittedAt,
+      submittedAt: DEMO_SUBMITTED_AT,
       isDemo: true,
     };
   });
@@ -6931,7 +7009,13 @@ function renderDashboard() {
 }
 
 function refreshDashboard() {
-  state.submissions = loadSubmissions();
+  const nextSubmissions = loadSubmissions();
+  if (JSON.stringify(nextSubmissions) === JSON.stringify(state.submissions)) {
+    updateDashboardSyncStatus();
+    return;
+  }
+
+  state.submissions = nextSubmissions;
   renderDashboard();
   renderStudentWorkPanel(state.selectedWorkStudentKey);
 }
