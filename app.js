@@ -5304,6 +5304,14 @@ function makeCorrectionAnswer(problem, value) {
   return { value };
 }
 
+export function getCorrectionExpectedInput(problem) {
+  if (!problem) return "";
+  if (problem.answerMode === "combineLikeTerms") return problem.answer.display || "";
+  if (problem.answerMode === "evaluateExpression") return `${problem.answer.value}`;
+  if (problem.answerMode === "expressionParts") return `${problem.answer.value}`;
+  return formatExpectedAnswer(problem);
+}
+
 export function isCorrectionFollowUpCorrect(problem, value) {
   const answers = new Map([[problem.id, makeCorrectionAnswer(problem, value)]]);
   return getProblemResult(problem, answers) === "correct";

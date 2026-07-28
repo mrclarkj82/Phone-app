@@ -3,6 +3,7 @@ import { Link, Navigate, useSearchParams } from "react-router-dom";
 import {
   demoStudent,
   getCorrectionReviewData,
+  getCorrectionExpectedInput,
   getCorrectionReviewStatus,
   getSavedCorrectionReviewProgress,
   getUnitOneCorrectionOptions,
@@ -20,8 +21,8 @@ function formatTime(totalSeconds) {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-function makeInitialRecord(saved = {}) {
-  return {
+function makeInitialRecord(saved = {}, followUpProblem = null) {
+  const record = {
     revealed: 0,
     elapsedSeconds: 0,
     earlyHelpClicks: 0,
@@ -33,6 +34,10 @@ function makeInitialRecord(saved = {}) {
     ...saved,
     followUpMessage: "",
   };
+  if (record.mastered && !String(record.followUpValue || "").trim()) {
+    record.followUpValue = getCorrectionExpectedInput(followUpProblem);
+  }
+  return record;
 }
 
 function makeReviewUrl(studentKey, assignmentId, mode = "student") {
@@ -170,7 +175,7 @@ function TeacherCorrectionSummary({ assignments, demo, records: initialRecords }
       const saved = getSavedCorrectionReviewProgress(demo.studentKey, demo.assignmentId);
       if (!saved?.records) return;
       const nextRecords = demo.problems.map((problem, index) =>
-        makeInitialRecord(saved.records[index]),
+        makeInitialRecord(saved.records[index], problem.followUp),
       );
       setRecords((current) =>
         JSON.stringify(current) === JSON.stringify(nextRecords) ? current : nextRecords,
@@ -229,6 +234,11 @@ function TeacherCorrectionSummary({ assignments, demo, records: initialRecords }
                     <h3 className="m-0 mt-1 text-lg font-black">{problem.type}</h3>
                     <p className="m-0 mt-2 break-words font-bold">{problem.expression}</p>
                     <p className="m-0 mt-1 text-sm text-slate-600">Student answer: {problem.studentAnswer || "Not answered"}</p>
+                    {record.mastered ? (
+                      <p className="m-0 mt-1 text-sm font-bold text-emerald-700">
+                        Saved mastery answer: {record.followUpValue}
+                      </p>
+                    ) : null}
                   </div>
                   <div>
                     <span className="block text-xs font-black uppercase text-slate-500">Status</span>
@@ -373,6 +383,7 @@ function StudentCorrectionReview({ assignments, canViewTeacher, demo, initialRec
         ? "Correct. This correction now counts as mastered."
         : "Not yet. Use the completed example above, then try the new problem again.",
       mastered: isCorrect,
+      masteredAt: isCorrect ? current.masteredAt || new Date().toISOString() : current.masteredAt || "",
     }));
   }
 
@@ -477,30 +488,38 @@ function StudentCorrectionReview({ assignments, canViewTeacher, demo, initialRec
                 <p className="m-0 mt-2 leading-7 text-slate-700">{problem.solution}</p>
               </section>
 
-              <form className="mt-6 border-t border-slate-200 pt-6" onSubmit={checkFollowUp}>
+              <section className="mt-6 border-t border-slate-200 pt-6">
                 <p className="eyebrow">Independent Mastery Check</p>
                 <h3 className="m-0 mt-1 text-lg font-black">New problem</h3>
                 <p className="m-0 mt-4 break-words text-xl font-black">{problem.followUp.expression}</p>
                 <p className="m-0 mt-2 font-bold text-slate-700">{problem.followUp.equation}</p>
                 <ProblemTable table={problem.followUp.table} />
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <input
-                    aria-label="Follow-up answer"
-                    className="min-h-11 min-w-0 flex-1"
-                    onChange={(event) => updateFollowUp(event.target.value)}
-                    placeholder={problem.followUp.answerMode === "combineLikeTerms" ? "Enter the simplified expression" : "Enter your answer"}
-                    value={record.followUpValue}
-                  />
-                  <button className="primary-button px-5" disabled={record.mastered} type="submit">
-                    {record.mastered ? "Mastered" : "Check My Answer"}
-                  </button>
-                </div>
+                {record.mastered ? (
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-4">
+                    <div>
+                      <span className="block text-xs font-black uppercase text-emerald-800">Saved mastery answer</span>
+                      <strong className="mt-1 block break-words text-lg text-emerald-950">{record.followUpValue}</strong>
+                    </div>
+                    <span className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-black text-white">Correct</span>
+                  </div>
+                ) : (
+                  <form className="mt-4 flex flex-wrap gap-3" onSubmit={checkFollowUp}>
+                    <input
+                      aria-label="Follow-up answer"
+                      className="min-h-11 min-w-0 flex-1"
+                      onChange={(event) => updateFollowUp(event.target.value)}
+                      placeholder={problem.followUp.answerMode === "combineLikeTerms" ? "Enter the simplified expression" : "Enter your answer"}
+                      value={record.followUpValue}
+                    />
+                    <button className="primary-button px-5" type="submit">Check My Answer</button>
+                  </form>
+                )}
                 {record.followUpMessage ? (
                   <p className={`m-0 mt-3 text-sm font-black ${record.mastered ? "text-emerald-700" : "text-red-700"}`} aria-live="polite">
                     {record.followUpMessage}
                   </p>
                 ) : null}
-              </form>
+              </section>
             </>
           )}
 
@@ -570,7 +589,9 @@ function CorrectionReviewRouter() {
   const initialRecords = useMemo(() => {
     if (!demo) return [];
     const saved = getSavedCorrectionReviewProgress(studentKey, assignmentId);
-    return demo.problems.map((problem, index) => makeInitialRecord(saved?.records?.[index]));
+    return demo.problems.map((problem, index) =>
+      makeInitialRecord(saved?.records?.[index], problem.followUp),
+    );
   }, [assignmentId, demo, studentKey]);
 
   if (unauthorizedStudent) {
