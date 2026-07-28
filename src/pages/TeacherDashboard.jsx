@@ -1,7 +1,7 @@
 import { onSnapshot, query, where } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { roster } from "../../app";
+import { demoStudent, roster } from "../../app";
 import { useAuth } from "../auth/AuthProvider";
 import AnnouncementDisplay from "../components/AnnouncementDisplay";
 import PrivateHeader from "../components/PrivateHeader";
@@ -56,6 +56,10 @@ export default function TeacherDashboard() {
           ? classRecord.studentUids
           : [],
     );
+
+    if (account.role === "admin") {
+      assignedKeys.push(demoStudent.key);
+    }
 
     return [...new Set(assignedKeys)].filter((key) =>
       roster.some((student) => student.key === key),

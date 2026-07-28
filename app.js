@@ -409,7 +409,15 @@ const BUILT_IN_ASSIGNMENTS = [
   ),
 ];
 
+export const demoStudent = {
+  key: "example-avery",
+  name: "Avery Example (Demo)",
+  accessHash: "demo-account-cannot-sign-in",
+  isDemo: true,
+};
+
 export const roster = [
+  demoStudent,
   {
     key: "akers-lillian",
     name: "Lillian Akers",
@@ -4307,6 +4315,69 @@ function mergeSubmissions(...stores) {
   return merged;
 }
 
+function makeDemoAnswer(problem, shouldBeCorrect) {
+  if (!shouldBeCorrect) {
+    if (problem.answerMode === "combineLikeTerms") {
+      return { expression: "not equivalent" };
+    }
+    if (problem.answerMode === "evaluateExpression") {
+      return { value: `${Number(problem.answer.value) + 1}` };
+    }
+    return { value: "not sure" };
+  }
+
+  if (problem.answerMode === "combineLikeTerms") {
+    return { expression: problem.answer.display };
+  }
+  if (problem.answerMode === "evaluateExpression") {
+    return { value: `${problem.answer.value}` };
+  }
+  return { value: `${problem.answer.value}` };
+}
+
+function addDemoSubmissions(submissions) {
+  const wrongProblemNumbers = new Map([
+    ["unit-1-parts-of-an-expression-v1", new Set([4, 9, 14, 19])],
+    ["unit-1-combining-like-terms-v1", new Set([4, 10, 16])],
+    ["unit-1-simplify-evaluate-expressions-v1", new Set([6, 12])],
+    ["unit-1-equivalent-expressions-v1", new Set([3, 8, 14])],
+  ]);
+  const submittedAt = new Date(Date.now() - 12 * 60 * 1000).toISOString();
+
+  BUILT_IN_ASSIGNMENTS.forEach((assignment) => {
+    const wrongNumbers = wrongProblemNumbers.get(assignment.id);
+    if (!wrongNumbers) return;
+
+    const problems = generateAssignment(demoStudent, assignment);
+    const answers = Object.fromEntries(
+      problems.map((problem) => [
+        problem.id,
+        makeDemoAnswer(problem, !wrongNumbers.has(problem.number)),
+      ]),
+    );
+    const correctTarget = assignment.problemCount - wrongNumbers.size;
+
+    if (!submissions[assignment.id]) {
+      submissions[assignment.id] = {};
+    }
+    submissions[assignment.id][demoStudent.key] = {
+      assignmentId: assignment.id,
+      assignmentTitle: assignment.title,
+      studentKey: demoStudent.key,
+      name: demoStudent.name,
+      correct: correctTarget,
+      total: assignment.problemCount,
+      percent: Math.round((correctTarget / assignment.problemCount) * 100),
+      answered: assignment.problemCount,
+      answers,
+      submittedAt,
+      isDemo: true,
+    };
+  });
+
+  return submissions;
+}
+
 function loadSubmissions() {
   const savedStores = [STORAGE_KEY, ...LEGACY_STORAGE_KEYS].map((key) => {
     try {
@@ -4316,7 +4387,7 @@ function loadSubmissions() {
     }
   });
 
-  return mergeSubmissions(...savedStores);
+  return addDemoSubmissions(mergeSubmissions(...savedStores));
 }
 
 function saveSubmissions() {
@@ -6716,7 +6787,7 @@ function submitAssignment() {
   );
 }
 
-function renderStudentWorkPanel(studentKey = "") {
+function renderStudentWorkPanel(studentKey = "", options = {}) {
   if (!elements.studentWorkPanel || !elements.studentWorkProblems) return;
 
   if (!getAssignmentsForUnit(state.selectedUnitId).length) {
@@ -6771,8 +6842,10 @@ function renderStudentWorkPanel(studentKey = "") {
     elements.closeWorkPanel.hidden = false;
   }
   elements.studentWorkPanel.classList.add("is-attention");
-  elements.studentWorkPanel.scrollIntoView({ behavior: "smooth", block: "start" });
-  elements.studentWorkPanel.focus({ preventScroll: true });
+  if (options.bringIntoView === true) {
+    elements.studentWorkPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+    elements.studentWorkPanel.focus({ preventScroll: true });
+  }
 }
 
 function renderDashboard() {
@@ -6818,9 +6891,11 @@ function renderDashboard() {
         </td>
         <td>
           ${
-            submission
+            submission && !student.isDemo
               ? `<button class="secondary-button table-reset-button" type="button" data-reset-student="${student.key}">Reset</button>`
-              : "--"
+              : student.isDemo
+                ? "Demo"
+                : "--"
           }
         </td>
       </tr>
@@ -6830,7 +6905,7 @@ function renderDashboard() {
   elements.dashboardBody.innerHTML = rows.join("");
   elements.dashboardBody.querySelectorAll("[data-view-work]").forEach((button) => {
     button.addEventListener("click", () => {
-      renderStudentWorkPanel(button.dataset.viewWork);
+      renderStudentWorkPanel(button.dataset.viewWork, { bringIntoView: true });
       renderDashboard();
     });
   });

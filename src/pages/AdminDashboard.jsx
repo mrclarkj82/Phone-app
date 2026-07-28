@@ -336,7 +336,7 @@ export default function AdminDashboard() {
             <strong>{teachers.length}</strong> teachers
           </span>
           <span>
-            <strong>{roster.length}</strong> students
+            <strong>{roster.filter((student) => !student.isDemo).length}</strong> students
           </span>
           <span>
             <strong>{classes.length}</strong> classes
