@@ -89,6 +89,12 @@ export default function TeacherDashboard() {
         >
           Create Assignment
         </Link>
+        <Link
+          className="grid min-h-11 place-items-center rounded-md border border-white/30 bg-white/10 px-4 text-sm font-black text-white transition hover:bg-white/20"
+          to="/corrections?studentKey=example-avery&assignmentId=unit-1-parts-of-an-expression-v1&mode=teacher"
+        >
+          Correction Monitor
+        </Link>
       </PrivateHeader>
 
       <main className="app-shell">
@@ -218,6 +224,7 @@ export default function TeacherDashboard() {
                       <th scope="col">Answered</th>
                       <th scope="col">Submitted</th>
                       <th scope="col">Work</th>
+                      <th scope="col">Corrections</th>
                       <th scope="col">Reset</th>
                     </tr>
                   </thead>

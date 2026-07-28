@@ -7,6 +7,9 @@ import { appCollection, appDoc } from "./src/lib/appFirestore";
 import { db, firebaseConfigured } from "./src/lib/firebase";
 
 const STORAGE_KEY = "freshman-algebra-linear-dashboard-doral-v3";
+const CORRECTION_PROGRESS_KEY = "drrs-math-correction-progress-local-v1";
+const CORRECTION_STUDENT_SESSION_KEY = "drrs-math-correction-student-key";
+const CORRECTION_REVIEW_ENABLED = true;
 const LEGACY_STORAGE_KEYS = [
   "freshman-algebra-linear-dashboard-doral-v2",
   "freshman-algebra-linear-dashboard-doral-v1",
@@ -487,6 +490,13 @@ const BUILT_IN_ASSIGNMENTS = [
   ),
 ];
 
+const UNIT_ONE_CORRECTION_ASSIGNMENT_IDS = new Set([
+  "unit-1-parts-of-an-expression-v1",
+  "unit-1-combining-like-terms-v1",
+  "unit-1-simplify-evaluate-expressions-v1",
+  "unit-1-equivalent-expressions-v1",
+]);
+
 export const demoStudent = {
   key: "example-avery",
   name: "Avery Example (Demo)",
@@ -632,6 +642,7 @@ const state = {
   account: null,
   assignmentUnsubscribe: null,
   selectedWorkStudentKey: "",
+  correctionProgressSignature: "",
 };
 
 let elements = {};
@@ -655,6 +666,7 @@ function collectElements() {
     answeredCount: document.querySelector("#answered-count"),
     correctCount: document.querySelector("#correct-count"),
     submissionNote: document.querySelector("#submission-note"),
+    correctionReviewLink: document.querySelector("#correction-review-link"),
     dashboardBody: document.querySelector("#dashboard-body"),
     submittedCount: document.querySelector("#submitted-count"),
     classAverage: document.querySelector("#class-average"),
@@ -1549,6 +1561,8 @@ function makeCombiningLikeTermsProblem(random, problemNumber = 1) {
     type,
     expression: formatExpression(terms),
     equation: "Simplify by combining like terms.",
+    expressionTerms: terms,
+    simplifiedTerms,
     answer: {
       terms: simplifiedTerms,
       display: simplifiedExpression,
@@ -1668,6 +1682,8 @@ function makeEquivalentExpressionsProblem(random, problemNumber = 1) {
     type,
     expression,
     equation: "Write an equivalent expression without parentheses.",
+    expandedTerms: equivalentTerms,
+    simplifiedTerms,
     answer: {
       terms: simplifiedTerms,
       display: simplifiedExpression,
@@ -1758,6 +1774,9 @@ function makeSimplifyAndEvaluateExpressionProblem(random, problemNumber = 1) {
     expression: displayedExpression,
     equation: `Simplify, then evaluate when ${valuesText}.`,
     table: makeVariableValueTable(values),
+    expandedTerms: terms,
+    simplifiedTerms,
+    variableValues: values,
     answer: {
       value,
       simplified: simplifiedExpression,
@@ -1884,6 +1903,7 @@ function makePartsOfExpressionProblem(random, problemNumber = 1) {
     expression: formatExpression(terms),
     equation: question,
     expressionQuestion: questionKind,
+    expressionTerms: terms,
     answer,
   };
 }
@@ -5017,6 +5037,347 @@ function formatSubmittedAnswer(problem, answers = new Map()) {
   return answer.x || "";
 }
 
+function formatSignedCalculation(values) {
+  return values
+    .map((value) => `${value}`)
+    .join(" + ")
+    .replace(/\+ -/g, "- ");
+}
+
+function describeCombinedTerms(terms = []) {
+  const groups = new Map();
+  terms.forEach((term) => {
+    const key = term.variable || "constant";
+    groups.set(key, [...(groups.get(key) || []), term.coefficient]);
+  });
+
+  return [...groups.entries()]
+    .map(([key, coefficients]) => {
+      const total = coefficients.reduce((sum, value) => sum + value, 0);
+      const label = key === "constant" ? "The constants" : `The ${key}-coefficients`;
+      return `${label} combine as ${formatSignedCalculation(coefficients)} = ${total}.`;
+    })
+    .join(" ");
+}
+
+function formatSubstitutionWork(terms = [], values = {}) {
+  return terms
+    .map((term) =>
+      term.variable
+        ? `${term.coefficient}(${values[term.variable]})`
+        : `${term.coefficient}`,
+    )
+    .join(" + ")
+    .replace(/\+ -/g, "- ");
+}
+
+function getExpressionPartsCorrectionContent(problem) {
+  const finalAnswer = formatExpectedAnswer(problem);
+  const content = {
+    termCount: {
+      steps: [
+        "The question asks for the number of separate terms, not the number of numbers or letters.",
+        "Addition and subtraction signs separate one term from the next. Keep a negative sign with the term after it.",
+        "Point to each complete term from left to right and count each one exactly once.",
+      ],
+      solution: `The expression separates into ${problem.expressionTerms.length} terms, so the answer is ${finalAnswer}.`,
+    },
+    coefficient: {
+      steps: [
+        "Find the term containing the variable named in the question.",
+        "The coefficient is the signed number multiplying that variable.",
+        "Read the number and keep its negative sign when the complete term is negative.",
+      ],
+      solution: `The signed number multiplying the requested variable is ${finalAnswer}, so the coefficient is ${finalAnswer}.`,
+    },
+    constant: {
+      steps: [
+        "The question asks for the term that has no variable attached to it.",
+        "Scan each term and set aside every term containing a letter.",
+        "The remaining number, including its sign, is the constant term.",
+      ],
+      solution: `${finalAnswer} is the only term without a variable, so the constant term is ${finalAnswer}.`,
+    },
+    variableInTerm: {
+      steps: [
+        "Find the specific term named in the question, then identify only its variable letter.",
+        "A term can contain a sign, a number, and a variable. The variable is the letter.",
+        "Locate the named term and ignore its sign and numerical coefficient.",
+      ],
+      solution: `The named term contains the variable ${finalAnswer}, so the answer is ${finalAnswer}.`,
+    },
+    termWithVariable: {
+      steps: [
+        "Find the term that contains the variable named in the question.",
+        "A complete term includes its sign, coefficient, and variable.",
+        "Separate the expression at addition and subtraction signs, keeping each sign with its term.",
+      ],
+      solution: `The complete term containing the requested variable is ${finalAnswer}.`,
+    },
+    operation: {
+      steps: [
+        "Locate the two terms named in the question.",
+        "Look directly between those terms for the operation symbol.",
+        "A plus sign means addition. A minus sign means subtraction.",
+      ],
+      solution: `The symbol between the named terms shows ${finalAnswer}.`,
+    },
+    likeTerms: {
+      steps: [
+        "Look for terms that have exactly the same variable part.",
+        "Numbers and signs may differ; like terms are matched by their variable.",
+        "Group the terms by variable and find the variable that appears more than once.",
+      ],
+      solution: `The terms containing ${finalAnswer} share the same variable part, so ${finalAnswer} is the variable with like terms.`,
+    },
+  };
+
+  return content[problem.expressionQuestion];
+}
+
+function getUnitOneCorrectionContent(problem, assignment) {
+  if (assignment.assignmentType === "parts-of-an-expression") {
+    return getExpressionPartsCorrectionContent(problem);
+  }
+
+  if (assignment.assignmentType === "combining-like-terms") {
+    return {
+      steps: [
+        "The problem asks you to simplify by combining terms with exactly the same variable part.",
+        "Group matching variable terms together and group the constants together. Do not combine different variables.",
+        "Add the signed coefficients inside each group, then write the remaining terms as one simplified expression.",
+      ],
+      solution: `${describeCombinedTerms(problem.expressionTerms)} The simplified expression is ${formatExpectedAnswer(problem)}.`,
+    };
+  }
+
+  if (assignment.assignmentType === "equivalent-expressions") {
+    const expandedExpression = formatSimplifiedExpression(problem.expandedTerms);
+    return {
+      steps: [
+        "The goal is to remove the parentheses without changing the expression's value.",
+        "Multiply the number outside each parenthesis by every term inside it, keeping each sign.",
+        "After distributing, group matching variables and constants, then combine their signed coefficients.",
+      ],
+      solution: `Distributing gives ${expandedExpression}. ${describeCombinedTerms(problem.expandedTerms)} The equivalent expression is ${formatExpectedAnswer(problem)}.`,
+    };
+  }
+
+  if (assignment.assignmentType === "simplify-and-evaluate-expressions") {
+    const simplifiedExpression = formatSimplifiedExpression(problem.simplifiedTerms);
+    const substitution = formatSubstitutionWork(problem.simplifiedTerms, problem.variableValues);
+    return {
+      steps: [
+        "First simplify the expression. Distribute through parentheses when they are present.",
+        "Combine matching variable terms and combine constants before substituting any values.",
+        "Replace each variable with its given value, use parentheses around negative values, and calculate.",
+      ],
+      solution: `The simplified expression is ${simplifiedExpression}. Substitution gives ${substitution} = ${problem.answer.value}.`,
+    };
+  }
+
+  return {
+    steps: [
+      "Identify exactly what the question is asking you to find.",
+      "Mark the important mathematical information in the expression.",
+      "Use that information one step at a time before checking your result.",
+    ],
+    solution: `The correct answer is ${formatExpectedAnswer(problem)}.`,
+  };
+}
+
+function makeCorrectionFollowUp(student, assignment, originalProblem) {
+  const followUpStudent = {
+    key: `${student.key}-correction-${assignment.id}-${originalProblem.number}`,
+    name: `${student.name} correction`,
+  };
+  let attempt = 0;
+  let followUp = makeProblem(assignment, followUpStudent, originalProblem.number, attempt);
+
+  while (getProblemSignature(followUp) === getProblemSignature(originalProblem) && attempt < 20) {
+    attempt += 1;
+    followUp = makeProblem(assignment, followUpStudent, originalProblem.number, attempt);
+  }
+
+  return {
+    ...followUp,
+    id: `${originalProblem.id}-mastery`,
+  };
+}
+
+function getCorrectionProgressStore() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CORRECTION_PROGRESS_KEY));
+    return saved && typeof saved === "object" ? saved : {};
+  } catch {
+    return {};
+  }
+}
+
+function getCorrectionProgressKey(studentKey, assignmentId) {
+  return `${assignmentId}:${studentKey}`;
+}
+
+export function getSavedCorrectionReviewProgress(studentKey, assignmentId) {
+  const saved = getCorrectionProgressStore()[getCorrectionProgressKey(studentKey, assignmentId)];
+  if (saved && Array.isArray(saved.records)) return saved;
+
+  const demoRecords = {
+    "unit-1-parts-of-an-expression-v1": [
+      { revealed: 3, elapsedSeconds: 168, earlyHelpClicks: 1, finalAnswerRevealed: true, followUpAttempts: 1, mastered: true },
+      { revealed: 3, elapsedSeconds: 231, earlyHelpClicks: 0, finalAnswerRevealed: true, followUpAttempts: 2, mastered: true },
+      { revealed: 2, elapsedSeconds: 94, earlyHelpClicks: 1, finalAnswerRevealed: false, followUpAttempts: 0, mastered: false },
+      { revealed: 0, elapsedSeconds: 0, earlyHelpClicks: 0, finalAnswerRevealed: false, followUpAttempts: 0, mastered: false },
+    ],
+    "unit-1-combining-like-terms-v1": [
+      { revealed: 3, elapsedSeconds: 205, earlyHelpClicks: 2, finalAnswerRevealed: true, followUpAttempts: 1, mastered: true },
+      { revealed: 1, elapsedSeconds: 72, earlyHelpClicks: 0, finalAnswerRevealed: false, followUpAttempts: 0, mastered: false },
+      { revealed: 0, elapsedSeconds: 0, earlyHelpClicks: 0, finalAnswerRevealed: false, followUpAttempts: 0, mastered: false },
+    ],
+    "unit-1-simplify-evaluate-expressions-v1": [
+      { revealed: 1, elapsedSeconds: 83, earlyHelpClicks: 0, finalAnswerRevealed: false, followUpAttempts: 0, mastered: false },
+      { revealed: 0, elapsedSeconds: 0, earlyHelpClicks: 0, finalAnswerRevealed: false, followUpAttempts: 0, mastered: false },
+    ],
+    "unit-1-equivalent-expressions-v1": [
+      { revealed: 3, elapsedSeconds: 246, earlyHelpClicks: 1, finalAnswerRevealed: true, followUpAttempts: 2, mastered: true },
+      { revealed: 3, elapsedSeconds: 192, earlyHelpClicks: 0, finalAnswerRevealed: true, followUpAttempts: 1, mastered: true },
+      { revealed: 3, elapsedSeconds: 278, earlyHelpClicks: 2, finalAnswerRevealed: true, followUpAttempts: 2, mastered: true },
+    ],
+  };
+  const records = studentKey === demoStudent.key ? demoRecords[assignmentId] : null;
+  return records ? { studentKey, assignmentId, records, isDemo: true } : null;
+}
+
+export function saveCorrectionReviewProgress(studentKey, assignmentId, records) {
+  const store = getCorrectionProgressStore();
+  store[getCorrectionProgressKey(studentKey, assignmentId)] = {
+    studentKey,
+    assignmentId,
+    records,
+    updatedAt: new Date().toISOString(),
+  };
+  localStorage.setItem(CORRECTION_PROGRESS_KEY, JSON.stringify(store));
+}
+
+function getCorrectionProgressSignature() {
+  const summarized = Object.fromEntries(
+    Object.entries(getCorrectionProgressStore()).map(([key, value]) => [
+      key,
+      (value.records || []).map((record) => ({
+        revealed: record.revealed || 0,
+        mastered: record.mastered === true,
+        followUpAttempts: record.followUpAttempts || 0,
+      })),
+    ]),
+  );
+  return JSON.stringify(summarized);
+}
+
+export function getCorrectionReviewStatus(studentKey, assignmentId, correctionCount = 0) {
+  const progress = getSavedCorrectionReviewProgress(studentKey, assignmentId);
+  const records = progress?.records || [];
+  const mastered = records.filter((record) => record.mastered === true).length;
+  const started = records.some(
+    (record) =>
+      record.elapsedSeconds > 0 ||
+      record.revealed > 0 ||
+      record.followUpAttempts > 0 ||
+      record.mastered === true,
+  );
+
+  if (!correctionCount) {
+    return { label: "No corrections", mastered: 0, total: 0, state: "none" };
+  }
+  if (mastered >= correctionCount) {
+    return { label: `Complete ${correctionCount} / ${correctionCount}`, mastered, total: correctionCount, state: "complete" };
+  }
+  if (started) {
+    return { label: `In progress ${mastered} / ${correctionCount}`, mastered, total: correctionCount, state: "progress" };
+  }
+  return { label: `Not started 0 / ${correctionCount}`, mastered: 0, total: correctionCount, state: "waiting" };
+}
+
+function makeCorrectionAnswer(problem, value) {
+  if (problem.answerMode === "combineLikeTerms") return { expression: value };
+  if (problem.answerMode === "evaluateExpression") return { value };
+  if (problem.answerMode === "expressionParts") return { value };
+  return { value };
+}
+
+export function isCorrectionFollowUpCorrect(problem, value) {
+  const answers = new Map([[problem.id, makeCorrectionAnswer(problem, value)]]);
+  return getProblemResult(problem, answers) === "correct";
+}
+
+export function getUnitOneCorrectionOptions(studentKey = demoStudent.key) {
+  const submissions = loadSubmissions();
+  return BUILT_IN_ASSIGNMENTS.filter((assignment) =>
+    UNIT_ONE_CORRECTION_ASSIGNMENT_IDS.has(assignment.id),
+  ).map((assignment) => {
+    const submission = submissions[assignment.id]?.[studentKey] || null;
+    const student = roster.find((item) => item.key === studentKey);
+    const wrongCount = submission && student && submission.submitted !== false
+      ? generateAssignment(student, assignment).filter(
+          (problem) => getProblemResult(problem, answersToMap(submission.answers)) === "wrong",
+        ).length
+      : 0;
+    return {
+      id: assignment.id,
+      title: assignment.title,
+      submitted: Boolean(submission) && submission.submitted !== false,
+      wrongCount,
+      status: getCorrectionReviewStatus(studentKey, assignment.id, wrongCount),
+    };
+  });
+}
+
+export function getCorrectionReviewData(options = {}) {
+  const studentKey = options.studentKey || demoStudent.key;
+  const assignmentId = options.assignmentId || "unit-1-parts-of-an-expression-v1";
+  const assignment = BUILT_IN_ASSIGNMENTS.find(
+    (item) => item.id === assignmentId && UNIT_ONE_CORRECTION_ASSIGNMENT_IDS.has(item.id),
+  );
+  const student = roster.find((item) => item.key === studentKey);
+  const submission = assignment ? loadSubmissions()[assignment.id]?.[studentKey] : null;
+
+  if (!assignment || !student || !submission || submission.submitted === false) return null;
+
+  const answers = answersToMap(submission.answers);
+  const wrongProblems = generateAssignment(student, assignment)
+    .filter((problem) => getProblemResult(problem, answers) === "wrong")
+    .map((problem) => ({
+      id: problem.id,
+      number: problem.number,
+      type: problem.type,
+      expression: problem.expression,
+      question: problem.equation,
+      table: problem.table || null,
+      studentAnswer: formatSubmittedAnswer(problem, answers),
+      finalAnswer: formatExpectedAnswer(problem),
+      followUp: makeCorrectionFollowUp(student, assignment, problem),
+      ...getUnitOneCorrectionContent(problem, assignment),
+    }));
+
+  return {
+    studentKey: student.key,
+    studentName: student.name,
+    assignmentId: assignment.id,
+    assignmentType: assignment.assignmentType,
+    unitLabel: assignment.assignmentUnitLabel,
+    assignmentTitle: assignment.title,
+    score: {
+      correct: submission.correct,
+      total: submission.total,
+      percent: submission.percent,
+    },
+    problems: wrongProblems,
+  };
+}
+
+export function getCorrectionReviewDemoData() {
+  return getCorrectionReviewData();
+}
+
 function getReviewStatus(problem, answers) {
   if (!hasAnswerForProblem(problem, answers)) {
     return { label: "No answer", className: "is-pending" };
@@ -5218,6 +5579,35 @@ function updateAssignmentDisplay() {
   renderHeaderCounts();
 }
 
+function updateCorrectionReviewLink() {
+  if (!elements.correctionReviewLink) return;
+
+  const assignment = getSelectedAssignment();
+  const isEligible =
+    CORRECTION_REVIEW_ENABLED &&
+    state.selectedStudent &&
+    state.lockedSubmission &&
+    state.lockedSubmission.submitted !== false &&
+    UNIT_ONE_CORRECTION_ASSIGNMENT_IDS.has(assignment.id);
+  const correctionCount = isEligible
+    ? state.problems.filter((problem) => getProblemResult(problem, state.answers) === "wrong").length
+    : 0;
+
+  elements.correctionReviewLink.hidden = !isEligible || correctionCount === 0;
+  if (!isEligible || correctionCount === 0) {
+    elements.correctionReviewLink.removeAttribute("href");
+    return;
+  }
+
+  const query = new URLSearchParams({
+    assignmentId: assignment.id,
+    studentKey: state.selectedStudent.key,
+  });
+  sessionStorage.setItem(CORRECTION_STUDENT_SESSION_KEY, state.selectedStudent.key);
+  elements.correctionReviewLink.href = `/corrections?${query.toString()}`;
+  elements.correctionReviewLink.textContent = `Review ${correctionCount} corrections`;
+}
+
 function resetStudentWorkspace(title = "Enter your student ID to begin") {
   state.selectedStudent = null;
   state.lockedSubmission = null;
@@ -5225,6 +5615,7 @@ function resetStudentWorkspace(title = "Enter your student ID to begin") {
   state.answers = new Map();
   setText(elements.assignmentTitle, title);
   setText(elements.submissionNote, "");
+  updateCorrectionReviewLink();
   if (elements.submitAssignment) {
     elements.submitAssignment.disabled = true;
     elements.submitAssignment.textContent = "Submit Grade";
@@ -5336,6 +5727,7 @@ async function loadSelectedStudent() {
   }
   renderProblems();
   updateStudentScore();
+  updateCorrectionReviewLink();
 }
 
 function getAnswerRowClass(problem) {
@@ -6905,6 +7297,7 @@ function submitAssignment() {
     elements.submissionNote,
     `Submitted and locked: ${score.correct} out of ${assignment.problemCount} (${score.percent}%).`,
   );
+  updateCorrectionReviewLink();
 }
 
 function renderStudentWorkPanel(studentKey = "", options = {}) {
@@ -6997,6 +7390,22 @@ function renderDashboard() {
           timeStyle: "short",
         }).format(new Date(submission.submittedAt))
       : "--";
+    const correctionCount =
+      isSubmitted && UNIT_ONE_CORRECTION_ASSIGNMENT_IDS.has(assignment.id)
+        ? generateAssignment(student, assignment).filter(
+            (problem) => getProblemResult(problem, answersToMap(submission.answers)) === "wrong",
+          ).length
+        : 0;
+    const correctionStatus = getCorrectionReviewStatus(
+      student.key,
+      assignment.id,
+      correctionCount,
+    );
+    const correctionQuery = new URLSearchParams({
+      assignmentId: assignment.id,
+      studentKey: student.key,
+      mode: "teacher",
+    });
     return `
       <tr class="${state.selectedWorkStudentKey === student.key ? "is-selected-work" : ""}">
         <td>${escapeHtml(student.name)}</td>
@@ -7014,6 +7423,22 @@ function renderDashboard() {
             View Work
           </button>
         </td>
+        ${
+          CORRECTION_REVIEW_ENABLED
+            ? `<td>
+                ${
+                  isSubmitted && UNIT_ONE_CORRECTION_ASSIGNMENT_IDS.has(assignment.id)
+                    ? `<span class="status-pill ${correctionStatus.state === "complete" ? "is-submitted" : ""}">${escapeHtml(correctionStatus.label)}</span>
+                      ${
+                        correctionCount
+                          ? `<a class="secondary-button table-reset-button" href="/corrections?${correctionQuery.toString()}">Check Corrections</a>`
+                          : ""
+                      }`
+                    : "--"
+                }
+              </td>`
+            : ""
+        }
         <td>
           ${
             submission && !student.isDemo
@@ -7057,12 +7482,17 @@ function renderDashboard() {
 
 function refreshDashboard() {
   const nextSubmissions = loadSubmissions();
-  if (JSON.stringify(nextSubmissions) === JSON.stringify(state.submissions)) {
+  const nextCorrectionSignature = getCorrectionProgressSignature();
+  if (
+    JSON.stringify(nextSubmissions) === JSON.stringify(state.submissions) &&
+    nextCorrectionSignature === state.correctionProgressSignature
+  ) {
     updateDashboardSyncStatus();
     return;
   }
 
   state.submissions = nextSubmissions;
+  state.correctionProgressSignature = nextCorrectionSignature;
   renderDashboard();
   renderStudentWorkPanel(state.selectedWorkStudentKey);
 }
@@ -7256,6 +7686,7 @@ export function mountAssignmentDashboard(options = {}) {
   state.problems = [];
   state.answers = new Map();
   state.submissions = loadSubmissions();
+  state.correctionProgressSignature = getCorrectionProgressSignature();
   state.visibleStudentKeys = Array.isArray(options.visibleStudentKeys)
     ? options.visibleStudentKeys
     : null;

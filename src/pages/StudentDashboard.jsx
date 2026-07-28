@@ -58,6 +58,13 @@ export default function StudentDashboard() {
                 Submit Grade
               </button>
               <p className="submission-note" id="submission-note" />
+              <a
+                className="primary-button mt-3 grid min-h-11 place-items-center px-4 text-center no-underline"
+                hidden
+                id="correction-review-link"
+              >
+                Review Corrections
+              </a>
             </aside>
 
             <section className="assignment-panel" aria-label="Assignment problems">

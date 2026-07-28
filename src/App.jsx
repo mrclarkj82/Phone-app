@@ -3,6 +3,7 @@ import EntryGate from "./routes/EntryGate";
 import AdminAnnouncements from "./pages/AdminAnnouncements";
 import AdminDashboard from "./pages/AdminDashboard";
 import AssignmentMaker from "./pages/AssignmentMaker";
+import CorrectionReviewDemo from "./pages/CorrectionReviewDemo";
 import StudentDashboard from "./pages/StudentDashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
 
@@ -12,6 +13,22 @@ export default function App() {
       <Route path="/login" element={<EntryGate />} />
       <Route path="/" element={<EntryGate />} />
       <Route path="/dashboard" element={<EntryGate />} />
+      <Route
+        path="/corrections"
+        element={
+          <EntryGate allowedRoles={["student", "teacher", "admin"]}>
+            <CorrectionReviewDemo />
+          </EntryGate>
+        }
+      />
+      <Route
+        path="/review-demo"
+        element={
+          <EntryGate allowedRoles={["student", "teacher", "admin"]}>
+            <CorrectionReviewDemo />
+          </EntryGate>
+        }
+      />
       <Route
         path="/student"
         element={
