@@ -84,12 +84,6 @@ export default function TeacherDashboard() {
           </span>
         </div>
         <Link
-          className="grid min-h-11 place-items-center rounded-md bg-white px-4 text-sm font-black text-teal-900 transition hover:bg-teal-50"
-          to="/assignments/create"
-        >
-          Create Assignment
-        </Link>
-        <Link
           className="grid min-h-11 place-items-center rounded-md border border-white/30 bg-white/10 px-4 text-sm font-black text-white transition hover:bg-white/20"
           to="/corrections?studentKey=example-avery&assignmentId=unit-1-parts-of-an-expression-v1&mode=teacher"
         >
