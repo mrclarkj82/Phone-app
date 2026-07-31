@@ -284,7 +284,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     id: "graphing-linear-equations",
     label: "Graphing Lines",
     unitId: "intro-functions",
-    generator: makeCoordinateGridLineProblem,
+    generator: makeGraphingLineProblem,
     answerMode: "graphLine",
     directions: "Use the graph to answer each question",
   },
@@ -292,7 +292,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     id: "writing-equations-from-graphs",
     label: "Equations from Graphs",
     unitId: "intro-functions",
-    generator: makeCoordinateGridLineProblem,
+    generator: makeEquationFromGraphProblem,
     answerMode: "graphLine",
     directions: "Write equations from graphs",
   },
@@ -340,7 +340,7 @@ const CUSTOM_ASSIGNMENT_TYPES = [
     id: "coordinate-grid-problems",
     label: "Coordinate Grid Practice",
     unitId: "intro-functions",
-    generator: makeCoordinateGridLineProblem,
+    generator: makeCoordinateGridPracticeProblem,
     answerMode: "graphLine",
     directions: "Use the coordinate grid to answer",
   },
@@ -535,6 +535,30 @@ const BUILT_IN_ASSIGNMENTS = [
     "inequalities",
     "Mixed Linear Inequality Practice 2",
     30,
+  ),
+  createBuiltInAssignment(
+    "unit-5-solving-systems-equations-v1",
+    "systems-equations",
+    "Solving Systems of Equations - Practice 1",
+    12,
+  ),
+  createBuiltInAssignment(
+    "unit-5-solving-systems-equations-v2",
+    "systems-equations",
+    "Solving Systems of Equations - Practice 2",
+    12,
+  ),
+  createBuiltInAssignment(
+    "unit-6-exponent-rules-notation-v1",
+    "exponent-laws-notation",
+    "Exponent Rules and Notation",
+    20,
+  ),
+  createBuiltInAssignment(
+    "unit-6-simplifying-roots-v1",
+    "simplify-roots",
+    "Simplifying Roots",
+    18,
   ),
 ];
 
@@ -783,7 +807,7 @@ function escapeHtml(value) {
 }
 
 function renderMathText(value) {
-  return escapeHtml(value).replace(/\^\(([^)]+)\)|\^([A-Za-z0-9+-]+)/g, (_match, grouped, simple) => {
+  return escapeHtml(value).replace(/\^\(([^)]+)\)|\^([+-]?\d+)/g, (_match, grouped, simple) => {
     const exponent = grouped || simple;
     return `<sup>${exponent}</sup>`;
   });
@@ -4147,7 +4171,35 @@ const LINE_GRAPH_SLOPE_FAMILIES = [
   [[5, 3], [-5, 3], [3, 5], [-3, 5]],
 ];
 
-function makeCoordinateGridLineProblem(random, problemNumber = 1) {
+const COORDINATE_GRID_QUESTION_CYCLE = [
+  "slope",
+  "slope",
+  "equation",
+  "equation",
+  "point",
+  "point",
+  "intercept",
+  "intercept",
+  "slope",
+  "equation",
+];
+
+function makeGraphingLineProblem(random, problemNumber = 1) {
+  return makeCoordinateGridLineProblem(random, problemNumber, "slope");
+}
+
+function makeEquationFromGraphProblem(random, problemNumber = 1) {
+  return makeCoordinateGridLineProblem(random, problemNumber, "equation");
+}
+
+function makeCoordinateGridPracticeProblem(random, problemNumber = 1) {
+  const questionKind = COORDINATE_GRID_QUESTION_CYCLE[
+    (problemNumber - 1) % COORDINATE_GRID_QUESTION_CYCLE.length
+  ];
+  return makeCoordinateGridLineProblem(random, problemNumber, questionKind);
+}
+
+function makeCoordinateGridLineProblem(random, problemNumber = 1, questionKind = "slope") {
   const slopeFamily = LINE_GRAPH_SLOPE_FAMILIES[
     (problemNumber - 1) % LINE_GRAPH_SLOPE_FAMILIES.length
   ];
@@ -4185,14 +4237,6 @@ function makeCoordinateGridLineProblem(random, problemNumber = 1) {
   const { x: x1, y: y1 } = firstPoint;
   const { x: x2, y: y2 } = secondPoint;
 
-  const questionKind =
-    problemNumber <= 10
-      ? "slope"
-      : problemNumber <= 18
-        ? "intercept"
-        : problemNumber <= 24
-          ? "point"
-          : "equation";
   const safePoint = { x: x1, y: y1 };
   const prompts = {
     slope: "Find the slope of the line shown on the graph.",
