@@ -1033,6 +1033,10 @@ tbody tr.is-selected-work {
   margin-top: 4px;
 }
 
+.review-card.is-preview.is-graph-review.is-table-review {
+  min-height: 640px;
+}
+
 .review-card.is-formula-review {
   min-height: 360px;
 }

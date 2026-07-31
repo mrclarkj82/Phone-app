@@ -4134,58 +4134,56 @@ function makePerpendicularLinesProblem(random, problemNumber = 1) {
   };
 }
 
-function makeCoordinateGridLineProblem(random, problemNumber = 1) {
-  const slopeRanges =
-    problemNumber <= 10
-      ? [
-          [1, 1],
-          [2, 1],
-          [3, 1],
-        ]
-      : problemNumber <= 18
-        ? [
-            [-3, 1],
-            [-2, 1],
-            [-1, 1],
-            [1, 1],
-            [2, 1],
-            [3, 1],
-          ]
-        : [
-            [-3, 2],
-            [-2, 3],
-            [-1, 2],
-            [1, 2],
-            [2, 3],
-            [3, 2],
-          ];
-  const [slopeNumerator, slopeDenominator] =
-    slopeRanges[integerBetween(random, 0, slopeRanges.length - 1)];
-  const slope = reduceFraction(slopeNumerator, slopeDenominator);
-  let intercept = reduceFraction(integerBetween(random, -6, 6), 1);
-  let x1 = 0;
-  let x2 = 0;
-  let y1 = 0;
-  let y2 = 0;
-  let attempts = 0;
+const LINE_GRAPH_SLOPE_FAMILIES = [
+  [[1, 2], [2, 3], [3, 4]],
+  [[-1, 2], [-2, 3], [-3, 4]],
+  [[3, 2], [4, 3], [5, 2]],
+  [[-3, 2], [-4, 3], [-5, 2]],
+  [[1, 1], [2, 1], [3, 1]],
+  [[-1, 1], [-2, 1], [-3, 1]],
+  [[1, 3], [1, 4], [2, 5]],
+  [[-1, 3], [-1, 4], [-2, 5]],
+  [[0, 1]],
+  [[5, 3], [-5, 3], [3, 5], [-3, 5]],
+];
 
-  while (
-    (x1 === x2 ||
-      Math.abs(x1) > 10 ||
-      Math.abs(x2) > 10 ||
-      !Number.isInteger(y1) ||
-      !Number.isInteger(y2) ||
-      Math.abs(y1) > 10 ||
-      Math.abs(y2) > 10) &&
-    attempts < 80
-  ) {
-    x1 = slope.denominator * integerBetween(random, -4, 4);
-    x2 = slope.denominator * integerBetween(random, -4, 4);
-    intercept = reduceFraction(integerBetween(random, -6, 6), 1);
-    y1 = fractionToNumber(slope) * x1 + fractionToNumber(intercept);
-    y2 = fractionToNumber(slope) * x2 + fractionToNumber(intercept);
-    attempts += 1;
+function makeCoordinateGridLineProblem(random, problemNumber = 1) {
+  const slopeFamily = LINE_GRAPH_SLOPE_FAMILIES[
+    (problemNumber - 1) % LINE_GRAPH_SLOPE_FAMILIES.length
+  ];
+  const [slopeNumerator, slopeDenominator] =
+    slopeFamily[integerBetween(random, 0, slopeFamily.length - 1)];
+  const slope = reduceFraction(slopeNumerator, slopeDenominator);
+  const intercept = reduceFraction(integerBetween(random, -6, 6), 1);
+  const candidatePoints = [];
+
+  for (let multiplier = -10; multiplier <= 10; multiplier += 1) {
+    const x = slope.denominator * multiplier;
+    const y = slope.numerator * multiplier + intercept.numerator;
+    if (Math.abs(x) <= 8 && Math.abs(y) <= 8) {
+      candidatePoints.push({ x, y, multiplier });
+    }
   }
+
+  const pointPairs = [];
+  for (let firstIndex = 0; firstIndex < candidatePoints.length; firstIndex += 1) {
+    for (let secondIndex = firstIndex + 1; secondIndex < candidatePoints.length; secondIndex += 1) {
+      if (
+        Math.hypot(
+          candidatePoints[firstIndex].x - candidatePoints[secondIndex].x,
+          candidatePoints[firstIndex].y - candidatePoints[secondIndex].y,
+        ) >= 3
+      ) {
+        pointPairs.push([candidatePoints[firstIndex], candidatePoints[secondIndex]]);
+      }
+    }
+  }
+
+  const [firstPoint, secondPoint] = pointPairs[
+    integerBetween(random, 0, pointPairs.length - 1)
+  ];
+  const { x: x1, y: y1 } = firstPoint;
+  const { x: x2, y: y2 } = secondPoint;
 
   const questionKind =
     problemNumber <= 10
@@ -4195,21 +4193,21 @@ function makeCoordinateGridLineProblem(random, problemNumber = 1) {
         : problemNumber <= 24
           ? "point"
           : "equation";
-  const pointMultiplier = x1 === 0 ? 1 : x1 / slope.denominator;
-  const pointX = x1 === 0 ? x2 : x1 + slope.denominator * (pointMultiplier > 0 ? -1 : 1);
-  const pointY = fractionToNumber(slope) * pointX + fractionToNumber(intercept);
-  const safePoint =
-    Number.isInteger(pointY) && Math.abs(pointX) <= 10 && Math.abs(pointY) <= 10
-      ? { x: pointX, y: pointY }
-      : { x: x2, y: y2 };
+  const safePoint = { x: x1, y: y1 };
   const prompts = {
     slope: "Find the slope of the line shown on the graph.",
     intercept: "Find the y-intercept of the line shown on the graph.",
     point: "Enter one point on the line shown on the graph.",
     equation: "Write the equation of the line in y = mx + b form.",
   };
+  const slopeType =
+    slope.numerator === 0
+      ? "Zero slope from graph"
+      : slope.numerator > 0
+        ? "Positive slope from graph"
+        : "Negative slope from graph";
   const typeLabels = {
-    slope: problemNumber <= 5 ? "Positive slope from graph" : "Slope from graph",
+    slope: slopeType,
     intercept: "Y-intercept from graph",
     point: "Point on a graphed line",
     equation: "Equation from graph",
@@ -6031,6 +6029,21 @@ function clampGraphLabel(value) {
   return Math.max(8, Math.min(252, value));
 }
 
+function getLineLabelPosition(point, index, slope, toSvgX, toSvgY) {
+  const baseX = toSvgX(point.x);
+  const baseY = toSvgY(point.y);
+  const numerator = slope?.numerator || 0;
+  const denominator = slope?.denominator || 1;
+  const length = Math.hypot(numerator, denominator) || 1;
+  const side = index % 2 === 0 ? 1 : -1;
+  const offset = 14 * side;
+
+  return {
+    x: clampGraphLabel(baseX + (numerator / length) * offset),
+    y: clampGraphLabel(baseY + (denominator / length) * offset),
+  };
+}
+
 function getQuadraticLabelPosition(point, graph, toSvgX, toSvgY) {
   const baseX = toSvgX(point.x);
   const baseY = toSvgY(point.y);
@@ -6086,6 +6099,7 @@ function renderCoordinateGrid(problem) {
     ? problem.graph.lines
     : [{ slope: problem.graph.slope, intercept: problem.graph.intercept }];
   const graphPoints = problem.graph.points || [];
+  const primarySlope = problem.graph.slope || graphLines[0]?.slope;
   const clipId = `grid-clip-${problem.id.replace(/[^a-zA-Z0-9-]/g, "-")}`;
   const { gridLines, tickLabels } = makeCoordinateGridParts(toSvgX, toSvgY);
   const ariaLabel =
@@ -6131,14 +6145,21 @@ function renderCoordinateGrid(problem) {
         </g>
         ${renderAxisLabels(toSvgX, toSvgY, tickLabels)}
         ${graphPoints
-          .map(
-            (point, index) => `
+          .map((point, index) => {
+            const labelPosition = getLineLabelPosition(
+              point,
+              index,
+              primarySlope,
+              toSvgX,
+              toSvgY,
+            );
+            return `
               <g class="graph-point">
                 <circle cx="${toSvgX(point.x)}" cy="${toSvgY(point.y)}" r="3.1" />
-                <text x="${toSvgX(point.x) + 5}" y="${toSvgY(point.y) - 5}">${point.label || (index === 0 ? "A" : "B")}</text>
+                <text x="${labelPosition.x.toFixed(2)}" y="${labelPosition.y.toFixed(2)}">${point.label || (index === 0 ? "A" : "B")}</text>
               </g>
-            `,
-          )
+            `;
+          })
           .join("")}
       </svg>
     </figure>
