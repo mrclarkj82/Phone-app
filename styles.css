@@ -1003,6 +1003,7 @@ tbody tr.is-selected-work {
 
 .review-card.is-preview {
   border-color: rgba(21, 111, 117, 0.26);
+  height: max-content;
   min-height: 0;
   overflow: visible;
 }
@@ -1050,7 +1051,7 @@ tbody tr.is-selected-work {
 }
 
 .review-card.is-preview.is-linear-review {
-  min-height: 186px;
+  min-height: 200px;
 }
 
 .review-card.is-classic-algebra-review {

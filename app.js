@@ -395,19 +395,37 @@ const BUILT_IN_ASSIGNMENTS = [
   createBuiltInAssignment(
     "unit-1-combining-like-terms-v1",
     "combining-like-terms",
-    "Combining Like Terms",
+    "Combining Like Terms - Practice 1",
+    18,
+  ),
+  createBuiltInAssignment(
+    "unit-1-combining-like-terms-v2",
+    "combining-like-terms",
+    "Combining Like Terms - Practice 2",
     18,
   ),
   createBuiltInAssignment(
     "unit-1-simplify-evaluate-expressions-v1",
     "simplify-and-evaluate-expressions",
-    "Simplifying and Evaluating Expressions",
+    "Simplifying and Evaluating Expressions - Practice 1",
+    15,
+  ),
+  createBuiltInAssignment(
+    "unit-1-simplify-evaluate-expressions-v2",
+    "simplify-and-evaluate-expressions",
+    "Simplifying and Evaluating Expressions - Practice 2",
     15,
   ),
   createBuiltInAssignment(
     "unit-1-equivalent-expressions-v1",
     "equivalent-expressions",
-    "Equivalent Expressions",
+    "Equivalent Expressions - Practice 1",
+    15,
+  ),
+  createBuiltInAssignment(
+    "unit-1-equivalent-expressions-v2",
+    "equivalent-expressions",
+    "Equivalent Expressions - Practice 2",
     15,
   ),
   createBuiltInAssignment(
@@ -425,7 +443,13 @@ const BUILT_IN_ASSIGNMENTS = [
   createBuiltInAssignment(
     "unit-2-multi-step-linear-equations-v1",
     "multi-step-equations",
-    "Multi-Step Linear Equations",
+    "Multi-Step Linear Equations - Practice 1",
+    15,
+  ),
+  createBuiltInAssignment(
+    "unit-2-multi-step-linear-equations-v2",
+    "multi-step-equations",
+    "Multi-Step Linear Equations - Practice 2",
     15,
   ),
   createBuiltInAssignment(
@@ -437,7 +461,13 @@ const BUILT_IN_ASSIGNMENTS = [
   createBuiltInAssignment(
     "unit-2-formula-solving-v1",
     "formulas",
-    "Formula Solving",
+    "Formula Solving - Practice 1",
+    15,
+  ),
+  createBuiltInAssignment(
+    "unit-2-formula-solving-v2",
+    "formulas",
+    "Formula Solving - Practice 2",
     15,
   ),
   createBuiltInAssignment(
@@ -449,43 +479,85 @@ const BUILT_IN_ASSIGNMENTS = [
   createBuiltInAssignment(
     "unit-2-slope-basics-v1",
     "understanding-slope",
-    "Slope Basics",
+    "Slope Basics - Practice 1",
+    15,
+  ),
+  createBuiltInAssignment(
+    "unit-2-slope-basics-v2",
+    "understanding-slope",
+    "Slope Basics - Practice 2",
     15,
   ),
   createBuiltInAssignment(
     "unit-2-slope-intercept-equations-v1",
     "slope-intercept-form",
-    "Slope-Intercept Equations",
+    "Slope-Intercept Equations - Practice 1",
+    30,
+  ),
+  createBuiltInAssignment(
+    "unit-2-slope-intercept-equations-v2",
+    "slope-intercept-form",
+    "Slope-Intercept Equations - Practice 2",
     30,
   ),
   createBuiltInAssignment(
     "unit-2-point-slope-equations-v1",
     "point-slope-form",
-    "Point-Slope Equations",
+    "Point-Slope Equations - Practice 1",
+    15,
+  ),
+  createBuiltInAssignment(
+    "unit-2-point-slope-equations-v2",
+    "point-slope-form",
+    "Point-Slope Equations - Practice 2",
     15,
   ),
   createBuiltInAssignment(
     "unit-2-standard-form-equations-v1",
     "standard-form",
-    "Standard Form Equations",
+    "Standard Form Equations - Practice 1",
+    15,
+  ),
+  createBuiltInAssignment(
+    "unit-2-standard-form-equations-v2",
+    "standard-form",
+    "Standard Form Equations - Practice 2",
     15,
   ),
   createBuiltInAssignment(
     "unit-2-linear-function-transformations-v1",
     "transformations-linear-functions",
-    "Linear Function Transformations",
+    "Linear Function Transformations - Practice 1",
+    15,
+  ),
+  createBuiltInAssignment(
+    "unit-2-linear-function-transformations-v2",
+    "transformations-linear-functions",
+    "Linear Function Transformations - Practice 2",
     15,
   ),
   createBuiltInAssignment(
     "unit-2-parallel-lines-v1",
     "parallel-line",
-    "Parallel Lines",
+    "Parallel Lines - Practice 1",
+    12,
+  ),
+  createBuiltInAssignment(
+    "unit-2-parallel-lines-v2",
+    "parallel-line",
+    "Parallel Lines - Practice 2",
     12,
   ),
   createBuiltInAssignment(
     "unit-2-perpendicular-line-relationships-v1",
     "perpendicular-lines",
-    "Perpendicular Line Relationships",
+    "Perpendicular Line Relationships - Practice 1",
+    12,
+  ),
+  createBuiltInAssignment(
+    "unit-2-perpendicular-line-relationships-v2",
+    "perpendicular-lines",
+    "Perpendicular Line Relationships - Practice 2",
     12,
   ),
   createBuiltInAssignment(
@@ -557,7 +629,13 @@ const BUILT_IN_ASSIGNMENTS = [
   createBuiltInAssignment(
     "unit-6-simplifying-roots-v1",
     "simplify-roots",
-    "Simplifying Roots",
+    "Simplifying Roots - Practice 1",
+    18,
+  ),
+  createBuiltInAssignment(
+    "unit-6-simplifying-roots-v2",
+    "simplify-roots",
+    "Simplifying Roots - Practice 2",
     18,
   ),
   createBuiltInAssignment(
@@ -589,8 +667,11 @@ const BUILT_IN_ASSIGNMENTS = [
 const UNIT_ONE_CORRECTION_ASSIGNMENT_IDS = new Set([
   "unit-1-parts-of-an-expression-v1",
   "unit-1-combining-like-terms-v1",
+  "unit-1-combining-like-terms-v2",
   "unit-1-simplify-evaluate-expressions-v1",
+  "unit-1-simplify-evaluate-expressions-v2",
   "unit-1-equivalent-expressions-v1",
+  "unit-1-equivalent-expressions-v2",
 ]);
 
 export const demoStudent = {
