@@ -488,6 +488,54 @@ const BUILT_IN_ASSIGNMENTS = [
     "Perpendicular Line Relationships",
     12,
   ),
+  createBuiltInAssignment(
+    "unit-3-one-step-linear-inequalities-v1",
+    "one-step-inequalities",
+    "One-Step Linear Inequalities - Practice 1",
+    24,
+  ),
+  createBuiltInAssignment(
+    "unit-3-one-step-linear-inequalities-v2",
+    "one-step-inequalities",
+    "One-Step Linear Inequalities - Practice 2",
+    24,
+  ),
+  createBuiltInAssignment(
+    "unit-3-two-step-linear-inequalities-v1",
+    "two-step-inequalities",
+    "Two-Step Linear Inequalities - Practice 1",
+    20,
+  ),
+  createBuiltInAssignment(
+    "unit-3-two-step-linear-inequalities-v2",
+    "two-step-inequalities",
+    "Two-Step Linear Inequalities - Practice 2",
+    20,
+  ),
+  createBuiltInAssignment(
+    "unit-3-multi-step-linear-inequalities-v1",
+    "multi-step-inequalities",
+    "Multi-Step Linear Inequalities - Practice 1",
+    15,
+  ),
+  createBuiltInAssignment(
+    "unit-3-multi-step-linear-inequalities-v2",
+    "multi-step-inequalities",
+    "Multi-Step Linear Inequalities - Practice 2",
+    15,
+  ),
+  createBuiltInAssignment(
+    "unit-3-mixed-linear-inequalities-v1",
+    "inequalities",
+    "Mixed Linear Inequality Practice 1",
+    30,
+  ),
+  createBuiltInAssignment(
+    "unit-3-mixed-linear-inequalities-v2",
+    "inequalities",
+    "Mixed Linear Inequality Practice 2",
+    30,
+  ),
 ];
 
 const UNIT_ONE_CORRECTION_ASSIGNMENT_IDS = new Set([
