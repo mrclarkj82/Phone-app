@@ -5467,6 +5467,7 @@ function renderReviewProblemCard(problem, answers = new Map(), options = {}) {
       "expressionParts",
       "combineLikeTerms",
       "evaluateExpression",
+      "functionValue",
       "fractionValue",
       "textValue",
       "polynomialExpression",
