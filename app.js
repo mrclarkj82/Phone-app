@@ -560,6 +560,30 @@ const BUILT_IN_ASSIGNMENTS = [
     "Simplifying Roots",
     18,
   ),
+  createBuiltInAssignment(
+    "unit-7-operations-polynomials-v1",
+    "polynomial-operations",
+    "Operations with Polynomials - Practice 1",
+    18,
+  ),
+  createBuiltInAssignment(
+    "unit-7-operations-polynomials-v2",
+    "polynomial-operations",
+    "Operations with Polynomials - Practice 2",
+    18,
+  ),
+  createBuiltInAssignment(
+    "unit-7-polynomial-factoring-v1",
+    "factor-polynomials",
+    "Polynomial Factoring - Practice 1",
+    12,
+  ),
+  createBuiltInAssignment(
+    "unit-7-polynomial-factoring-v2",
+    "factor-polynomials",
+    "Polynomial Factoring - Practice 2",
+    12,
+  ),
 ];
 
 const UNIT_ONE_CORRECTION_ASSIGNMENT_IDS = new Set([
