@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
@@ -10,6 +11,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   query,
   serverTimestamp,
   setDoc,
@@ -215,6 +217,33 @@ test("Dragon Math school-role and class-code rules", async (suite) => {
       updatedAt: serverTimestamp(),
     });
     await assertSucceeds(batch.commit());
+  });
+
+  await suite.test("a teacher can discover an existing legacy classroom", async () => {
+    await seedDocuments({
+      "apps/drrs-math/classes/DLTUX5": {
+        name: "Legacy Algebra I Class",
+        teacherUid: "math-teacher",
+        teacherEmail,
+        studentUids: ["legacy-student"],
+        studentEmails: ["legacy-student@student.doralacademynv.org"],
+        active: true,
+      },
+      "apps/drrs-math/classJoinCodes/DLTUX5": {
+        code: "DLTUX5",
+        classId: "DLTUX5",
+        teacherUid: "math-teacher",
+        active: true,
+      },
+    });
+
+    const legacyClassQuery = query(
+      collection(teacher.firestore(), "apps/drrs-math/classes"),
+      where("teacherUid", "==", "math-teacher"),
+      limit(1),
+    );
+    const snapshot = await assertSucceeds(getDocs(legacyClassQuery));
+    assert.equal(snapshot.size, 1);
   });
 
   await suite.test("a student can use the code and join only as themselves", async () => {

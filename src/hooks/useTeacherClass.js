@@ -4,7 +4,7 @@ import { appDoc } from "../lib/appFirestore";
 import {
   ensureTeacherClass,
   isTeacherStaffAccount,
-  teacherClassId,
+  normalizeTeacherClassRecord,
 } from "../lib/classAccess";
 
 export default function useTeacherClass(account) {
@@ -26,13 +26,17 @@ export default function useTeacherClass(account) {
     setClassError("");
 
     ensureTeacherClass(account)
-      .then(() => {
-        if (!active) return;
+      .then((ensuredClass) => {
+        if (!active || !ensuredClass?.id) return;
         unsubscribe = onSnapshot(
-          appDoc("classes", teacherClassId(account.uid)),
+          appDoc("classes", ensuredClass.id),
           (snapshot) => {
             if (!active) return;
-            setTeacherClass(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null);
+            setTeacherClass(
+              snapshot.exists()
+                ? normalizeTeacherClassRecord(snapshot.id, snapshot.data())
+                : null,
+            );
             setClassLoaded(true);
             setClassError("");
           },
