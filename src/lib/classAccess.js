@@ -1,10 +1,14 @@
 import {
   arrayUnion,
   getDoc,
+  getDocs,
+  limit,
+  query,
   runTransaction,
   serverTimestamp,
+  where,
 } from "firebase/firestore";
-import { appDoc } from "./appFirestore";
+import { appCollection, appDoc } from "./appFirestore";
 import { db } from "./firebase";
 
 export const TEACHER_EMAIL_DOMAIN = "@doralacademynv.org";
@@ -51,6 +55,22 @@ export function teacherClassId(uid) {
   return `teacher-${uid}`;
 }
 
+export function normalizeTeacherClassRecord(id, data = {}) {
+  const storedCode = normalizeClassCode(data.classCode);
+  const legacyIdCode = normalizeClassCode(id);
+
+  return {
+    id,
+    ...data,
+    classCode:
+      storedCode.length === CLASS_CODE_LENGTH
+        ? storedCode
+        : legacyIdCode.length === CLASS_CODE_LENGTH
+          ? legacyIdCode
+          : "",
+  };
+}
+
 export async function ensureTeacherClass(account) {
   if (!db || !isTeacherStaffAccount(account)) return null;
 
@@ -58,7 +78,19 @@ export async function ensureTeacherClass(account) {
   const classRef = appDoc("classes", classId);
   const existingClass = await getDoc(classRef);
   if (existingClass.exists()) {
-    return { id: existingClass.id, ...existingClass.data() };
+    return normalizeTeacherClassRecord(existingClass.id, existingClass.data());
+  }
+
+  const existingTeacherClasses = await getDocs(
+    query(
+      appCollection("classes"),
+      where("teacherUid", "==", account.uid),
+      limit(1),
+    ),
+  );
+  const legacyClass = existingTeacherClasses.docs[0];
+  if (legacyClass) {
+    return normalizeTeacherClassRecord(legacyClass.id, legacyClass.data());
   }
 
   for (let attempt = 0; attempt < 12; attempt += 1) {
@@ -73,7 +105,7 @@ export async function ensureTeacherClass(account) {
         ]);
 
         if (classSnapshot.exists()) {
-          return { id: classSnapshot.id, ...classSnapshot.data() };
+          return normalizeTeacherClassRecord(classSnapshot.id, classSnapshot.data());
         }
 
         if (codeSnapshot.exists()) {
@@ -109,7 +141,7 @@ export async function ensureTeacherClass(account) {
         return { id: classId, ...classData };
       });
 
-      return classRecord;
+      return normalizeTeacherClassRecord(classRecord.id, classRecord);
     } catch (error) {
       if (error?.message !== "CLASS_CODE_COLLISION") throw error;
     }
