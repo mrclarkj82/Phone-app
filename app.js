@@ -1,7 +1,9 @@
 import {
   onSnapshot,
+  query,
   serverTimestamp,
   setDoc,
+  where,
 } from "firebase/firestore";
 import { appCollection, appDoc } from "./src/lib/appFirestore";
 import { db, firebaseConfigured } from "./src/lib/firebase";
@@ -817,6 +819,8 @@ const state = {
   visibleStudentKeys: null,
   customAssignments: [],
   account: null,
+  activeClassId: "",
+  authenticatedStudent: null,
   assignmentUnsubscribe: null,
   selectedWorkStudentKey: "",
   correctionProgressSignature: "",
@@ -4861,6 +4865,7 @@ function normalizeCustomAssignment(data = {}, fallbackId = "") {
     maxAttempts: normalizeProblemCount(data.maxAttempts || 1),
     timeLimitMinutes: Number(data.timeLimitMinutes || 0),
     teacherUid: data.teacherUid || "",
+    assignedClassIds: Array.isArray(data.assignedClassIds) ? data.assignedClassIds : [],
     active: data.active !== false,
     createdAt: data.createdAt || null,
     updatedAt: data.updatedAt || null,
@@ -4869,6 +4874,9 @@ function normalizeCustomAssignment(data = {}, fallbackId = "") {
 
 function shouldShowCustomAssignment(assignment) {
   if (!assignment.active) return false;
+  if (state.account?.role === "student") {
+    return Boolean(state.activeClassId) && assignment.assignedClassIds.includes(state.activeClassId);
+  }
   if (!elements.customAssignmentList) return true;
   if (state.account?.role === "admin") return true;
   return !assignment.teacherUid || assignment.teacherUid === state.account?.uid;
@@ -4887,8 +4895,15 @@ function subscribeCustomAssignments() {
     return;
   }
 
+  const assignmentSource = state.account.role === "student"
+    ? query(
+        appCollection("assignments"),
+        where("assignedClassIds", "array-contains", state.activeClassId),
+      )
+    : query(appCollection("assignments"), where("teacherUid", "==", state.account.uid));
+
   state.assignmentUnsubscribe = onSnapshot(
-    appCollection("assignments"),
+    assignmentSource,
     (snapshot) => {
       state.customAssignments = snapshot.docs
         .map((assignmentDoc) => normalizeCustomAssignment(assignmentDoc.data(), assignmentDoc.id))
@@ -4970,7 +4985,9 @@ function getCustomAssignmentDraft() {
   const title = elements.customAssignmentTitle?.value.trim() || typeConfig.label;
   const problemCount = getCustomProblemCountInput();
   const timeEnabled = elements.customTimeEnabled?.checked === true;
-  const classPeriod = elements.customClassPeriod?.value.trim();
+  const classKey = elements.customClassPeriod?.value.trim();
+  const selectedClassOption = elements.customClassPeriod?.selectedOptions?.[0];
+  const classPeriod = selectedClassOption?.textContent?.trim() || "";
 
   return {
     id: `preview-${typeConfig.id}`,
@@ -4984,8 +5001,8 @@ function getCustomAssignmentDraft() {
     directions: typeConfig.directions,
     problemCount,
     difficulty: elements.customDifficulty?.value || "mixed",
-    classKey: classPeriod || "default",
-    classPeriod: classPeriod || "Default class",
+    classKey,
+    classPeriod,
     dueDate: elements.customDueDate?.value || "",
     showImmediateFeedback: elements.customFeedbackMode?.value === "immediate",
     allowRetries: elements.customAllowRetries?.checked === true,
@@ -5013,7 +5030,7 @@ function getCustomAssignmentPayload() {
     directions: draft.directions,
     problemCount: draft.problemCount,
     difficulty: draft.difficulty,
-    assignedClassIds: [draft.classKey || "default"],
+    assignedClassIds: draft.classKey ? [draft.classKey] : [],
     classPeriod: draft.classPeriod,
     dueDate: draft.dueDate,
     showImmediateFeedback: draft.showImmediateFeedback,
@@ -5828,6 +5845,42 @@ function resetStudentWorkspace(title = "Enter your student ID to begin") {
   updateStudentScore();
 }
 
+function loadStudentWorkspace(student) {
+  if (!student || !getAssignmentsForUnit(state.selectedUnitId).length) {
+    resetStudentWorkspace("No assignments available yet");
+    return;
+  }
+
+  const assignment = getSelectedAssignment();
+  state.selectedStudent = student;
+  state.problems = generateAssignment(student, assignment);
+  state.lockedSubmission = getSubmission(student, assignment);
+  restoreAnswers(state.lockedSubmission?.answers);
+  setText(
+    elements.assignmentTitle,
+    `${student.name}'s ${assignment.problemCount} ${assignment.title.toLowerCase()} problems`,
+  );
+  setText(
+    elements.submissionNote,
+    state.lockedSubmission
+      ? `Submitted: ${state.lockedSubmission.correct} out of ${state.lockedSubmission.total} (${state.lockedSubmission.percent}%). Ask your teacher to reset this attempt before trying again.`
+      : "",
+  );
+  setAccessNote(
+    state.lockedSubmission
+      ? `Submitted attempt loaded for ${student.name}.`
+      : `Access granted for ${student.name}.`,
+    "success",
+  );
+  if (elements.submitAssignment) {
+    elements.submitAssignment.disabled = isAssignmentLocked();
+    elements.submitAssignment.textContent = isAssignmentLocked() ? "Submitted" : "Submit Grade";
+  }
+  renderProblems();
+  updateStudentScore();
+  updateCorrectionReviewLink();
+}
+
 function selectUnit(unitId, options = {}) {
   const unit = CUSTOM_ASSIGNMENT_UNITS.find((item) => item.id === unitId);
   if (!unit) return;
@@ -5840,7 +5893,11 @@ function selectUnit(unitId, options = {}) {
 
   if (options.resetStudentWork !== false) {
     setAccessNote("");
-    resetStudentWorkspace();
+    if (state.authenticatedStudent) {
+      loadStudentWorkspace(state.authenticatedStudent);
+    } else {
+      resetStudentWorkspace();
+    }
   }
 
   renderDashboard();
@@ -5868,7 +5925,11 @@ function selectAssignment(assignmentId, options = {}) {
 
   if (options.resetStudentWork) {
     setAccessNote("");
-    resetStudentWorkspace();
+    if (state.authenticatedStudent) {
+      loadStudentWorkspace(state.authenticatedStudent);
+    } else {
+      resetStudentWorkspace();
+    }
   }
 
   renderDashboard();
@@ -5908,30 +5969,7 @@ async function loadSelectedStudent() {
     return;
   }
 
-  state.selectedStudent = student;
-  state.problems = generateAssignment(student, assignment);
-  state.lockedSubmission = getSubmission(student, assignment);
-  restoreAnswers(state.lockedSubmission?.answers);
-  elements.assignmentTitle.textContent = `${student.name}'s ${assignment.problemCount} ${assignment.title.toLowerCase()} problems`;
-  setText(
-    elements.submissionNote,
-    state.lockedSubmission
-      ? `Submitted: ${state.lockedSubmission.correct} out of ${state.lockedSubmission.total} (${state.lockedSubmission.percent}%). Ask your teacher to reset this attempt before trying again.`
-      : "",
-  );
-  setAccessNote(
-    state.lockedSubmission
-      ? `Submitted attempt loaded for ${student.name}.`
-      : `Access granted for ${student.name}.`,
-    "success",
-  );
-  if (elements.submitAssignment) {
-    elements.submitAssignment.disabled = isAssignmentLocked();
-    elements.submitAssignment.textContent = isAssignmentLocked() ? "Submitted" : "Submit Grade";
-  }
-  renderProblems();
-  updateStudentScore();
-  updateCorrectionReviewLink();
+  loadStudentWorkspace(student);
 }
 
 function getAnswerRowClass(problem) {
@@ -7890,8 +7928,12 @@ function init() {
   renderAssignmentOptions();
   updateAssignmentDisplay();
   renderStudentAccess();
-  renderProblems();
-  updateStudentScore();
+  if (state.authenticatedStudent) {
+    loadStudentWorkspace(state.authenticatedStudent);
+  } else {
+    renderProblems();
+    updateStudentScore();
+  }
   renderDashboard();
   renderAssignmentPreview();
   renderStudentWorkPanel();
@@ -7919,6 +7961,8 @@ export function mountAssignmentDashboard(options = {}) {
     : null;
   state.customAssignments = [];
   state.account = options.account || null;
+  state.activeClassId = options.activeClassId || "";
+  state.authenticatedStudent = options.student || null;
   state.selectedWorkStudentKey = "";
   init();
   subscribeCustomAssignments();

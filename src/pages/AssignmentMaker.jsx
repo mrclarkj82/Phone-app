@@ -4,44 +4,17 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import PrivateHeader from "../components/PrivateHeader";
 import useAssignmentDashboard from "../hooks/useAssignmentDashboard";
+import useTeacherClass from "../hooks/useTeacherClass";
 import { appCollection, appDoc } from "../lib/appFirestore";
 import LoadingScreen from "./LoadingScreen";
 
 export default function AssignmentMaker() {
   const { account } = useAuth();
-  const [accountClasses, setAccountClasses] = useState([]);
-  const [classesLoaded, setClassesLoaded] = useState(false);
-  const [classError, setClassError] = useState("");
+  const { teacherClass, classLoaded: classesLoaded, classError } = useTeacherClass(account);
+  const accountClasses = teacherClass ? [teacherClass] : [];
   const [teacherAssignments, setTeacherAssignments] = useState([]);
   const [teacherAssignmentsLoaded, setTeacherAssignmentsLoaded] = useState(false);
   const [assignmentError, setAssignmentError] = useState("");
-
-  useEffect(() => {
-    if (!account) return undefined;
-
-    setClassesLoaded(false);
-    setClassError("");
-
-    const classSource =
-      account.role === "admin"
-        ? appCollection("classes")
-        : query(appCollection("classes"), where("teacherUid", "==", account.uid));
-
-    const unsubscribe = onSnapshot(
-      classSource,
-      (snapshot) => {
-        setAccountClasses(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
-        setClassesLoaded(true);
-        setClassError("");
-      },
-      (error) => {
-        setClassError(error.message || "Unable to load classes.");
-        setClassesLoaded(true);
-      },
-    );
-
-    return unsubscribe;
-  }, [account]);
 
   useEffect(() => {
     if (!account?.uid) return undefined;
@@ -114,7 +87,11 @@ function AssignmentMakerContent({
     [accountClasses],
   );
 
-  useAssignmentDashboard({ account, enabled: classesLoaded });
+  useAssignmentDashboard({
+    account,
+    activeClassId: accountClasses[0]?.id || "",
+    enabled: classesLoaded,
+  });
 
   async function deleteTeacherAssignment(assignment) {
     if (!assignment?.id || deletingAssignmentId) return;
@@ -240,10 +217,10 @@ function AssignmentMakerContent({
                   </label>
                   <label>
                     <span>Class</span>
-                    <select defaultValue="" id="custom-class-period">
-                      <option value="">Default class</option>
+                    <select defaultValue={classOptions[0]?.id || ""} id="custom-class-period">
+                      {!classOptions.length ? <option value="">No class available</option> : null}
                       {classOptions.map((classRecord) => (
-                        <option key={classRecord.id} value={classRecord.label}>
+                        <option key={classRecord.id} value={classRecord.id}>
                           {classRecord.label}
                         </option>
                       ))}

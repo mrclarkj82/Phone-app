@@ -1078,6 +1078,18 @@ service cloud.firestore {
       return role in ["student", "teacher", "admin"];
     }
 
+    function drrsIsTeacherEmail() {
+      return signedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email.matches('.*@doralacademynv[.]org$');
+    }
+
+    function drrsIsStudentEmail() {
+      return signedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email.matches('.*@student[.]doralacademynv[.]org$');
+    }
+
     function drrsHasAssignedActiveAccount() {
       return signedIn()
         && request.auth.token.email != null
@@ -1096,12 +1108,24 @@ service cloud.firestore {
       return drrsHasRole("teacher") || drrsHasRole("admin");
     }
 
+    function drrsTeacherStaffAccount() {
+      return drrsTeacherOrAdmin() && drrsIsTeacherEmail();
+    }
+
     function drrsOwnsAssignment(data) {
       return data.teacherUid is string && data.teacherUid == request.auth.uid;
     }
 
+    function drrsStudentCanReadAssignment(data) {
+      return drrsHasRole("student")
+        && data.assignedClassIds is list
+        && data.assignedClassIds.size() == 1
+        && exists(drrsClassPath(data.assignedClassIds[0]))
+        && drrsIsClassStudent(get(drrsClassPath(data.assignedClassIds[0])).data);
+    }
+
     function drrsIsClassTeacher(data) {
-      return drrsHasRole("teacher") && data.teacherUid == request.auth.uid;
+      return drrsTeacherStaffAccount() && data.teacherUid == request.auth.uid;
     }
 
     function drrsIsClassStudent(data) {
@@ -1119,6 +1143,133 @@ service cloud.firestore {
         && data.displayName is string
         && data.active is bool
         && drrsHasAllowedRole(data.role);
+    }
+
+    function drrsValidSelfProvisionedUser(userId) {
+      return signedIn()
+        && userId == request.auth.uid
+        && !exists(drrsAccountPath())
+        && request.auth.token.email != null
+        && request.resource.data.keys().hasOnly([
+          "uid",
+          "email",
+          "displayName",
+          "role",
+          "active",
+          "createdAt",
+          "updatedAt"
+        ])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.active == true
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && (
+          (drrsIsTeacherEmail() && request.resource.data.role == "teacher")
+          || (drrsIsStudentEmail() && request.resource.data.role == "student")
+        );
+    }
+
+    function drrsClassPath(classId) {
+      return /databases/$(database)/documents/apps/drrs-math/classes/$(classId);
+    }
+
+    function drrsIsOwnTeacherClassId(classId) {
+      return drrsTeacherStaffAccount() && classId == "teacher-" + request.auth.uid;
+    }
+
+    function drrsValidClassCode(code) {
+      return code is string && code.matches('[A-HJ-NP-Z2-9]{6}');
+    }
+
+    function drrsValidTeacherClassCreate(classId) {
+      return drrsTeacherStaffAccount()
+        && request.resource.data.keys().hasOnly([
+          "id",
+          "classCode",
+          "name",
+          "period",
+          "teacherUid",
+          "teacherEmail",
+          "studentUids",
+          "studentEmails",
+          "active",
+          "createdAt",
+          "updatedAt"
+        ])
+        && request.resource.data.id == classId
+        && request.resource.data.classCode is string
+        && drrsValidClassCode(request.resource.data.classCode)
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.period is string
+        && request.resource.data.teacherUid == request.auth.uid
+        && request.resource.data.teacherEmail == request.auth.token.email
+        && request.resource.data.studentUids == []
+        && request.resource.data.studentEmails == []
+        && request.resource.data.active == true
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function drrsValidJoinCodeCreate(code) {
+      return drrsTeacherStaffAccount()
+        && drrsValidClassCode(code)
+        && request.resource.data.keys().hasOnly([
+          "code",
+          "classId",
+          "teacherUid",
+          "teacherEmail",
+          "active",
+          "createdAt",
+          "updatedAt"
+        ])
+        && request.resource.data.code == code
+        && request.resource.data.classId is string
+        && request.resource.data.teacherUid == request.auth.uid
+        && request.resource.data.teacherEmail == request.auth.token.email
+        && request.resource.data.active == true
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && existsAfter(drrsClassPath(request.resource.data.classId))
+        && getAfter(drrsClassPath(request.resource.data.classId)).data.teacherUid == request.auth.uid
+        && getAfter(drrsClassPath(request.resource.data.classId)).data.classCode == code;
+    }
+
+    function drrsCanManageJoinCode(data) {
+      return drrsHasRole("admin")
+        || (drrsTeacherStaffAccount() && data.teacherUid == request.auth.uid);
+    }
+
+    function drrsSafeStudentClassJoin() {
+      return drrsHasRole("student")
+        && resource.data.active == true
+        && resource.data.studentUids is list
+        && resource.data.studentEmails is list
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "studentUids",
+          "studentEmails",
+          "updatedAt"
+        ])
+        && request.resource.data.studentUids.hasAll(resource.data.studentUids)
+        && request.resource.data.studentEmails.hasAll(resource.data.studentEmails)
+        && request.auth.uid in request.resource.data.studentUids
+        && request.auth.token.email in request.resource.data.studentEmails
+        && (
+          (request.auth.uid in resource.data.studentUids
+            && request.resource.data.studentUids.size() == resource.data.studentUids.size())
+          || (!(request.auth.uid in resource.data.studentUids)
+            && request.resource.data.studentUids.size() == resource.data.studentUids.size() + 1)
+        )
+        && (
+          (request.auth.token.email in resource.data.studentEmails
+            && request.resource.data.studentEmails.size() == resource.data.studentEmails.size())
+          || (!(request.auth.token.email in resource.data.studentEmails)
+            && request.resource.data.studentEmails.size() == resource.data.studentEmails.size() + 1)
+        )
+        && request.resource.data.updatedAt == request.time;
     }
 
     function drrsOwnsAnnouncementRead(data) {
@@ -1489,7 +1640,12 @@ service cloud.firestore {
             drrsHasRole("admin")
             || resource.data.email == request.auth.token.email
           );
-        allow create, update: if drrsIsMathApp(appId)
+        allow create: if drrsIsMathApp(appId)
+          && (
+            drrsValidSelfProvisionedUser(userId)
+            || (drrsHasRole("admin") && drrsValidUserDocument(request.resource.data))
+          );
+        allow update: if drrsIsMathApp(appId)
           && drrsHasRole("admin")
           && drrsValidUserDocument(request.resource.data);
         allow delete: if drrsIsMathApp(appId) && drrsHasRole("admin");
@@ -1505,17 +1661,46 @@ service cloud.firestore {
       }
 
       match /classes/{classId} {
-        allow read: if drrsIsMathApp(appId)
+        allow get: if drrsIsMathApp(appId)
+          && (
+            drrsHasRole("admin")
+            || drrsIsOwnTeacherClassId(classId)
+            || drrsIsClassTeacher(resource.data)
+            || drrsIsClassStudent(resource.data)
+            || (drrsHasRole("student") && resource.data.active == true)
+          );
+        allow list: if drrsIsMathApp(appId)
           && (
             drrsHasRole("admin")
             || drrsIsClassTeacher(resource.data)
             || drrsIsClassStudent(resource.data)
           );
-        allow create, update, delete: if drrsIsMathApp(appId) && drrsHasRole("admin");
+        allow create: if drrsIsMathApp(appId)
+          && (drrsHasRole("admin") || drrsValidTeacherClassCreate(classId));
+        allow update: if drrsIsMathApp(appId)
+          && (drrsHasRole("admin") || drrsSafeStudentClassJoin());
+        allow delete: if drrsIsMathApp(appId) && drrsHasRole("admin");
+      }
+
+      match /classJoinCodes/{code} {
+        allow get: if drrsIsMathApp(appId)
+          && (
+            drrsHasRole("student")
+            || drrsTeacherStaffAccount()
+            || drrsHasRole("admin")
+          );
+        allow list: if drrsIsMathApp(appId) && drrsCanManageJoinCode(resource.data);
+        allow create: if drrsIsMathApp(appId) && drrsValidJoinCodeCreate(code);
+        allow update, delete: if drrsIsMathApp(appId) && drrsHasRole("admin");
       }
 
       match /assignments/{assignmentId} {
-        allow read: if drrsIsMathApp(appId) && drrsHasAssignedActiveAccount();
+        allow read: if drrsIsMathApp(appId)
+          && (
+            drrsHasRole("admin")
+            || (drrsTeacherStaffAccount() && drrsOwnsAssignment(resource.data))
+            || drrsStudentCanReadAssignment(resource.data)
+          );
         allow create: if drrsIsMathApp(appId)
           && (
             drrsHasRole("admin")
