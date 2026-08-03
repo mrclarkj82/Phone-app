@@ -1,6 +1,6 @@
-import { limit, onSnapshot, query, where } from "firebase/firestore";
+import { onSnapshot } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import { appCollection } from "../lib/appFirestore";
+import { appDoc } from "../lib/appFirestore";
 
 export default function useStudentClass(account) {
   const [studentClass, setStudentClass] = useState(null);
@@ -15,30 +15,48 @@ export default function useStudentClass(account) {
       return undefined;
     }
 
+    let classUnsubscribe = null;
     setClassLoaded(false);
     setClassError("");
 
-    const classSource = query(
-      appCollection("classes"),
-      where("studentUids", "array-contains", account.uid),
-      limit(1),
-    );
+    const enrollmentUnsubscribe = onSnapshot(
+      appDoc("studentClasses", account.uid),
+      (enrollmentSnapshot) => {
+        classUnsubscribe?.();
+        classUnsubscribe = null;
 
-    return onSnapshot(
-      classSource,
-      (snapshot) => {
-        const classDocument = snapshot.docs[0];
-        setStudentClass(
-          classDocument ? { id: classDocument.id, ...classDocument.data() } : null,
+        if (!enrollmentSnapshot.exists() || !enrollmentSnapshot.data().classId) {
+          setStudentClass(null);
+          setClassLoaded(true);
+          setClassError("");
+          return;
+        }
+
+        classUnsubscribe = onSnapshot(
+          appDoc("classes", enrollmentSnapshot.data().classId),
+          (classSnapshot) => {
+            setStudentClass(
+              classSnapshot.exists() ? { id: classSnapshot.id, ...classSnapshot.data() } : null,
+            );
+            setClassLoaded(true);
+            setClassError("");
+          },
+          (error) => {
+            setClassError(error.message || "Unable to load your class.");
+            setClassLoaded(true);
+          },
         );
-        setClassLoaded(true);
-        setClassError("");
       },
       (error) => {
         setClassError(error.message || "Unable to check your class enrollment.");
         setClassLoaded(true);
       },
     );
+
+    return () => {
+      classUnsubscribe?.();
+      enrollmentUnsubscribe();
+    };
   }, [account?.uid, account?.role]);
 
   return { studentClass, classLoaded, classError };

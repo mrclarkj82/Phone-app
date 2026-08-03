@@ -129,6 +129,7 @@ export async function joinStudentClass(account, enteredCode) {
   }
 
   const codeRef = appDoc("classJoinCodes", classCode);
+  const enrollmentRef = appDoc("studentClasses", account.uid);
 
   return runTransaction(db, async (transaction) => {
     const codeSnapshot = await transaction.get(codeRef);
@@ -146,6 +147,14 @@ export async function joinStudentClass(account, enteredCode) {
     transaction.update(classRef, {
       studentUids: arrayUnion(account.uid),
       studentEmails: arrayUnion(normalizeSchoolEmail(account.email)),
+      updatedAt: serverTimestamp(),
+    });
+    transaction.set(enrollmentRef, {
+      studentUid: account.uid,
+      studentEmail: normalizeSchoolEmail(account.email),
+      classId: classSnapshot.id,
+      classCode,
+      joinedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
 

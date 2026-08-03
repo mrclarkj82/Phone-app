@@ -4865,6 +4865,7 @@ function normalizeCustomAssignment(data = {}, fallbackId = "") {
     maxAttempts: normalizeProblemCount(data.maxAttempts || 1),
     timeLimitMinutes: Number(data.timeLimitMinutes || 0),
     teacherUid: data.teacherUid || "",
+    classId: data.classId || "",
     assignedClassIds: Array.isArray(data.assignedClassIds) ? data.assignedClassIds : [],
     active: data.active !== false,
     createdAt: data.createdAt || null,
@@ -4875,7 +4876,9 @@ function normalizeCustomAssignment(data = {}, fallbackId = "") {
 function shouldShowCustomAssignment(assignment) {
   if (!assignment.active) return false;
   if (state.account?.role === "student") {
-    return Boolean(state.activeClassId) && assignment.assignedClassIds.includes(state.activeClassId);
+    return Boolean(state.activeClassId)
+      && (assignment.classId === state.activeClassId
+        || assignment.assignedClassIds.includes(state.activeClassId));
   }
   if (!elements.customAssignmentList) return true;
   if (state.account?.role === "admin") return true;
@@ -4898,7 +4901,7 @@ function subscribeCustomAssignments() {
   const assignmentSource = state.account.role === "student"
     ? query(
         appCollection("assignments"),
-        where("assignedClassIds", "array-contains", state.activeClassId),
+        where("classId", "==", state.activeClassId),
       )
     : query(appCollection("assignments"), where("teacherUid", "==", state.account.uid));
 
@@ -5030,6 +5033,7 @@ function getCustomAssignmentPayload() {
     directions: draft.directions,
     problemCount: draft.problemCount,
     difficulty: draft.difficulty,
+    classId: draft.classKey,
     assignedClassIds: draft.classKey ? [draft.classKey] : [],
     classPeriod: draft.classPeriod,
     dueDate: draft.dueDate,
