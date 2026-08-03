@@ -1,43 +1,22 @@
-import { onSnapshot, query, where } from "firebase/firestore";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { demoStudent, roster } from "../../app";
 import { useAuth } from "../auth/AuthProvider";
 import AnnouncementDisplay from "../components/AnnouncementDisplay";
 import PrivateHeader from "../components/PrivateHeader";
 import useAssignmentDashboard from "../hooks/useAssignmentDashboard";
-import { appCollection } from "../lib/appFirestore";
+import useTeacherClass from "../hooks/useTeacherClass";
+import { isTeacherStaffAccount } from "../lib/classAccess";
 import LoadingScreen from "./LoadingScreen";
 
 export default function TeacherDashboard() {
   const { account } = useAuth();
-  const [classes, setClasses] = useState([]);
-  const [classesLoaded, setClassesLoaded] = useState(false);
-  const [classError, setClassError] = useState("");
-
-  useEffect(() => {
-    if (!account) return undefined;
-
-    const classSource =
-      account.role === "admin"
-        ? appCollection("classes")
-        : query(appCollection("classes"), where("teacherUid", "==", account.uid));
-
-    const unsubscribe = onSnapshot(
-      classSource,
-      (snapshot) => {
-        setClasses(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
-        setClassesLoaded(true);
-        setClassError("");
-      },
-      (error) => {
-        setClassError(error.message || "Unable to load assigned classes.");
-        setClassesLoaded(true);
-      },
-    );
-
-    return unsubscribe;
-  }, [account]);
+  const { teacherClass, classLoaded: classesLoaded, classError } = useTeacherClass(account);
+  const [copyStatus, setCopyStatus] = useState("");
+  const classes = teacherClass ? [teacherClass] : [];
+  const enrolledCount = Array.isArray(teacherClass?.studentUids)
+    ? teacherClass.studentUids.length
+    : 0;
 
   const visibleStudentKeys = useMemo(() => {
     if (!classesLoaded || !account) return null;
@@ -66,7 +45,22 @@ export default function TeacherDashboard() {
     );
   }, [account, classes, classesLoaded]);
 
-  useAssignmentDashboard({ account, enabled: classesLoaded && !classError, visibleStudentKeys });
+  useAssignmentDashboard({
+    account,
+    activeClassId: teacherClass?.id || "",
+    enabled: classesLoaded && !classError,
+    visibleStudentKeys,
+  });
+
+  async function copyClassCode() {
+    if (!teacherClass?.classCode) return;
+    try {
+      await navigator.clipboard.writeText(teacherClass.classCode);
+      setCopyStatus("Copied");
+    } catch {
+      setCopyStatus("Select and copy the code");
+    }
+  }
 
   if (!classesLoaded) {
     return <LoadingScreen label="Loading assigned roster" />;
@@ -80,7 +74,7 @@ export default function TeacherDashboard() {
             <strong id="header-problem-count">30</strong> problems
           </span>
           <span>
-            <strong id="header-student-count">{visibleStudentKeys?.length || 0}</strong> students
+            <strong id="header-student-count">{enrolledCount}</strong> students
           </span>
         </div>
         <Link
@@ -99,38 +93,29 @@ export default function TeacherDashboard() {
           </section>
         ) : null}
         <AnnouncementDisplay audienceRole="teacher" className="mb-5" />
-        {classes.length ? (
-          <section aria-labelledby="class-codes-heading" className="mb-5 border-y border-slate-200 py-4">
-            <div className="flex flex-wrap items-start justify-between gap-4">
+        {teacherClass && isTeacherStaffAccount(account) ? (
+          <section
+            aria-label="Student class access code"
+            className="mb-5 rounded-xl border border-teal-200 bg-teal-50 px-5 py-5 shadow-sm"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-5">
               <div>
-                <p className="eyebrow">Class Codes</p>
-                <h2 className="m-0 text-xl font-black" id="class-codes-heading">
-                  Share With Students
-                </h2>
+                <p className="eyebrow">Student Class Access</p>
+                <h2 className="m-0 text-xl font-black">Your class code</h2>
+                <p className="m-0 mt-2 text-sm font-semibold text-slate-600">
+                  {teacherClass.name} · {enrolledCount} enrolled
+                </p>
               </div>
-              <div className="grid w-full gap-2 sm:w-auto sm:min-w-80">
-                {[...classes]
-                  .sort((left, right) =>
-                    String(left.name || left.id).localeCompare(String(right.name || right.id)),
-                  )
-                  .map((classRecord) => (
-                    <div
-                      className="flex min-h-14 items-center justify-between gap-4 rounded-md border border-slate-200 bg-white px-4 py-2"
-                      key={classRecord.id}
-                    >
-                      <div className="min-w-0">
-                        <p className="m-0 truncate text-sm font-bold text-slate-800">
-                          {classRecord.name || classRecord.id}
-                        </p>
-                        {classRecord.period ? (
-                          <p className="m-0 text-xs font-semibold text-slate-500">
-                            Period {classRecord.period}
-                          </p>
-                        ) : null}
-                      </div>
-                      <strong className="shrink-0 text-base text-teal-800">{classRecord.id}</strong>
-                    </div>
-                  ))}
+              <div className="flex flex-wrap items-center gap-3">
+                <strong className="rounded-lg border border-teal-300 bg-white px-5 py-3 text-3xl tracking-[0.22em] text-teal-900">
+                  {teacherClass.classCode}
+                </strong>
+                <button className="primary-button px-4" onClick={copyClassCode} type="button">
+                  Copy Class Code
+                </button>
+                <span className="text-sm font-bold text-teal-800" aria-live="polite">
+                  {copyStatus}
+                </span>
               </div>
             </div>
           </section>

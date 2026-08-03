@@ -6,9 +6,18 @@ import {
   signInWithPopup,
   signOut,
 } from "firebase/auth";
-import { getDoc, getDocs, limit, query, where } from "firebase/firestore";
+import {
+  getDoc,
+  getDocs,
+  limit,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+} from "firebase/firestore";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { appCollection, appDoc } from "../lib/appFirestore";
+import { schoolRoleForEmail } from "../lib/classAccess";
 import {
   auth,
   firebaseConfigured,
@@ -97,6 +106,32 @@ async function readAssignedAccountWithRetry(firebaseUser) {
   throw lastError;
 }
 
+async function provisionSchoolAccount(firebaseUser) {
+  const role = schoolRoleForEmail(firebaseUser.email);
+  if (!role || !firebaseUser.email) return null;
+
+  const account = {
+    uid: firebaseUser.uid,
+    email: normalizeEmail(firebaseUser.email),
+    displayName:
+      String(firebaseUser.displayName || "").trim() ||
+      normalizeEmail(firebaseUser.email).split("@")[0],
+    role,
+    active: true,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  await setDoc(appDoc("users", firebaseUser.uid), account);
+  return { id: firebaseUser.uid, ...account };
+}
+
+async function readOrProvisionSchoolAccount(firebaseUser) {
+  const assignedAccount = await readAssignedAccountWithRetry(firebaseUser);
+  if (assignedAccount) return assignedAccount;
+  return provisionSchoolAccount(firebaseUser);
+}
+
 async function ensureAuthPersistence() {
   if (!auth) return;
   await setPersistence(auth, browserLocalPersistence);
@@ -165,7 +200,7 @@ export function AuthProvider({ children }) {
       }
 
       try {
-        const assignedAccount = await readAssignedAccountWithRetry(firebaseUser);
+        const assignedAccount = await readOrProvisionSchoolAccount(firebaseUser);
         if (!mounted || currentCheck !== checkNumber) return;
 
         if (!assignedAccount) {

@@ -33,8 +33,8 @@ export default function LoginPage() {
         <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/70 sm:p-8">
           <h2 className="text-2xl font-black">Sign in</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Access is limited to active student, teacher, and admin accounts assigned in
-            the school system.
+            Teachers use an @doralacademynv.org account. Students use an
+            @student.doralacademynv.org account and join with a teacher's class code.
           </p>
 
           <button
@@ -60,7 +60,7 @@ export default function LoginPage() {
             }`}
             aria-live="polite"
           >
-            {message || "Your assigned account will be checked before any dashboard loads."}
+            {message || "Your school email determines the dashboard that opens after sign-in."}
             {!configured && missingFirebaseConfig.length ? (
               <p className="mt-2 font-semibold">
                 Missing Firebase config: {missingFirebaseConfig.join(", ")}.
