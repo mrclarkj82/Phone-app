@@ -1,6 +1,6 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBQeaSzDm4UOm1XzW3uBWzG36C1v3XABhs",
@@ -23,4 +23,11 @@ const firebaseApp = firebaseConfigured
   : null;
 
 export const auth = firebaseApp ? getAuth(firebaseApp) : null;
-export const db = firebaseApp ? getFirestore(firebaseApp) : null;
+export const db = firebaseApp
+  ? initializeFirestore(firebaseApp, {
+      // Managed school networks commonly buffer Firestore's streaming transport.
+      // Long polling keeps account provisioning and classroom data on ordinary HTTPS.
+      experimentalForceLongPolling: true,
+      useFetchStreams: false,
+    })
+  : null;

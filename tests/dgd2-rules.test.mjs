@@ -150,6 +150,11 @@ test("Dragon Math school-role and class-code rules", async (suite) => {
   const studentEmail = "student@student.doralacademynv.org";
   const teacher = testEnvironment.authenticatedContext("math-teacher", schoolAuth(teacherEmail));
   const student = testEnvironment.authenticatedContext("math-student", schoolAuth(studentEmail));
+  const newStudentEmail = "new-student@student.doralacademynv.org";
+  const newStudent = testEnvironment.authenticatedContext(
+    "new-math-student",
+    schoolAuth(newStudentEmail),
+  );
   const outsider = testEnvironment.authenticatedContext(
     "math-outsider",
     schoolAuth("outsider@example.com"),
@@ -189,6 +194,35 @@ test("Dragon Math school-role and class-code rules", async (suite) => {
         updatedAt: serverTimestamp(),
       }),
     );
+  });
+
+  await suite.test("student SSO can complete the account lookup and provisioning sequence", async () => {
+    const database = newStudent.firestore();
+    const accountRef = doc(database, "apps/drrs-math/users/new-math-student");
+    const accountSnapshot = await assertSucceeds(getDoc(accountRef));
+    assert.equal(accountSnapshot.exists(), false);
+
+    const emailLookup = query(
+      collection(database, "apps/drrs-math/users"),
+      where("email", "==", newStudentEmail),
+      limit(3),
+    );
+    const emailSnapshot = await assertSucceeds(getDocs(emailLookup));
+    assert.equal(emailSnapshot.empty, true);
+
+    await assertSucceeds(
+      setDoc(accountRef, {
+        uid: "new-math-student",
+        email: newStudentEmail,
+        displayName: "New Math Student",
+        role: "student",
+        active: true,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    const provisionedSnapshot = await assertSucceeds(getDoc(accountRef));
+    assert.equal(provisionedSnapshot.data().role, "student");
   });
 
   await suite.test("a teacher can atomically create their class and join code", async () => {
