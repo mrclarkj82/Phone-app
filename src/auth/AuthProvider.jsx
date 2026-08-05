@@ -11,8 +11,8 @@ import {
   getDocs,
   limit,
   query,
+  runTransaction,
   serverTimestamp,
-  setDoc,
   where,
 } from "firebase/firestore";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
@@ -110,20 +110,29 @@ async function provisionSchoolAccount(firebaseUser) {
   const role = schoolRoleForEmail(firebaseUser.email);
   if (!role || !firebaseUser.email) return null;
 
-  const account = {
-    uid: firebaseUser.uid,
-    email: normalizeEmail(firebaseUser.email),
-    displayName:
-      String(firebaseUser.displayName || "").trim() ||
-      normalizeEmail(firebaseUser.email).split("@")[0],
-    role,
-    active: true,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  };
+  const accountRef = appDoc("users", firebaseUser.uid);
 
-  await setDoc(appDoc("users", firebaseUser.uid), account);
-  return { id: firebaseUser.uid, ...account };
+  return runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(accountRef);
+    const existingAccount = accountFromSnapshot(snapshot, firebaseUser);
+    if (existingAccount) return existingAccount;
+    if (snapshot.exists()) return null;
+
+    const account = {
+      uid: firebaseUser.uid,
+      email: normalizeEmail(firebaseUser.email),
+      displayName:
+        String(firebaseUser.displayName || "").trim() ||
+        normalizeEmail(firebaseUser.email).split("@")[0],
+      role,
+      active: true,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    transaction.set(accountRef, account);
+    return { id: firebaseUser.uid, ...account };
+  });
 }
 
 async function readOrProvisionSchoolAccount(firebaseUser) {
@@ -217,13 +226,14 @@ export function AuthProvider({ children }) {
         setAccountState(assignedAccount);
         setMessage("");
         setStatus("assigned");
-      } catch {
+      } catch (error) {
         if (!mounted || currentCheck !== checkNumber) return;
         if (accountRef.current?.uid === firebaseUser.uid) {
           setStatus("assigned");
           return;
         }
 
+        console.error("Dragon Math account verification failed", error);
         setMessage("Unable to verify account access. Please refresh and try again.");
         setStatus("signedOut");
       }
