@@ -1716,11 +1716,11 @@ service cloud.firestore {
       match /classes/{classId} {
         allow get: if drrsIsMathApp(appId)
           && (
-            drrsHasRole("admin")
+            (drrsHasRole("student") && resource.data.active == true)
+            || drrsHasRole("admin")
             || drrsIsOwnTeacherClassId(classId)
             || drrsIsClassTeacher(resource.data)
             || drrsIsClassStudent(resource.data)
-            || (drrsHasRole("student") && resource.data.active == true)
           );
         allow list: if drrsIsMathApp(appId) && drrsHasRole("admin");
         allow list: if drrsIsMathApp(appId) && drrsIsClassTeacher(resource.data);
