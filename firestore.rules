@@ -1078,24 +1078,33 @@ service cloud.firestore {
       return role in ["student", "teacher", "admin"];
     }
 
+    function drrsCurrentEmail() {
+      return request.auth.token.get("email", "") is string
+          && request.auth.token.get("email", "").size() > 0
+        ? request.auth.token.get("email", "")
+        : (
+          exists(drrsAccountPath())
+            && drrsAssignedAccount().email is string
+            ? drrsAssignedAccount().email
+            : ""
+        );
+    }
+
     function drrsIsTeacherEmail() {
       return signedIn()
-        && request.auth.token.email != null
-        && request.auth.token.email.matches('.*@doralacademynv[.]org$');
+        && drrsCurrentEmail().matches('.*@doralacademynv[.]org$');
     }
 
     function drrsIsStudentEmail() {
       return signedIn()
-        && request.auth.token.email != null
-        && request.auth.token.email.matches('.*@student[.]doralacademynv[.]org$');
+        && drrsCurrentEmail().matches('.*@student[.]doralacademynv[.]org$');
     }
 
     function drrsHasAssignedActiveAccount() {
       return signedIn()
-        && request.auth.token.email != null
         && exists(drrsAccountPath())
         && drrsAssignedAccount().uid == request.auth.uid
-        && drrsAssignedAccount().email == request.auth.token.email
+        && drrsAssignedAccount().email is string
         && drrsAssignedAccount().active == true
         && drrsHasAllowedRole(drrsAssignedAccount().role);
     }
@@ -1138,7 +1147,7 @@ service cloud.firestore {
         || (
           drrsHasRole("student")
           && data.get("studentEmails", []) is list
-          && request.auth.token.email in data.get("studentEmails", [])
+          && drrsCurrentEmail() in data.get("studentEmails", [])
         );
     }
 
@@ -1155,7 +1164,8 @@ service cloud.firestore {
       return signedIn()
         && userId == request.auth.uid
         && !exists(drrsAccountPath())
-        && request.auth.token.email != null
+        && request.auth.token.get("email", "") is string
+        && request.auth.token.get("email", "").size() > 0
         && request.resource.data.keys().hasOnly([
           "uid",
           "email",
@@ -1166,7 +1176,7 @@ service cloud.firestore {
           "updatedAt"
         ])
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.email == request.auth.token.get("email", "")
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() > 0
         && request.resource.data.active == true
@@ -1220,7 +1230,7 @@ service cloud.firestore {
         && request.resource.data.name.size() > 0
         && request.resource.data.period is string
         && request.resource.data.teacherUid == request.auth.uid
-        && request.resource.data.teacherEmail == request.auth.token.email
+        && request.resource.data.teacherEmail == drrsCurrentEmail()
         && request.resource.data.studentUids == []
         && request.resource.data.studentEmails == []
         && request.resource.data.active == true
@@ -1243,7 +1253,7 @@ service cloud.firestore {
         && request.resource.data.code == code
         && request.resource.data.classId is string
         && request.resource.data.teacherUid == request.auth.uid
-        && request.resource.data.teacherEmail == request.auth.token.email
+        && request.resource.data.teacherEmail == drrsCurrentEmail()
         && request.resource.data.active == true
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time
@@ -1269,7 +1279,7 @@ service cloud.firestore {
           "updatedAt"
         ])
         && request.resource.data.studentUid == request.auth.uid
-        && request.resource.data.studentEmail == request.auth.token.email
+        && request.resource.data.studentEmail == drrsCurrentEmail()
         && request.resource.data.classId is string
         && drrsValidClassCode(request.resource.data.classCode)
         && request.resource.data.joinedAt == request.time
@@ -1296,7 +1306,7 @@ service cloud.firestore {
         && request.resource.data.studentUids.hasAll(resource.data.studentUids)
         && request.resource.data.studentEmails.hasAll(resource.data.studentEmails)
         && request.auth.uid in request.resource.data.studentUids
-        && request.auth.token.email in request.resource.data.studentEmails
+        && drrsCurrentEmail() in request.resource.data.studentEmails
         && (
           (request.auth.uid in resource.data.studentUids
             && request.resource.data.studentUids.size() == resource.data.studentUids.size())
@@ -1304,9 +1314,9 @@ service cloud.firestore {
             && request.resource.data.studentUids.size() == resource.data.studentUids.size() + 1)
         )
         && (
-          (request.auth.token.email in resource.data.studentEmails
+          (drrsCurrentEmail() in resource.data.studentEmails
             && request.resource.data.studentEmails.size() == resource.data.studentEmails.size())
-          || (!(request.auth.token.email in resource.data.studentEmails)
+          || (!(drrsCurrentEmail() in resource.data.studentEmails)
             && request.resource.data.studentEmails.size() == resource.data.studentEmails.size() + 1)
         )
         && request.resource.data.updatedAt == request.time
