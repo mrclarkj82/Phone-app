@@ -1745,7 +1745,8 @@ service cloud.firestore {
 
       match /studentClasses/{studentUid} {
         allow get: if drrsIsMathApp(appId)
-          && (drrsHasRole("admin") || (drrsHasRole("student") && studentUid == request.auth.uid));
+          && signedIn()
+          && (studentUid == request.auth.uid || drrsHasRole("admin"));
         allow list: if drrsIsMathApp(appId) && drrsHasRole("admin");
         allow create, update: if drrsIsMathApp(appId)
           && drrsValidStudentEnrollment(studentUid);
