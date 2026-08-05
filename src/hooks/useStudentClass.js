@@ -1,8 +1,8 @@
-import { onSnapshot } from "firebase/firestore";
+import { getDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { appDoc } from "../lib/appFirestore";
 
-export default function useStudentClass(account) {
+export default function useStudentClass(account, refreshKey = 0) {
   const [studentClass, setStudentClass] = useState(null);
   const [classLoaded, setClassLoaded] = useState(false);
   const [classError, setClassError] = useState("");
@@ -15,15 +15,14 @@ export default function useStudentClass(account) {
       return undefined;
     }
 
-    let classUnsubscribe = null;
+    let active = true;
     setClassLoaded(false);
     setClassError("");
 
-    const enrollmentUnsubscribe = onSnapshot(
-      appDoc("studentClasses", account.uid),
-      (enrollmentSnapshot) => {
-        classUnsubscribe?.();
-        classUnsubscribe = null;
+    async function loadStudentClass() {
+      try {
+        const enrollmentSnapshot = await getDoc(appDoc("studentClasses", account.uid));
+        if (!active) return;
 
         if (!enrollmentSnapshot.exists() || !enrollmentSnapshot.data().classId) {
           setStudentClass(null);
@@ -32,32 +31,30 @@ export default function useStudentClass(account) {
           return;
         }
 
-        classUnsubscribe = onSnapshot(
+        const classSnapshot = await getDoc(
           appDoc("classes", enrollmentSnapshot.data().classId),
-          (classSnapshot) => {
-            setStudentClass(
-              classSnapshot.exists() ? { id: classSnapshot.id, ...classSnapshot.data() } : null,
-            );
-            setClassLoaded(true);
-            setClassError("");
-          },
-          (error) => {
-            setClassError(error.message || "Unable to load your class.");
-            setClassLoaded(true);
-          },
         );
-      },
-      (error) => {
+        if (!active) return;
+
+        setStudentClass(
+          classSnapshot.exists() ? { id: classSnapshot.id, ...classSnapshot.data() } : null,
+        );
+        setClassLoaded(true);
+        setClassError("");
+      } catch (error) {
+        if (!active) return;
+        setStudentClass(null);
         setClassError(error.message || "Unable to check your class enrollment.");
         setClassLoaded(true);
-      },
-    );
+      }
+    }
+
+    loadStudentClass();
 
     return () => {
-      classUnsubscribe?.();
-      enrollmentUnsubscribe();
+      active = false;
     };
-  }, [account?.uid, account?.role]);
+  }, [account?.uid, account?.role, refreshKey]);
 
   return { studentClass, classLoaded, classError };
 }

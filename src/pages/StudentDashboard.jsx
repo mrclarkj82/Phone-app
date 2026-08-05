@@ -9,7 +9,8 @@ import LoadingScreen from "./LoadingScreen";
 
 export default function StudentDashboard() {
   const { account } = useAuth();
-  const { studentClass, classLoaded, classError } = useStudentClass(account);
+  const [classRefreshKey, setClassRefreshKey] = useState(0);
+  const { studentClass, classLoaded, classError } = useStudentClass(account, classRefreshKey);
   const [classCode, setClassCode] = useState("");
   const [joinError, setJoinError] = useState("");
   const [joining, setJoining] = useState(false);
@@ -35,6 +36,7 @@ export default function StudentDashboard() {
 
     try {
       await joinStudentClass(account, classCode);
+      setClassRefreshKey((currentKey) => currentKey + 1);
     } catch (error) {
       setJoinError(error.message || "Unable to join that class.");
     } finally {

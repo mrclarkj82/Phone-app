@@ -252,6 +252,16 @@ test("Dragon Math school-role and class-code rules", async (suite) => {
     assert.equal(enrollmentSnapshot.exists(), false);
   });
 
+  await suite.test("a signed-in user can only check their own enrollment document", async () => {
+    const ownEnrollment = await assertSucceeds(
+      getDoc(doc(outsider.firestore(), "apps/drrs-math/studentClasses/math-outsider")),
+    );
+    assert.equal(ownEnrollment.exists(), false);
+    await assertFails(
+      getDoc(doc(outsider.firestore(), "apps/drrs-math/studentClasses/math-student")),
+    );
+  });
+
   await suite.test("a teacher can atomically create their class and join code", async () => {
     const database = teacher.firestore();
     const batch = writeBatch(database);
