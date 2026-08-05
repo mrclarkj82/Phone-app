@@ -9,6 +9,7 @@ import {
 import {
   arrayUnion,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -353,6 +354,67 @@ test("Dragon Math school-role and class-code rules", async (suite) => {
       }),
     );
     await assertSucceeds(getDoc(doc(database, "apps/drrs-math/classes/DLTUX5")));
+  });
+
+  await suite.test("teachers can load enrolled profiles and shared student submissions", async () => {
+    const enrolledProfile = await assertSucceeds(
+      getDoc(doc(teacher.firestore(), "apps/drrs-math/users/profile-only-student")),
+    );
+    assert.equal(enrolledProfile.data().displayName, "Profile Only Student");
+    await assertFails(
+      getDoc(doc(teacher.firestore(), "apps/drrs-math/users/new-math-student")),
+    );
+
+    const submissionRef = doc(
+      profileOnlyStudent.firestore(),
+      "apps/drrs-math/submissions/DLTUX5__unit-1-parts__profile-only-student",
+    );
+    await assertSucceeds(
+      setDoc(submissionRef, {
+        assignmentId: "unit-1-parts",
+        assignmentTitle: "Parts of an Expression",
+        studentKey: "profile-only-student",
+        name: "Profile Only Student",
+        correct: 8,
+        total: 10,
+        percent: 80,
+        answered: 10,
+        answers: { problem1: { value: "x" } },
+        submitted: true,
+        submittedAt: "2026-08-05T15:00:00.000Z",
+        classId: "DLTUX5",
+        studentUid: "profile-only-student",
+        studentEmail: profileOnlyStudentEmail,
+        updatedAt: serverTimestamp(),
+      }),
+    );
+
+    const teacherSubmissions = query(
+      collection(teacher.firestore(), "apps/drrs-math/submissions"),
+      where("classId", "==", "DLTUX5"),
+    );
+    const studentSubmissions = query(
+      collection(profileOnlyStudent.firestore(), "apps/drrs-math/submissions"),
+      where("studentUid", "==", "profile-only-student"),
+    );
+    assert.equal((await assertSucceeds(getDocs(teacherSubmissions))).size, 1);
+    assert.equal((await assertSucceeds(getDocs(studentSubmissions))).size, 1);
+    await assertFails(
+      getDoc(
+        doc(
+          student.firestore(),
+          "apps/drrs-math/submissions/DLTUX5__unit-1-parts__profile-only-student",
+        ),
+      ),
+    );
+    await assertSucceeds(
+      deleteDoc(
+        doc(
+          teacher.firestore(),
+          "apps/drrs-math/submissions/DLTUX5__unit-1-parts__profile-only-student",
+        ),
+      ),
+    );
   });
 
   await suite.test("a student can use the code and join only as themselves", async () => {

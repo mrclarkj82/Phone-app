@@ -1,4 +1,5 @@
 import {
+  deleteDoc,
   onSnapshot,
   query,
   serverTimestamp,
@@ -816,12 +817,17 @@ const state = {
   problems: [],
   answers: new Map(),
   submissions: loadSubmissions(),
+  sharedSubmissions: {},
   visibleStudentKeys: null,
+  visibleStudents: null,
   customAssignments: [],
   account: null,
   activeClassId: "",
   authenticatedStudent: null,
   assignmentUnsubscribe: null,
+  submissionUnsubscribe: null,
+  submissionsConnected: false,
+  submissionSyncError: "",
   selectedWorkStudentKey: "",
   correctionProgressSignature: "",
 };
@@ -940,6 +946,7 @@ async function findStudentByAccessCode(accessCode) {
 }
 
 function getVisibleRoster() {
+  if (Array.isArray(state.visibleStudents)) return state.visibleStudents;
   if (!Array.isArray(state.visibleStudentKeys)) return roster;
   const visibleKeys = new Set(state.visibleStudentKeys);
   return roster.filter((student) => visibleKeys.has(student.key));
@@ -4732,6 +4739,104 @@ function saveSubmissions() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.submissions));
 }
 
+function sharedSubmissionDocumentId(classId, assignmentId, studentUid) {
+  return [classId, assignmentId, studentUid].map((value) => encodeURIComponent(value)).join("__");
+}
+
+function rebuildSharedSubmissionState() {
+  state.submissions = addDemoSubmissions(mergeSubmissions(state.sharedSubmissions));
+}
+
+function subscribeSharedSubmissions() {
+  state.submissionUnsubscribe?.();
+  state.submissionUnsubscribe = null;
+  state.submissionsConnected = false;
+  state.submissionSyncError = "";
+
+  if (!firebaseConfigured || !db || !state.account || !state.activeClassId) return;
+
+  const submissionsQuery = state.account.role === "student"
+    ? query(
+        appCollection("submissions"),
+        where("studentUid", "==", state.account.uid),
+      )
+    : query(
+        appCollection("submissions"),
+        where("classId", "==", state.activeClassId),
+      );
+
+  state.submissionUnsubscribe = onSnapshot(
+    submissionsQuery,
+    (snapshot) => {
+      const sharedSubmissions = createEmptySubmissionStore();
+      snapshot.docs.forEach((submissionDoc) => {
+        const submission = submissionDoc.data();
+        if (
+          submission.classId !== state.activeClassId ||
+          !submission.assignmentId ||
+          !submission.studentKey
+        ) {
+          return;
+        }
+        if (!sharedSubmissions[submission.assignmentId]) {
+          sharedSubmissions[submission.assignmentId] = {};
+        }
+        sharedSubmissions[submission.assignmentId][submission.studentKey] = submission;
+      });
+
+      state.sharedSubmissions = sharedSubmissions;
+      state.submissionsConnected = true;
+      state.submissionSyncError = "";
+      rebuildSharedSubmissionState();
+
+      if (state.authenticatedStudent) {
+        loadStudentWorkspace(state.authenticatedStudent);
+      }
+      renderDashboard();
+      renderStudentWorkPanel(state.selectedWorkStudentKey);
+    },
+    (error) => {
+      state.submissionsConnected = false;
+      state.submissionSyncError = error.message || "Unable to sync class submissions.";
+      updateDashboardSyncStatus();
+    },
+  );
+}
+
+async function saveSharedSubmission(submission) {
+  if (
+    !firebaseConfigured ||
+    !db ||
+    state.account?.role !== "student" ||
+    !state.activeClassId
+  ) {
+    return;
+  }
+
+  const submissionId = sharedSubmissionDocumentId(
+    state.activeClassId,
+    submission.assignmentId,
+    state.account.uid,
+  );
+  await setDoc(appDoc("submissions", submissionId), {
+    ...submission,
+    classId: state.activeClassId,
+    studentUid: state.account.uid,
+    studentEmail: state.account.email || "",
+    updatedAt: serverTimestamp(),
+  });
+}
+
+async function deleteSharedSubmission(assignmentId, studentUid) {
+  if (!firebaseConfigured || !db || !state.activeClassId || !studentUid) return;
+  const submissionId = sharedSubmissionDocumentId(
+    state.activeClassId,
+    assignmentId,
+    studentUid,
+  );
+  await deleteDoc(appDoc("submissions", submissionId));
+}
+
 function getAssignmentSubmissions(assignment = getSelectedAssignment()) {
   if (!state.submissions[assignment.id]) {
     state.submissions[assignment.id] = {};
@@ -7524,7 +7629,7 @@ function updateStudentScore() {
   elements.correctCount.textContent = "Submitted";
 }
 
-function submitAssignment() {
+async function submitAssignment() {
   if (!state.selectedStudent || !state.problems.length) return;
   if (isAssignmentLocked()) {
     setText(
@@ -7538,7 +7643,7 @@ function submitAssignment() {
   const score = calculateScore();
   const assignmentSubmissions = getAssignmentSubmissions(assignment);
 
-  assignmentSubmissions[state.selectedStudent.key] = {
+  const submission = {
     assignmentId: assignment.id,
     assignmentTitle: assignment.title,
     studentKey: state.selectedStudent.key,
@@ -7551,8 +7656,31 @@ function submitAssignment() {
     submitted: true,
     submittedAt: new Date().toISOString(),
   };
-  state.lockedSubmission = assignmentSubmissions[state.selectedStudent.key];
+  assignmentSubmissions[state.selectedStudent.key] = submission;
   saveSubmissions();
+
+  if (elements.submitAssignment) {
+    elements.submitAssignment.disabled = true;
+    elements.submitAssignment.textContent = "Submitting...";
+  }
+
+  try {
+    await saveSharedSubmission(submission);
+  } catch (error) {
+    delete assignmentSubmissions[state.selectedStudent.key];
+    saveSubmissions();
+    if (elements.submitAssignment) {
+      elements.submitAssignment.disabled = false;
+      elements.submitAssignment.textContent = "Submit Grade";
+    }
+    setText(
+      elements.submissionNote,
+      error.message || "Your work could not be sent to your teacher. Please try again.",
+    );
+    return;
+  }
+
+  state.lockedSubmission = submission;
   renderProblems();
   updateStudentScore();
   if (elements.dashboardBody) {
@@ -7750,7 +7878,9 @@ function renderDashboard() {
 }
 
 function refreshDashboard() {
-  const nextSubmissions = loadSubmissions();
+  const nextSubmissions = state.account && state.activeClassId
+    ? addDemoSubmissions(mergeSubmissions(state.sharedSubmissions))
+    : loadSubmissions();
   const nextCorrectionSignature = getCorrectionProgressSignature();
   if (
     JSON.stringify(nextSubmissions) === JSON.stringify(state.submissions) &&
@@ -7772,10 +7902,15 @@ function updateDashboardSyncStatus() {
   const timestamp = new Intl.DateTimeFormat(undefined, {
     timeStyle: "medium",
   }).format(new Date());
-  elements.dashboardSyncStatus.textContent = `Updated ${timestamp}. This dashboard reads submissions saved in this browser. Student devices need a shared database to appear here.`;
+  const syncMessage = state.submissionSyncError
+    ? `Class sync error: ${state.submissionSyncError}`
+    : state.submissionsConnected
+      ? "Enrolled students and submissions are synced live."
+      : "Connecting to the shared class roster...";
+  elements.dashboardSyncStatus.textContent = `Updated ${timestamp}. ${syncMessage}`;
 }
 
-function resetDashboard() {
+async function resetDashboard() {
   if (!getAssignmentsForUnit(state.selectedUnitId).length) return;
 
   const assignment = getSelectedAssignment();
@@ -7784,11 +7919,20 @@ function resetDashboard() {
 
   state.submissions[assignment.id] = {};
   saveSubmissions();
+  try {
+    await Promise.all(
+      getVisibleRoster()
+        .filter((student) => !student.isDemo)
+        .map((student) => deleteSharedSubmission(assignment.id, student.key)),
+    );
+  } catch (error) {
+    state.submissionSyncError = error.message || "Unable to clear shared submissions.";
+  }
   renderDashboard();
   renderStudentWorkPanel(state.selectedWorkStudentKey);
 }
 
-function resetStudentSubmission(studentKey) {
+async function resetStudentSubmission(studentKey) {
   if (!getAssignmentsForUnit(state.selectedUnitId).length) return;
 
   const assignment = getSelectedAssignment();
@@ -7800,6 +7944,11 @@ function resetStudentSubmission(studentKey) {
 
   delete getAssignmentSubmissions(assignment)[student.key];
   saveSubmissions();
+  try {
+    await deleteSharedSubmission(assignment.id, student.key);
+  } catch (error) {
+    state.submissionSyncError = error.message || "Unable to reset the shared submission.";
+  }
   renderDashboard();
   renderStudentWorkPanel(student.key);
 }
@@ -7959,9 +8108,15 @@ export function mountAssignmentDashboard(options = {}) {
   state.problems = [];
   state.answers = new Map();
   state.submissions = loadSubmissions();
+  state.sharedSubmissions = {};
+  state.submissionsConnected = false;
+  state.submissionSyncError = "";
   state.correctionProgressSignature = getCorrectionProgressSignature();
   state.visibleStudentKeys = Array.isArray(options.visibleStudentKeys)
     ? options.visibleStudentKeys
+    : null;
+  state.visibleStudents = Array.isArray(options.visibleStudents)
+    ? options.visibleStudents
     : null;
   state.customAssignments = [];
   state.account = options.account || null;
@@ -7970,6 +8125,7 @@ export function mountAssignmentDashboard(options = {}) {
   state.selectedWorkStudentKey = "";
   init();
   subscribeCustomAssignments();
+  subscribeSharedSubmissions();
 
   return () => {
     if (dashboardRefreshTimer) {
@@ -7979,6 +8135,10 @@ export function mountAssignmentDashboard(options = {}) {
     if (state.assignmentUnsubscribe) {
       state.assignmentUnsubscribe();
       state.assignmentUnsubscribe = null;
+    }
+    if (state.submissionUnsubscribe) {
+      state.submissionUnsubscribe();
+      state.submissionUnsubscribe = null;
     }
   };
 }

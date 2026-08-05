@@ -4,6 +4,10 @@ import { mountAssignmentDashboard } from "../../app";
 export default function useAssignmentDashboard(options = {}) {
   const visibleStudentKeys = options.visibleStudentKeys || null;
   const visibleStudentKeySignature = visibleStudentKeys?.join("|") || "";
+  const visibleStudents = options.visibleStudents || null;
+  const visibleStudentSignature = visibleStudents
+    ?.map((student) => `${student.key || ""}:${student.name || ""}:${student.email || ""}`)
+    .join("|") || "";
   const accountSignature = options.account
     ? `${options.account.uid || ""}:${options.account.role || ""}`
     : "";
@@ -19,6 +23,14 @@ export default function useAssignmentDashboard(options = {}) {
       activeClassId,
       student: options.student || null,
       visibleStudentKeys,
+      visibleStudents,
     });
-  }, [options.enabled, visibleStudentKeySignature, accountSignature, activeClassId, studentSignature]);
+  }, [
+    options.enabled,
+    visibleStudentKeySignature,
+    visibleStudentSignature,
+    accountSignature,
+    activeClassId,
+    studentSignature,
+  ]);
 }

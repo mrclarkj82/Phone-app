@@ -1325,6 +1325,98 @@ service cloud.firestore {
         && getAfter(drrsStudentClassPath(request.auth.uid)).data.studentUid == request.auth.uid;
     }
 
+    function drrsCanReadEnrolledStudentProfile(userId) {
+      return drrsTeacherStaffAccount()
+        && exists(drrsStudentClassPath(userId))
+        && get(drrsStudentClassPath(userId)).data.classId is string
+        && exists(drrsClassPath(get(drrsStudentClassPath(userId)).data.classId))
+        && get(drrsClassPath(get(drrsStudentClassPath(userId)).data.classId)).data.teacherUid
+          == request.auth.uid;
+    }
+
+    function drrsOwnEnrollmentMatchesClass(classId) {
+      return exists(drrsStudentClassPath(request.auth.uid))
+        && get(drrsStudentClassPath(request.auth.uid)).data.classId == classId;
+    }
+
+    function drrsCanReadSubmission(data) {
+      return (drrsHasRole("student") && data.studentUid == request.auth.uid)
+        || drrsHasRole("admin")
+        || (
+          drrsTeacherStaffAccount()
+          && data.classId is string
+          && exists(drrsClassPath(data.classId))
+          && get(drrsClassPath(data.classId)).data.teacherUid == request.auth.uid
+        );
+    }
+
+    function drrsValidOwnSubmission(data) {
+      return drrsHasRole("student")
+        && data.keys().hasOnly([
+          "assignmentId",
+          "assignmentTitle",
+          "studentKey",
+          "name",
+          "correct",
+          "total",
+          "percent",
+          "answered",
+          "answers",
+          "submitted",
+          "submittedAt",
+          "classId",
+          "studentUid",
+          "studentEmail",
+          "updatedAt"
+        ])
+        && data.assignmentId is string
+        && data.assignmentId.size() > 0
+        && data.assignmentTitle is string
+        && data.assignmentTitle.size() > 0
+        && data.studentUid == request.auth.uid
+        && data.studentKey == request.auth.uid
+        && data.studentEmail == drrsCurrentEmail()
+        && data.name is string
+        && data.name.size() > 0
+        && data.classId is string
+        && drrsOwnEnrollmentMatchesClass(data.classId)
+        && data.correct is number
+        && data.correct >= 0
+        && data.total is number
+        && data.total > 0
+        && data.correct <= data.total
+        && data.answered is number
+        && data.answered >= 0
+        && data.answered <= data.total
+        && data.percent is number
+        && data.percent >= 0
+        && data.percent <= 100
+        && data.answers is map
+        && data.submitted == true
+        && data.submittedAt is string
+        && data.submittedAt.size() > 0
+        && data.updatedAt == request.time;
+    }
+
+    function drrsValidOwnSubmissionUpdate() {
+      return drrsValidOwnSubmission(request.resource.data)
+        && resource.data.studentUid == request.auth.uid
+        && request.resource.data.studentUid == resource.data.studentUid
+        && request.resource.data.studentKey == resource.data.studentKey
+        && request.resource.data.classId == resource.data.classId
+        && request.resource.data.assignmentId == resource.data.assignmentId;
+    }
+
+    function drrsCanDeleteSubmission(data) {
+      return drrsHasRole("admin")
+        || (
+          drrsTeacherStaffAccount()
+          && data.classId is string
+          && exists(drrsClassPath(data.classId))
+          && get(drrsClassPath(data.classId)).data.teacherUid == request.auth.uid
+        );
+    }
+
     function drrsOwnsAnnouncementRead(data) {
       return drrsHasAssignedActiveAccount()
         && data.userId is string
@@ -1686,7 +1778,11 @@ service cloud.firestore {
       match /users/{userId} {
         allow get: if drrsIsMathApp(appId)
           && signedIn()
-          && (userId == request.auth.uid || drrsHasRole("admin"));
+          && (
+            userId == request.auth.uid
+            || drrsHasRole("admin")
+            || drrsCanReadEnrolledStudentProfile(userId)
+          );
         allow list: if drrsIsMathApp(appId)
           && signedIn()
           && (
@@ -1804,26 +1900,12 @@ service cloud.firestore {
       }
 
       match /submissions/{submissionId} {
-        allow read: if drrsIsMathApp(appId)
-          && drrsHasAssignedActiveAccount()
-          && (drrsTeacherOrAdmin() || resource.data.studentUid == request.auth.uid);
+        allow read: if drrsIsMathApp(appId) && drrsCanReadSubmission(resource.data);
         allow create: if drrsIsMathApp(appId)
-          && drrsHasAssignedActiveAccount()
-          && (
-            drrsTeacherOrAdmin()
-            || (drrsHasRole("student") && request.resource.data.studentUid == request.auth.uid)
-          );
-        allow update: if drrsIsMathApp(appId)
-          && drrsHasAssignedActiveAccount()
-          && (
-            drrsTeacherOrAdmin()
-            || (
-              drrsHasRole("student")
-              && resource.data.studentUid == request.auth.uid
-              && request.resource.data.studentUid == resource.data.studentUid
-            )
-          );
-        allow delete: if drrsIsMathApp(appId) && drrsTeacherOrAdmin();
+          && drrsValidOwnSubmission(request.resource.data);
+        allow update: if drrsIsMathApp(appId) && drrsValidOwnSubmissionUpdate();
+        allow delete: if drrsIsMathApp(appId)
+          && drrsCanDeleteSubmission(resource.data);
       }
 
       match /studentData/{studentUid}/{studentDocument=**} {
