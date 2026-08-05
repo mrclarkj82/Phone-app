@@ -155,6 +155,11 @@ test("Dragon Math school-role and class-code rules", async (suite) => {
     "new-math-student",
     schoolAuth(newStudentEmail),
   );
+  const profileOnlyStudentEmail = "profile-only@student.doralacademynv.org";
+  const profileOnlyStudent = testEnvironment.authenticatedContext(
+    "profile-only-student",
+    { email_verified: true },
+  );
   const outsider = testEnvironment.authenticatedContext(
     "math-outsider",
     schoolAuth("outsider@example.com"),
@@ -225,6 +230,28 @@ test("Dragon Math school-role and class-code rules", async (suite) => {
     assert.equal(provisionedSnapshot.data().role, "student");
   });
 
+  await suite.test("a UID-keyed student profile remains authorized without an email claim", async () => {
+    await seedDocuments({
+      "apps/drrs-math/users/profile-only-student": {
+        uid: "profile-only-student",
+        email: profileOnlyStudentEmail,
+        displayName: "Profile Only Student",
+        role: "student",
+        active: true,
+      },
+    });
+
+    const enrollmentSnapshot = await assertSucceeds(
+      getDoc(
+        doc(
+          profileOnlyStudent.firestore(),
+          "apps/drrs-math/studentClasses/profile-only-student",
+        ),
+      ),
+    );
+    assert.equal(enrollmentSnapshot.exists(), false);
+  });
+
   await suite.test("a teacher can atomically create their class and join code", async () => {
     const database = teacher.firestore();
     const batch = writeBatch(database);
@@ -278,6 +305,36 @@ test("Dragon Math school-role and class-code rules", async (suite) => {
     );
     const snapshot = await assertSucceeds(getDocs(legacyClassQuery));
     assert.equal(snapshot.size, 1);
+  });
+
+  await suite.test("a provisioned student can join a legacy classroom code", async () => {
+    const database = profileOnlyStudent.firestore();
+    const enrollmentRef = doc(database, "apps/drrs-math/studentClasses/profile-only-student");
+    const enrollmentSnapshot = await assertSucceeds(getDoc(enrollmentRef));
+    assert.equal(enrollmentSnapshot.exists(), false);
+    await assertSucceeds(
+      getDoc(doc(database, "apps/drrs-math/classJoinCodes/DLTUX5")),
+    );
+
+    const joinBatch = writeBatch(database);
+    joinBatch.update(doc(database, "apps/drrs-math/classes/DLTUX5"), {
+      studentUids: ["legacy-student", "profile-only-student"],
+      studentEmails: [
+        "legacy-student@student.doralacademynv.org",
+        profileOnlyStudentEmail,
+      ],
+      updatedAt: serverTimestamp(),
+    });
+    joinBatch.set(enrollmentRef, {
+      studentUid: "profile-only-student",
+      studentEmail: profileOnlyStudentEmail,
+      classId: "DLTUX5",
+      classCode: "DLTUX5",
+      joinedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    await assertSucceeds(joinBatch.commit());
+    await assertSucceeds(getDoc(doc(database, "apps/drrs-math/classes/DLTUX5")));
   });
 
   await suite.test("a student can use the code and join only as themselves", async () => {
