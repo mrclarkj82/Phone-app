@@ -7,12 +7,14 @@ import {
   initializeTestEnvironment,
 } from "@firebase/rules-unit-testing";
 import {
+  arrayUnion,
   collection,
   doc,
   getDoc,
   getDocs,
   limit,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -293,11 +295,13 @@ test("Dragon Math school-role and class-code rules", async (suite) => {
   await suite.test("a teacher can discover an existing legacy classroom", async () => {
     await seedDocuments({
       "apps/drrs-math/classes/DLTUX5": {
+        code: "DLTUX5",
         name: "Legacy Algebra I Class",
         teacherUid: "math-teacher",
         teacherEmail,
         studentUids: ["legacy-student"],
         studentEmails: ["legacy-student@student.doralacademynv.org"],
+        studentKeys: ["legacy-student"],
         active: true,
       },
       "apps/drrs-math/classJoinCodes/DLTUX5": {
@@ -326,24 +330,28 @@ test("Dragon Math school-role and class-code rules", async (suite) => {
       getDoc(doc(database, "apps/drrs-math/classJoinCodes/DLTUX5")),
     );
 
-    const joinBatch = writeBatch(database);
-    joinBatch.update(doc(database, "apps/drrs-math/classes/DLTUX5"), {
-      studentUids: ["legacy-student", "profile-only-student"],
-      studentEmails: [
-        "legacy-student@student.doralacademynv.org",
-        profileOnlyStudentEmail,
-      ],
-      updatedAt: serverTimestamp(),
-    });
-    joinBatch.set(enrollmentRef, {
-      studentUid: "profile-only-student",
-      studentEmail: profileOnlyStudentEmail,
-      classId: "DLTUX5",
-      classCode: "DLTUX5",
-      joinedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-    await assertSucceeds(joinBatch.commit());
+    await assertSucceeds(
+      runTransaction(database, async (transaction) => {
+        const codeSnapshot = await transaction.get(
+          doc(database, "apps/drrs-math/classJoinCodes/DLTUX5"),
+        );
+        const classRef = doc(database, "apps/drrs-math/classes/DLTUX5");
+        await transaction.get(classRef);
+        transaction.update(classRef, {
+          studentUids: arrayUnion("profile-only-student"),
+          studentEmails: arrayUnion(profileOnlyStudentEmail),
+          updatedAt: serverTimestamp(),
+        });
+        transaction.set(enrollmentRef, {
+          studentUid: "profile-only-student",
+          studentEmail: profileOnlyStudentEmail,
+          classId: codeSnapshot.data().classId,
+          classCode: "DLTUX5",
+          joinedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }),
+    );
     await assertSucceeds(getDoc(doc(database, "apps/drrs-math/classes/DLTUX5")));
   });
 
