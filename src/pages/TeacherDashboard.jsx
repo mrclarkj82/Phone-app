@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { demoStudent, roster } from "../../app";
+import { demoStudent } from "../../app";
 import { useAuth } from "../auth/AuthProvider";
 import AnnouncementDisplay from "../components/AnnouncementDisplay";
 import PrivateHeader from "../components/PrivateHeader";
 import useAssignmentDashboard from "../hooks/useAssignmentDashboard";
+import useClassRoster from "../hooks/useClassRoster";
 import useTeacherClass from "../hooks/useTeacherClass";
 import { isTeacherStaffAccount } from "../lib/classAccess";
 import LoadingScreen from "./LoadingScreen";
@@ -12,44 +13,31 @@ import LoadingScreen from "./LoadingScreen";
 export default function TeacherDashboard() {
   const { account } = useAuth();
   const { teacherClass, classLoaded: classesLoaded, classError } = useTeacherClass(account);
+  const { students: enrolledStudents, rosterLoaded, rosterError } = useClassRoster(
+    account,
+    teacherClass,
+  );
   const [copyStatus, setCopyStatus] = useState("");
-  const classes = teacherClass ? [teacherClass] : [];
   const enrolledCount = Array.isArray(teacherClass?.studentUids)
     ? teacherClass.studentUids.length
     : 0;
 
-  const visibleStudentKeys = useMemo(() => {
-    if (!classesLoaded || !account) return null;
-
-    const matchingClasses = classes.filter(
-      (classRecord) =>
-        classRecord.teacherUid === account.uid ||
-        String(classRecord.teacherEmail || "").toLowerCase() ===
-          String(account.email || "").toLowerCase(),
-    );
-
-    const assignedKeys = matchingClasses.flatMap((classRecord) =>
-      Array.isArray(classRecord.studentKeys)
-        ? classRecord.studentKeys
-        : Array.isArray(classRecord.studentUids)
-          ? classRecord.studentUids
-          : [],
-    );
-
+  const visibleStudents = useMemo(() => {
+    const assignedStudents = [...enrolledStudents];
     if (account.role === "admin") {
-      assignedKeys.push(demoStudent.key);
+      assignedStudents.push(demoStudent);
     }
-
-    return [...new Set(assignedKeys)].filter((key) =>
-      roster.some((student) => student.key === key),
+    return assignedStudents.filter(
+      (student, index, allStudents) =>
+        allStudents.findIndex((candidate) => candidate.key === student.key) === index,
     );
-  }, [account, classes, classesLoaded]);
+  }, [account.role, enrolledStudents]);
 
   useAssignmentDashboard({
     account,
     activeClassId: teacherClass?.id || "",
-    enabled: classesLoaded && !classError,
-    visibleStudentKeys,
+    enabled: classesLoaded && rosterLoaded && !classError,
+    visibleStudents,
   });
 
   async function copyClassCode() {
@@ -87,9 +75,9 @@ export default function TeacherDashboard() {
 
       <main className="app-shell">
         <div hidden id="custom-assignment-list" />
-        {classError ? (
+        {classError || rosterError ? (
           <section className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
-            {classError}
+            {classError || rosterError}
           </section>
         ) : null}
         <AnnouncementDisplay audienceRole="teacher" className="mb-5" />
