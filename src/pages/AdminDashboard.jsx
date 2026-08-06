@@ -7,7 +7,6 @@ import {
 } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { roster } from "../../app";
 import PrivateHeader from "../components/PrivateHeader";
 import { appCollection, appDoc } from "../lib/appFirestore";
 
@@ -58,6 +57,7 @@ function sortByName(left, right) {
 export default function AdminDashboard() {
   const [accounts, setAccounts] = useState([]);
   const [classes, setClasses] = useState([]);
+  const [enrollments, setEnrollments] = useState([]);
   const [accountForm, setAccountForm] = useState(emptyAccountForm);
   const [classForm, setClassForm] = useState(emptyClassForm);
   const [editingAccountUid, setEditingAccountUid] = useState("");
@@ -89,9 +89,19 @@ export default function AdminDashboard() {
       },
     );
 
+    const unsubscribeEnrollments = onSnapshot(
+      appCollection("studentClasses"),
+      (snapshot) => setEnrollments(readSnapshot(snapshot)),
+      (error) => {
+        setMessage(error.message || "Unable to load student enrollments.");
+        setMessageTone("danger");
+      },
+    );
+
     return () => {
       unsubscribeUsers();
       unsubscribeClasses();
+      unsubscribeEnrollments();
     };
   }, []);
 
@@ -118,6 +128,45 @@ export default function AdminDashboard() {
       ),
     [classes],
   );
+
+  const activeClassIds = useMemo(
+    () => new Set(
+      classes
+        .filter((classRecord) => classRecord.active !== false)
+        .map((classRecord) => classRecord.id),
+    ),
+    [classes],
+  );
+
+  const activeTeacherCount = useMemo(
+    () => new Set(
+      classes
+        .filter((classRecord) => classRecord.active !== false && classRecord.teacherUid)
+        .map((classRecord) => classRecord.teacherUid),
+    ).size,
+    [classes],
+  );
+
+  const enrolledStudentUids = useMemo(() => {
+    const studentUids = new Set();
+
+    enrollments.forEach((enrollment) => {
+      const studentUid = enrollment.studentUid || enrollment.id;
+      if (studentUid && activeClassIds.has(enrollment.classId)) studentUids.add(studentUid);
+    });
+
+    classes.forEach((classRecord) => {
+      if (!activeClassIds.has(classRecord.id)) return;
+      const classStudentUids = Array.isArray(classRecord.studentUids)
+        ? classRecord.studentUids
+        : Array.isArray(classRecord.studentKeys)
+          ? classRecord.studentKeys
+          : [];
+      classStudentUids.filter(Boolean).forEach((studentUid) => studentUids.add(studentUid));
+    });
+
+    return studentUids;
+  }, [activeClassIds, classes, enrollments]);
 
   function updateAccountField(field, value) {
     setAccountForm((current) => ({ ...current, [field]: value }));
@@ -333,10 +382,11 @@ export default function AdminDashboard() {
       <PrivateHeader eyebrow="Algebra I" title="Admin Dashboard">
         <div className="header-stats" aria-label="Admin summary">
           <span>
-            <strong>{teachers.length}</strong> teachers
+            <strong>{activeTeacherCount}</strong> {activeTeacherCount === 1 ? "teacher" : "teachers"}
           </span>
           <span>
-            <strong>{roster.filter((student) => !student.isDemo).length}</strong> students
+            <strong>{enrolledStudentUids.size}</strong>{" "}
+            {enrolledStudentUids.size === 1 ? "enrolled student" : "enrolled students"}
           </span>
           <span>
             <strong>{classes.length}</strong> classes
@@ -566,14 +616,34 @@ export default function AdminDashboard() {
             {showRosterGroups ? (
               <div className="grid gap-3 p-4">
                 {sortedClasses.map((classRecord) => {
-                  const studentKeys = Array.isArray(classRecord.studentKeys)
-                    ? classRecord.studentKeys
-                    : Array.isArray(classRecord.studentUids)
-                      ? classRecord.studentUids
-                      : [];
+                  const classEnrollments = enrollments.filter(
+                    (enrollment) => enrollment.classId === classRecord.id,
+                  );
+                  const studentKeys = [
+                    ...new Set([
+                      ...(Array.isArray(classRecord.studentUids) ? classRecord.studentUids : []),
+                      ...(Array.isArray(classRecord.studentKeys) ? classRecord.studentKeys : []),
+                      ...classEnrollments.map((enrollment) => enrollment.studentUid || enrollment.id),
+                    ].filter(Boolean)),
+                  ];
                   const studentNames = studentKeys
-                    .map((key) => roster.find((student) => student.key === key)?.name)
+                    .map((key) => {
+                      const studentAccount = accountByUid.get(key);
+                      const enrollment = classEnrollments.find(
+                        (item) => (item.studentUid || item.id) === key,
+                      );
+                      return studentAccount?.displayName
+                        || studentAccount?.email
+                        || enrollment?.studentEmail
+                        || key;
+                    })
                     .filter(Boolean);
+                  const teacherAccount = accountByUid.get(classRecord.teacherUid);
+                  const teacherName = teacherAccount?.displayName
+                    || teacherAccount?.email
+                    || classRecord.teacherEmail
+                    || "No teacher selected";
+                  const classCode = classRecord.classCode || classRecord.code || classRecord.id;
 
                   return (
                     <article
@@ -581,11 +651,11 @@ export default function AdminDashboard() {
                       key={classRecord.id}
                     >
                       <div>
-                        <p className="eyebrow">Class code: {classRecord.id}</p>
+                        <p className="eyebrow">Class code: {classCode}</p>
                         <h3 className="m-0 text-lg font-black">{classRecord.name || classRecord.id}</h3>
                         <p className="m-0 mt-1 text-sm font-semibold text-slate-600">
                           {classRecord.period ? `Period ${classRecord.period} | ` : ""}
-                          {classRecord.teacherUid ? "Teacher assigned" : "No teacher selected"}
+                          {classRecord.teacherUid ? teacherName : "No teacher selected"}
                         </p>
                       </div>
                       <p className="m-0 text-sm leading-6 text-slate-600">
