@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { onSnapshot, query, where } from "firebase/firestore";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import {
   demoStudent,
@@ -11,6 +12,8 @@ import {
   saveCorrectionReviewProgress,
 } from "../../app";
 import { useAuth } from "../auth/AuthProvider";
+import { appCollection } from "../lib/appFirestore";
+import { db, firebaseConfigured } from "../lib/firebase";
 
 const REVEAL_SECONDS = 60;
 const CORRECTION_STUDENT_SESSION_KEY = "drrs-math-correction-student-key";
@@ -40,10 +43,71 @@ function makeInitialRecord(saved = {}, followUpProblem = null) {
   return record;
 }
 
-function makeReviewUrl(studentKey, assignmentId, mode = "student") {
+function makeReviewUrl(studentKey, assignmentId, mode = "student", classId = "") {
   const query = new URLSearchParams({ studentKey, assignmentId });
   if (mode === "teacher") query.set("mode", "teacher");
+  if (classId) query.set("classId", classId);
   return `/corrections?${query.toString()}`;
+}
+
+function useSharedCorrectionSubmissions(account, studentKey, classId) {
+  const requestKey = `${account?.role || ""}:${account?.uid || ""}:${classId}:${studentKey}`;
+  const [result, setResult] = useState({
+    requestKey: "",
+    submissions: {},
+    loading: true,
+    error: "",
+  });
+
+  useEffect(() => {
+    if (!firebaseConfigured || !db || !account?.uid || !studentKey) {
+      setResult({ requestKey, submissions: {}, loading: false, error: "" });
+      return undefined;
+    }
+
+    const isStudent = account.role === "student";
+    if (!isStudent && !classId) {
+      setResult({ requestKey, submissions: {}, loading: false, error: "" });
+      return undefined;
+    }
+
+    setResult({ requestKey, submissions: {}, loading: true, error: "" });
+    const submissionsQuery = isStudent
+      ? query(appCollection("submissions"), where("studentUid", "==", account.uid))
+      : query(appCollection("submissions"), where("classId", "==", classId));
+
+    return onSnapshot(
+      submissionsQuery,
+      (snapshot) => {
+        const submissions = {};
+        snapshot.docs.forEach((submissionDoc) => {
+          const submission = submissionDoc.data();
+          if (
+            submission.studentKey !== studentKey
+            || !submission.assignmentId
+            || (classId && submission.classId !== classId)
+          ) {
+            return;
+          }
+          submissions[submission.assignmentId] = submission;
+        });
+        setResult({ requestKey, submissions, loading: false, error: "" });
+      },
+      (error) => {
+        console.error("Unable to load shared correction submissions", error);
+        setResult({
+          requestKey,
+          submissions: {},
+          loading: false,
+          error: error?.message || "Unable to load submitted corrections.",
+        });
+      },
+    );
+  }, [account?.role, account?.uid, classId, requestKey, studentKey]);
+
+  return result.requestKey === requestKey
+    ? result
+    : { requestKey, submissions: {}, loading: true, error: "" };
 }
 
 function ProblemTable({ table }) {
@@ -77,7 +141,7 @@ function ProblemTable({ table }) {
   );
 }
 
-function AssignmentSwitcher({ assignments, currentId, mode, studentKey }) {
+function AssignmentSwitcher({ assignments, classId, currentId, mode, studentKey }) {
   return (
     <section className="border-b border-slate-200 bg-white" aria-label="Unit 1 correction assignments">
       <div className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6">
@@ -91,7 +155,7 @@ function AssignmentSwitcher({ assignments, currentId, mode, studentKey }) {
                   : "border-slate-200 bg-white text-slate-800 hover:border-teal-400"
               }`}
               key={assignment.id}
-              to={makeReviewUrl(studentKey, assignment.id, mode)}
+              to={makeReviewUrl(studentKey, assignment.id, mode, classId)}
             >
               <strong className="block text-sm">{assignment.title}</strong>
               <span className="mt-1 block text-xs font-bold text-slate-500">
@@ -132,7 +196,7 @@ function ReviewHeader({ canViewTeacher = false, demo, masteredCount, mode }) {
             ) : canViewTeacher ? (
               <Link
                 className="secondary-button grid min-h-11 place-items-center px-4 no-underline"
-                to={makeReviewUrl(demo.studentKey, demo.assignmentId, "teacher")}
+                to={makeReviewUrl(demo.studentKey, demo.assignmentId, "teacher", demo.classId)}
               >
                 Teacher View
               </Link>
@@ -194,6 +258,7 @@ function TeacherCorrectionSummary({ assignments, demo, records: initialRecords }
       <ReviewHeader canViewTeacher demo={demo} masteredCount={masteredCount} mode="teacher" />
       <AssignmentSwitcher
         assignments={assignments}
+        classId={demo.classId}
         currentId={demo.assignmentId}
         mode="teacher"
         studentKey={demo.studentKey}
@@ -211,7 +276,7 @@ function TeacherCorrectionSummary({ assignments, demo, records: initialRecords }
             </div>
             <Link
               className="primary-button grid min-h-11 place-items-center px-5 no-underline"
-              to={makeReviewUrl(demo.studentKey, demo.assignmentId)}
+              to={makeReviewUrl(demo.studentKey, demo.assignmentId, "student", demo.classId)}
             >
               Open Student Experience
             </Link>
@@ -341,7 +406,7 @@ function StudentCorrectionReview({ assignments, canViewTeacher, demo, initialRec
     return (
       <main className="min-h-screen bg-slate-50 text-slate-950">
         <ReviewHeader canViewTeacher={canViewTeacher} demo={demo} masteredCount={0} mode="student" />
-        <AssignmentSwitcher assignments={assignments} currentId={demo.assignmentId} mode="student" studentKey={demo.studentKey} />
+        <AssignmentSwitcher assignments={assignments} classId={demo.classId} currentId={demo.assignmentId} mode="student" studentKey={demo.studentKey} />
         <section className="mx-auto w-full max-w-3xl px-4 py-12 text-center sm:px-6">
           <h2 className="m-0 text-2xl font-black">No corrections needed</h2>
           <p className="m-0 mt-2 text-slate-600">Every problem on this submitted assignment was correct.</p>
@@ -402,7 +467,7 @@ function StudentCorrectionReview({ assignments, canViewTeacher, demo, initialRec
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <ReviewHeader canViewTeacher={canViewTeacher} demo={demo} masteredCount={masteredCount} mode="student" />
-      <AssignmentSwitcher assignments={assignments} currentId={demo.assignmentId} mode="student" studentKey={demo.studentKey} />
+      <AssignmentSwitcher assignments={assignments} classId={demo.classId} currentId={demo.assignmentId} mode="student" studentKey={demo.studentKey} />
 
       <div className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[220px_minmax(0,1fr)_260px]">
         <nav aria-label="Correction problems" className="border-r border-slate-200 pr-4">
@@ -568,6 +633,7 @@ function CorrectionReviewRouter() {
   const assignedStudentKey =
     account?.studentKey ||
     account?.rosterKey ||
+    (account?.role === "student" ? account?.uid : "") ||
     sessionStorage.getItem(CORRECTION_STUDENT_SESSION_KEY);
   const unauthorizedStudent =
     !canViewTeacher &&
@@ -576,15 +642,25 @@ function CorrectionReviewRouter() {
   const studentKey = canViewTeacher
     ? requestedStudentKey || demoStudent.key
     : assignedStudentKey || demoStudent.key;
+  const classId = searchParams.get("classId") || "";
   const mode = canViewTeacher && searchParams.get("mode") === "teacher" ? "teacher" : "student";
-  const assignments = useMemo(() => getUnitOneCorrectionOptions(studentKey), [studentKey]);
+  const shared = useSharedCorrectionSubmissions(account, studentKey, classId);
+  const assignments = useMemo(
+    () => getUnitOneCorrectionOptions(studentKey, shared.submissions),
+    [shared.submissions, studentKey],
+  );
   const requestedAssignmentId = searchParams.get("assignmentId");
   const assignmentId = assignments.some((assignment) => assignment.id === requestedAssignmentId)
     ? requestedAssignmentId
     : assignments[0]?.id;
   const demo = useMemo(
-    () => getCorrectionReviewData({ studentKey, assignmentId }),
-    [assignmentId, studentKey],
+    () => getCorrectionReviewData({
+      studentKey,
+      assignmentId,
+      classId,
+      submission: shared.submissions[assignmentId],
+    }),
+    [assignmentId, classId, shared.submissions, studentKey],
   );
   const initialRecords = useMemo(() => {
     if (!demo) return [];
@@ -596,6 +672,31 @@ function CorrectionReviewRouter() {
 
   if (unauthorizedStudent) {
     return <Navigate replace to="/student" />;
+  }
+
+  if (shared.loading) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-slate-50 px-4 text-center text-slate-950">
+        <section className="max-w-xl border-y border-slate-200 py-8">
+          <p className="eyebrow">Correction Review</p>
+          <h1 className="m-0 mt-2 text-2xl font-black">Loading submitted corrections</h1>
+          <p className="m-0 mt-3 text-slate-600">Checking the shared class submission now.</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (shared.error && !demo) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-slate-50 px-4 text-center text-slate-950">
+        <section className="max-w-xl border-y border-slate-200 py-8">
+          <p className="eyebrow">Correction Review</p>
+          <h1 className="m-0 mt-2 text-2xl font-black">Unable to load submitted corrections</h1>
+          <p className="m-0 mt-3 text-slate-600">{shared.error}</p>
+          <Link className="secondary-button mt-5 inline-grid min-h-11 place-items-center px-5 no-underline" to={canViewTeacher ? "/teacher" : "/student"}>Go Back</Link>
+        </section>
+      </main>
+    );
   }
 
   if (!demo) {

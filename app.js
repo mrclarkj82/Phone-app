@@ -5638,13 +5638,24 @@ export function isCorrectionFollowUpCorrect(problem, value) {
   return getProblemResult(problem, answers) === "correct";
 }
 
-export function getUnitOneCorrectionOptions(studentKey = demoStudent.key) {
-  const submissions = loadSubmissions();
+function getCorrectionStudent(studentKey, submission = null) {
+  return roster.find((item) => item.key === studentKey) || (submission
+    ? {
+        key: studentKey,
+        name: submission.name || submission.studentName || submission.studentEmail || "Student",
+      }
+    : null);
+}
+
+export function getUnitOneCorrectionOptions(studentKey = demoStudent.key, sharedSubmissions = {}) {
+  const localSubmissions = loadSubmissions();
   return BUILT_IN_ASSIGNMENTS.filter((assignment) =>
     UNIT_ONE_CORRECTION_ASSIGNMENT_IDS.has(assignment.id),
   ).map((assignment) => {
-    const submission = submissions[assignment.id]?.[studentKey] || null;
-    const student = roster.find((item) => item.key === studentKey);
+    const submission = sharedSubmissions[assignment.id]
+      || localSubmissions[assignment.id]?.[studentKey]
+      || null;
+    const student = getCorrectionStudent(studentKey, submission);
     const wrongCount = submission && student && submission.submitted !== false
       ? generateAssignment(student, assignment).filter(
           (problem) => getProblemResult(problem, answersToMap(submission.answers)) === "wrong",
@@ -5666,8 +5677,10 @@ export function getCorrectionReviewData(options = {}) {
   const assignment = BUILT_IN_ASSIGNMENTS.find(
     (item) => item.id === assignmentId && UNIT_ONE_CORRECTION_ASSIGNMENT_IDS.has(item.id),
   );
-  const student = roster.find((item) => item.key === studentKey);
-  const submission = assignment ? loadSubmissions()[assignment.id]?.[studentKey] : null;
+  const submission = assignment
+    ? options.submission || loadSubmissions()[assignment.id]?.[studentKey]
+    : null;
+  const student = getCorrectionStudent(studentKey, submission);
 
   if (!assignment || !student || !submission || submission.submitted === false) return null;
 
@@ -5690,6 +5703,7 @@ export function getCorrectionReviewData(options = {}) {
   return {
     studentKey: student.key,
     studentName: student.name,
+    classId: submission.classId || options.classId || "",
     assignmentId: assignment.id,
     assignmentType: assignment.assignmentType,
     unitLabel: assignment.assignmentUnitLabel,
@@ -5933,6 +5947,7 @@ function updateCorrectionReviewLink() {
     assignmentId: assignment.id,
     studentKey: state.selectedStudent.key,
   });
+  if (state.activeClassId) query.set("classId", state.activeClassId);
   sessionStorage.setItem(CORRECTION_STUDENT_SESSION_KEY, state.selectedStudent.key);
   elements.correctionReviewLink.href = `/corrections?${query.toString()}`;
   elements.correctionReviewLink.textContent = `Review ${correctionCount} corrections`;
@@ -7803,6 +7818,7 @@ function renderDashboard() {
       studentKey: student.key,
       mode: "teacher",
     });
+    if (state.activeClassId) correctionQuery.set("classId", state.activeClassId);
     return `
       <tr class="${state.selectedWorkStudentKey === student.key ? "is-selected-work" : ""}">
         <td>${escapeHtml(student.name)}</td>
