@@ -49,7 +49,7 @@ export default function LoginPage() {
             >
               G
             </span>
-            {signInLoading ? "Signing in..." : "Sign in with Google"}
+            {signInLoading ? "Opening Google sign-in..." : "Sign in with Google"}
           </button>
 
           <div

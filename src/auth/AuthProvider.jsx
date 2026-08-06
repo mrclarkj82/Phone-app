@@ -1,9 +1,10 @@
 import {
   browserLocalPersistence,
+  getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
   setPersistence,
-  signInWithPopup,
+  signInWithRedirect,
   signOut,
 } from "firebase/auth";
 import {
@@ -239,6 +240,14 @@ export function AuthProvider({ children }) {
       }
     });
 
+    getRedirectResult(auth).catch((error) => {
+      if (!mounted) return;
+      console.error("Dragon Math Google redirect failed", error);
+      setMessage(error?.message || "Google sign-in could not be completed. Please try again.");
+      setSignInLoading(false);
+      setStatus("signedOut");
+    });
+
     return () => {
       mounted = false;
       unsubscribe();
@@ -259,11 +268,9 @@ export function AuthProvider({ children }) {
       await ensureAuthPersistence();
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: "select_account" });
-      await signInWithPopup(auth, provider);
+      await signInWithRedirect(auth, provider);
     } catch (error) {
-      if (error?.code !== "auth/popup-closed-by-user") {
-        setMessage(error?.message || "Google sign-in could not be completed.");
-      }
+      setMessage(error?.message || "Google sign-in could not be completed.");
     } finally {
       setSignInLoading(false);
     }

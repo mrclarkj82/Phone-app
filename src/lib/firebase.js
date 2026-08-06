@@ -4,7 +4,7 @@ import { initializeFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBQeaSzDm4UOm1XzW3uBWzG36C1v3XABhs",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "dragonmath-f6f56.firebaseapp.com",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "drrs-math.web.app",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "dragonmath-f6f56",
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "dragonmath-f6f56.firebasestorage.app",
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "1011267897815",
