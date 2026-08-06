@@ -42,6 +42,27 @@ export function normalizeClassCode(value) {
     .slice(0, CLASS_CODE_LENGTH);
 }
 
+function formatNamePart(value) {
+  return String(value || "")
+    .split("-")
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1).toLowerCase()}`)
+    .join("-");
+}
+
+export function teacherLastNameForClass(classRecord = {}) {
+  const record = classRecord || {};
+  const classOwner = String(record.name || "")
+    .match(/^(.+?)(?:['’]s)\s+Algebra\b/i)?.[1]
+    ?.trim();
+  const nameLastName = classOwner?.split(/\s+/).filter(Boolean).at(-1);
+  if (nameLastName) return formatNamePart(nameLastName);
+
+  const emailName = normalizeSchoolEmail(record.teacherEmail).split("@")[0];
+  const emailLastName = emailName.split(/[._]+/).filter(Boolean).at(-1);
+  return formatNamePart(emailLastName) || "Teacher";
+}
+
 function makeClassCode() {
   const randomValues = new Uint32Array(CLASS_CODE_LENGTH);
   crypto.getRandomValues(randomValues);

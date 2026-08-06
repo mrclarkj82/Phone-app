@@ -4,7 +4,11 @@ import AnnouncementDisplay from "../components/AnnouncementDisplay";
 import PrivateHeader from "../components/PrivateHeader";
 import useAssignmentDashboard from "../hooks/useAssignmentDashboard";
 import useStudentClass from "../hooks/useStudentClass";
-import { joinStudentClass, normalizeClassCode } from "../lib/classAccess";
+import {
+  joinStudentClass,
+  normalizeClassCode,
+  teacherLastNameForClass,
+} from "../lib/classAccess";
 import LoadingScreen from "./LoadingScreen";
 
 export default function StudentDashboard() {
@@ -21,6 +25,7 @@ export default function StudentDashboard() {
         name: account.displayName || account.email || "Student",
       }
     : null;
+  const teacherLastName = teacherLastNameForClass(studentClass);
 
   useAssignmentDashboard({
     account,
@@ -107,7 +112,7 @@ export default function StudentDashboard() {
       <PrivateHeader eyebrow="Algebra I" title="Student Assignment">
         <div className="header-stats" aria-label="Class summary">
           <span>
-            <strong>{studentClass.classCode}</strong> class
+            <strong>{teacherLastName}&rsquo;s</strong> class
           </span>
           <span>
             <strong id="header-problem-count">30</strong> problems
