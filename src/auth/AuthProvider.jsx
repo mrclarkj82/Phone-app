@@ -21,6 +21,7 @@ import { appCollection, appDoc } from "../lib/appFirestore";
 import { schoolRoleForEmail } from "../lib/classAccess";
 import {
   auth,
+  db,
   firebaseConfigured,
   missingFirebaseConfig,
 } from "../lib/firebase";
