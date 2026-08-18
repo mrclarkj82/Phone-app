@@ -15,12 +15,14 @@ export default function useAssignmentDashboard(options = {}) {
     ? `${options.student.key || ""}:${options.student.name || ""}`
     : "";
   const activeClassId = options.activeClassId || "";
+  const initialAssignmentId = options.initialAssignmentId || "";
 
   useEffect(() => {
     if (options.enabled === false) return undefined;
     return mountAssignmentDashboard({
       account: options.account || null,
       activeClassId,
+      initialAssignmentId,
       student: options.student || null,
       visibleStudentKeys,
       visibleStudents,
@@ -31,6 +33,7 @@ export default function useAssignmentDashboard(options = {}) {
     visibleStudentSignature,
     accountSignature,
     activeClassId,
+    initialAssignmentId,
     studentSignature,
   ]);
 }

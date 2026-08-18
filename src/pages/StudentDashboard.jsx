@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import AnnouncementDisplay from "../components/AnnouncementDisplay";
 import PrivateHeader from "../components/PrivateHeader";
@@ -13,6 +14,8 @@ import LoadingScreen from "./LoadingScreen";
 
 export default function StudentDashboard() {
   const { account } = useAuth();
+  const [searchParams] = useSearchParams();
+  const requestedAssignmentId = searchParams.get("assignmentId") || "";
   const [classRefreshKey, setClassRefreshKey] = useState(0);
   const { studentClass, classLoaded, classError } = useStudentClass(account, classRefreshKey);
   const [classCode, setClassCode] = useState("");
@@ -31,6 +34,7 @@ export default function StudentDashboard() {
     account,
     activeClassId: studentClass?.id || "",
     enabled: Boolean(studentClass),
+    initialAssignmentId: requestedAssignmentId,
     student,
   });
 

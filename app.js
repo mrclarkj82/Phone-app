@@ -8117,8 +8117,11 @@ export function mountAssignmentDashboard(options = {}) {
   }
 
   collectElements();
-  state.selectedUnitId = "intro-expressions";
-  state.selectedAssignment = null;
+  const initialAssignment = getAllAssignments().find(
+    (assignment) => assignment.id === options.initialAssignmentId,
+  );
+  state.selectedUnitId = initialAssignment?.assignmentUnit || "intro-expressions";
+  state.selectedAssignment = initialAssignment || null;
   state.selectedStudent = null;
   state.lockedSubmission = null;
   state.problems = [];
