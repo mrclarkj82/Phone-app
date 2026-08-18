@@ -50,6 +50,26 @@ function makeReviewUrl(studentKey, assignmentId, mode = "student", classId = "")
   return `/corrections?${query.toString()}`;
 }
 
+function makeStudentAssignmentUrl(assignmentId) {
+  const query = new URLSearchParams({ assignmentId });
+  return `/student?${query.toString()}`;
+}
+
+function getAssignmentDestination(assignment, mode, studentKey, classId) {
+  if (mode === "teacher") {
+    return makeReviewUrl(studentKey, assignment.id, mode, classId);
+  }
+
+  const hasUnfinishedCorrections =
+    assignment.submitted
+    && assignment.wrongCount > 0
+    && assignment.status.state !== "complete";
+
+  return hasUnfinishedCorrections
+    ? makeReviewUrl(studentKey, assignment.id, mode, classId)
+    : makeStudentAssignmentUrl(assignment.id);
+}
+
 function useSharedCorrectionSubmissions(account, studentKey, classId) {
   const requestKey = `${account?.role || ""}:${account?.uid || ""}:${classId}:${studentKey}`;
   const [result, setResult] = useState({
@@ -155,7 +175,7 @@ function AssignmentSwitcher({ assignments, classId, currentId, mode, studentKey 
                   : "border-slate-200 bg-white text-slate-800 hover:border-teal-400"
               }`}
               key={assignment.id}
-              to={makeReviewUrl(studentKey, assignment.id, mode, classId)}
+              to={getAssignmentDestination(assignment, mode, studentKey, classId)}
             >
               <strong className="block text-sm">{assignment.title}</strong>
               <span className="mt-1 block text-xs font-bold text-slate-500">
@@ -706,7 +726,12 @@ function CorrectionReviewRouter() {
           <p className="eyebrow">Correction Review</p>
           <h1 className="m-0 mt-2 text-2xl font-black">No submitted correction set found</h1>
           <p className="m-0 mt-3 text-slate-600">This student must submit the selected Unit 1 assignment before corrections can begin.</p>
-          <Link className="secondary-button mt-5 inline-grid min-h-11 place-items-center px-5 no-underline" to="/teacher">Back to Teacher</Link>
+          <Link
+            className="secondary-button mt-5 inline-grid min-h-11 place-items-center px-5 no-underline"
+            to={canViewTeacher ? "/teacher" : "/student"}
+          >
+            {canViewTeacher ? "Back to Teacher" : "Back to Assignments"}
+          </Link>
         </section>
       </main>
     );
